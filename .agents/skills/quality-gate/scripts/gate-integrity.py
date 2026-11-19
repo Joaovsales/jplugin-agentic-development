@@ -4,13 +4,18 @@
 A slice can pass by weakening its own gate: one line in the expected-failures
 list makes a failing suite pass. This script compares every protected file —
 test runners, the expected-failures list, CI workflows, lint and test configs —
-against its blob at a base commit by content hash (`git hash-object` of the
-working-tree bytes against the blob id `git ls-tree` records). No diff output
-is read, so an `assume-unchanged` bit, an edit committed after the base and a
-`diff.mnemonicPrefix` setting all leave the answer unchanged
-(specs/gate-integrity.md).
+against its blob at a base commit or tree by content hash: the git blob id of
+the raw working-tree bytes, computed here, against the blob id `git ls-tree`
+records. No diff output is read and no git filter runs, so an
+`assume-unchanged` bit, an edit committed after the base, a
+`diff.mnemonicPrefix` setting and a clean filter all leave the answer
+unchanged (specs/gate-integrity.md).
 
-    gate-integrity.py --base <rev> [--spec <spec> [--slice <n>]] [--repo <dir>]
+    gate-integrity.py --base <rev> [--spec <spec> [--slice <n>]...] [--repo <dir>]
+    gate-integrity.py --snapshot [--repo <dir>]
+
+`--snapshot` prints the tree id of the working tree as it stands, so a caller
+can judge one slice against the state it started from.
 
 Exit 1 when a protected file changed outside the Surface (GATE_TAMPERED);
 otherwise 3 when the check could not run in full (not checked); otherwise 0,
@@ -21,13 +26,17 @@ from __future__ import annotations
 
 import argparse
 import difflib
+import hashlib
 import os
 import re
+import stat
 import subprocess
 import sys
+import tempfile
 from collections import Counter
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Sequence, Tuple
+from pathlib import PurePosixPath
+from typing import Dict, FrozenSet, List, Optional, Sequence, Tuple, Union
 
 _SCRIPTS = os.path.dirname(os.path.abspath(__file__))
 for _relative in (("..", "..", "task-registry", "scripts"), ("..", "..", "slice", "scripts")):
@@ -39,6 +48,9 @@ import slice as slice_py  # noqa: E402  (path must be set up first)
 from registry.globs import SpecPathError, match_path, pattern_covered_by, validate_pattern  # noqa: E402
 
 END_MARKER = "<!-- jplugin-agentic-development:end -->"
+AGENTS = "AGENTS.md"
+LINK_MODE = "120000"
+MAX_LINK_HOPS = 40
 PROTECTED_KEY = "Protected paths:"
 EXPECTED_FAILURES_KEY = "Expected failures:"
 
@@ -68,37 +80,47 @@ class NotChecked(Exception):
 
 
 @dataclass(frozen=True)
+class Policy:
+    """What one AGENTS.md declares below its end marker."""
+
+    protected: Tuple[str, ...] = ()
+    expected_failures: Optional[str] = None
+
+
+@dataclass(frozen=True)
 class Gates:
-    """The protected patterns and the expected-failures file, if one is declared."""
+    """The protected patterns and expected-failures files: the defaults plus the base's and the current declarations."""
 
     patterns: Tuple[str, ...]
-    expected_failures: Optional[str]
+    expected_failures: FrozenSet[str]
 
 
 # ------------------------------------------------------------------- git
 
 
-def _git(repo: str, *args: str, stdin: Optional[str] = None) -> str:
+def _git(repo: str, *args: str, stdin: Optional[Union[str, bytes]] = None,
+         env: Optional[Dict[str, str]] = None) -> str:
+    data = stdin.encode("utf-8", errors="surrogateescape") if isinstance(stdin, str) else stdin
     result = subprocess.run(
-        ("git", "-C", repo, *args), input=stdin, capture_output=True,
-        text=True, encoding="utf-8", errors="replace",
+        ("git", "-C", repo, *args), input=data, capture_output=True, env=env,
     )
     if result.returncode != 0:
-        raise NotChecked(f"git {' '.join(args[:2])} failed: {result.stderr.strip() or result.returncode}")
-    return result.stdout
+        error = result.stderr.decode("utf-8", errors="replace").strip()
+        raise NotChecked(f"git {' '.join(args[:2])} failed: {error or result.returncode}")
+    return result.stdout.decode("utf-8", errors="replace")
 
 
-def _base_blobs(repo: str, base: str) -> Dict[str, str]:
-    """Path → blob id for every file in the base tree."""
-    blobs = {}
+def _base_entries(repo: str, base: str) -> Dict[str, Tuple[str, str]]:
+    """Path → (mode, blob id) for every file in the base tree."""
+    entries = {}
     for line in _git(repo, "ls-tree", "-r", "-z", base).split("\0"):
         if not line:
             continue
         meta, path = line.split("\t", 1)
         mode, kind, blob = meta.split()
         if kind == "blob":
-            blobs[path] = blob
-    return blobs
+            entries[path] = (mode, blob)
+    return entries
 
 
 def _working_paths(repo: str) -> List[str]:
@@ -107,41 +129,36 @@ def _working_paths(repo: str) -> List[str]:
     return sorted({path for path in out.split("\0") if path})
 
 
-def _working_blobs(repo: str, paths: Sequence[str]) -> Dict[str, object]:
-    """Path → the blob id its working-tree bytes hash to, None when absent, or the NotChecked that stopped it.
+def _blob_ids(algorithm: str, data: bytes) -> FrozenSet[str]:
+    """The git blob ids `data` may stand for: its raw bytes, and the same bytes with CRLF read as LF.
 
-    One `hash-object --stdin-paths` for every present path; when that batch
-    fails, each path is hashed alone so only the unreadable one is lost. Git
-    stores a symlink as a blob of its target path, so a link hashes that string,
-    never the file it points to.
+    Hashed here rather than by `git hash-object`, which runs the clean filter
+    the current `.gitattributes` names — a filter can launder any change. The
+    one normalization accepted is a CRLF checkout of an LF blob.
     """
-    blobs: Dict[str, object] = {path: None for path in paths}
-    present = []
-    for path in paths:
-        full = os.path.join(repo, path)
-        if os.path.islink(full):
-            blobs[path] = _git(repo, "hash-object", "--stdin", stdin=os.readlink(full)).strip()
-        elif os.path.lexists(full):
-            present.append(path)
-    try:
-        hashed = _git(repo, "hash-object", "--stdin-paths", stdin="".join(f"{path}\n" for path in present)).split()
-        blobs.update(zip(present, hashed))
-    except NotChecked:
-        for path in present:
-            try:
-                blobs[path] = _git(repo, "hash-object", "--", path).strip()
-            except NotChecked as exc:
-                blobs[path] = exc
-    return blobs
+    variants = {data, data.replace(b"\r\n", b"\n")}
+    return frozenset(hashlib.new(algorithm, b"blob %d\0" % len(item) + item).hexdigest() for item in variants)
+
+
+def _blob_text(repo: str, blob: Optional[str]) -> str:
+    return _git(repo, "cat-file", "blob", blob) if blob else ""
 
 
 def _base_lines(repo: str, blob: Optional[str]) -> List[str]:
-    return _git(repo, "cat-file", "blob", blob).splitlines() if blob else []
+    return _blob_text(repo, blob).splitlines()
 
 
-def _working_lines(repo: str, path: str) -> List[str]:
-    full = os.path.join(repo, path)
-    if not os.path.lexists(full):
+def _link_step(path: str, target: str) -> str:
+    """The repository path a link at `path` pointing at `target` names; NotChecked when it leaves the repository."""
+    resolved = os.path.normpath(os.path.join(os.path.dirname(path), target)).replace(os.sep, "/")
+    if os.path.isabs(target) or resolved == ".." or resolved.startswith("../"):
+        raise NotChecked(f"symlink to {target} points outside the repository")
+    return resolved
+
+
+def _working_lines(repo: str, path: Optional[str]) -> List[str]:
+    full = os.path.join(repo, path) if path else ""
+    if not path or not os.path.exists(full):
         return []
     with open(full, encoding="utf-8", errors="replace") as handle:
         return handle.read().splitlines()
@@ -150,25 +167,45 @@ def _working_lines(repo: str, path: str) -> List[str]:
 # --------------------------------------------------------------- the gates
 
 
-def read_gates(repo: str) -> Gates:
-    """Defaults plus the `Protected paths:` and `Expected failures:` lines below the AGENTS.md end marker."""
-    patterns = list(DEFAULT_PROTECTED)
+def read_policy(text: str) -> Policy:
+    """The `Protected paths:` and `Expected failures:` lines below the AGENTS.md end marker."""
+    protected: List[str] = []
     expected = None
-    agents = os.path.join(repo, "AGENTS.md")
-    if os.path.exists(agents):
+    below = text.split(END_MARKER, 1)[1] if END_MARKER in text else ""
+    for line in below.splitlines():
+        stripped = line.strip()
+        if stripped.startswith(PROTECTED_KEY):
+            protected.extend(_declared_globs(stripped[len(PROTECTED_KEY):]))
+        elif stripped.startswith(EXPECTED_FAILURES_KEY):
+            values = _declared_globs(stripped[len(EXPECTED_FAILURES_KEY):])
+            expected = values[0] if values else None
+    return Policy(tuple(dict.fromkeys(protected)), expected)
+
+
+def _current_policy(repo: str) -> Policy:
+    agents = os.path.join(repo, AGENTS)
+    if not os.path.exists(agents):
+        return Policy()
+    try:
         with open(agents, encoding="utf-8", errors="replace") as handle:
-            text = handle.read()
-        below = text.split(END_MARKER, 1)[1] if END_MARKER in text else ""
-        for line in below.splitlines():
-            stripped = line.strip()
-            if stripped.startswith(PROTECTED_KEY):
-                patterns.extend(_declared_globs(stripped[len(PROTECTED_KEY):]))
-            elif stripped.startswith(EXPECTED_FAILURES_KEY):
-                values = _declared_globs(stripped[len(EXPECTED_FAILURES_KEY):])
-                expected = values[0] if values else None
-    if expected:
-        patterns.append(expected)
+            return read_policy(handle.read())
+    except OSError as exc:
+        raise NotChecked(f"{AGENTS} unreadable: {exc.strerror or exc}")
+
+
+def merge_gates(base: Policy, current: Policy) -> Gates:
+    """The defaults plus both policies: a declaration removed since the base still protects."""
+    expected = frozenset(path for path in (base.expected_failures, current.expected_failures) if path)
+    patterns = (*DEFAULT_PROTECTED, *base.protected, *current.protected, *sorted(expected))
     return Gates(patterns=tuple(dict.fromkeys(patterns)), expected_failures=expected)
+
+
+def policy_removals(base: Policy, current: Policy) -> List[Tuple[str, str]]:
+    """(declaration, what became of it) per base declaration the current AGENTS.md dropped or retargeted."""
+    removals = [(f"{PROTECTED_KEY} {glob}", "removed") for glob in base.protected if glob not in current.protected]
+    if base.expected_failures and base.expected_failures != current.expected_failures:
+        removals.append((f"{EXPECTED_FAILURES_KEY} {base.expected_failures}", f"now {current.expected_failures or 'none'}"))
+    return removals
 
 
 def _declared_globs(value: str) -> List[str]:
@@ -182,17 +219,17 @@ def _declared_globs(value: str) -> List[str]:
     return globs
 
 
-def read_surface(spec: Optional[str], slice_number: Optional[int]) -> Tuple[str, ...]:
-    """The slice's Surface, the union of every slice's with no number, or nothing with no spec."""
+def read_surface(spec: Optional[str], slice_numbers: Sequence[int]) -> Tuple[str, ...]:
+    """The union of the named slices' Surfaces — every slice's with none named — or nothing with no spec."""
     if spec is None:
         return ()
     implicit = os.path.splitext(os.path.basename(spec))[0]
     slices = slice_py.resolve_slices(spec, implicit)
-    if slice_number is None:
-        return tuple(dict.fromkeys(entry for row in slices.values() for entry in row.surface))
-    if slice_number not in slices:
-        raise slice_py.SliceError(f"no slice {slice_number} in {spec}")
-    return slices[slice_number].surface
+    for number in slice_numbers:
+        if number not in slices:
+            raise slice_py.SliceError(f"no slice {number} in {spec}")
+    chosen = [slices[number] for number in slice_numbers] if slice_numbers else list(slices.values())
+    return tuple(dict.fromkeys(entry for row in chosen for entry in row.surface))
 
 
 def _declares(surface: Sequence[str], gates: Sequence[str], path: str) -> bool:
@@ -275,11 +312,24 @@ class Report:
 
 
 def _resolve_base(repo: str, base: str) -> str:
+    """The commit `base` names, or the tree when it names a tree (a `--snapshot`)."""
     _git(repo, "rev-parse", "--is-inside-work-tree")
-    try:
-        return _git(repo, "rev-parse", "--verify", "--quiet", f"{base}^{{commit}}").strip()
-    except NotChecked:
-        raise NotChecked(f"base {base} does not resolve to a commit")
+    for kind in ("commit", "tree"):
+        try:
+            if not base.startswith("-"):
+                return _git(repo, "rev-parse", "--verify", "--quiet", "--end-of-options", f"{base}^{{{kind}}}").strip()
+        except NotChecked:
+            continue
+    raise NotChecked(f"base {base} does not resolve to a commit or tree")
+
+
+@dataclass(frozen=True)
+class _State:
+    """One path as it stands: the ids its own entry may hash to, the ids its effective content may hash to, and where that content lives."""
+
+    identity: FrozenSet[str]
+    effective: FrozenSet[str]
+    effective_path: Optional[str]
 
 
 @dataclass
@@ -287,52 +337,139 @@ class _Run:
     """One check's fixed inputs: what the base held, what is protected, what the Surface declares."""
 
     repo: str
-    base_commit: str
-    base_blobs: Dict[str, str]
+    base_id: str
+    base_entries: Dict[str, Tuple[str, str]]
     gates: Gates
     surface: Sequence[str]
+    algorithm: str
 
     def protected(self, path: str) -> bool:
         return any(match_path(pattern, path) for pattern in self.gates.patterns)
 
     def existing_test(self, path: str) -> bool:
-        return path in self.base_blobs and path != self.gates.expected_failures and is_test_file(path)
+        return path in self.base_entries and path not in self.gates.expected_failures and is_test_file(path)
 
-    def report_change(self, report: Report, path: str) -> None:
+    def base_effective(self, path: str) -> Optional[str]:
+        """The blob id of what `path` holds at the base, a symlink followed through the base tree."""
+        for _ in range(MAX_LINK_HOPS):
+            for parent in PurePosixPath(path).parents:
+                if self.base_entries.get(str(parent), ("", ""))[0] == LINK_MODE:
+                    raise NotChecked(f"symlink directory {parent} is unsupported")
+            if path not in self.base_entries:
+                return None
+            mode, blob = self.base_entries[path]
+            if mode != LINK_MODE:
+                return blob
+            path = _link_step(path, _blob_text(self.repo, blob))
+        raise NotChecked(f"more than {MAX_LINK_HOPS} symlinks deep")
+
+    def current(self, path: str) -> _State:
+        """`path` in the working tree, a symlink followed through the working tree.
+
+        A link checked out as a plain file (`core.symlinks=false`) holds its
+        target as text; when that text is the base link's blob, it is followed
+        the same way.
+        """
+        identity: Optional[FrozenSet[str]] = None
+        for _ in range(MAX_LINK_HOPS):
+            for parent in PurePosixPath(path).parents:
+                if os.path.islink(os.path.join(self.repo, str(parent))):
+                    raise NotChecked(f"symlink directory {parent} is unsupported")
+            full = os.path.join(self.repo, path)
+            if not os.path.lexists(full):
+                return _State(identity or frozenset(), frozenset(), None)
+            if os.path.islink(full):
+                target = os.readlink(full)
+                ids = _blob_ids(self.algorithm, os.fsencode(target))
+            else:
+                with open(full, "rb") as handle:
+                    data = handle.read()
+                ids = _blob_ids(self.algorithm, data)
+                entry = self.base_entries.get(path)
+                if not (entry and entry[0] == LINK_MODE and entry[1] in ids):
+                    return _State(identity or ids, ids, path)
+                target = data.decode("utf-8", errors="replace")
+            identity = identity or ids
+            path = _link_step(path, target)
+        raise NotChecked(f"more than {MAX_LINK_HOPS} symlinks deep")
+
+    def changed(self, path: str, state: _State) -> bool:
+        identity = self.base_entries.get(path, ("", None))[1]
+        effective = self.base_effective(path)
+        same_identity = identity in state.identity if identity else not state.identity
+        same_effective = effective in state.effective if effective else not state.effective
+        return not (same_identity and same_effective)
+
+    def report_change(self, report: Report, path: str, state: _State) -> None:
         if self.protected(path):
             declared = _declares(self.surface, self.gates.patterns, path)
             kind, how = ("GATE_CHANGED", "declared in") if declared else ("GATE_TAMPERED", "not declared in")
-            report.add(kind, f"{path} — changed since {self.base_commit[:8]}, {how} the surface")
-        if path == self.gates.expected_failures:
-            for row in added_expected_failures(self._base(path), _working_lines(self.repo, path)):
+            report.add(kind, f"{path} — changed since {self.base_id[:8]}, {how} the surface")
+        current_lines = _working_lines(self.repo, state.effective_path)
+        if path in self.gates.expected_failures:
+            for row in added_expected_failures(self._base(path), current_lines):
                 report.add("EXPECTED_FAILURE_ADDED", f"{path} — {row}")
         if self.existing_test(path):
-            for kind, line, text in weakened_test(self._base(path), _working_lines(self.repo, path)):
+            for kind, line, text in weakened_test(self._base(path), current_lines):
                 report.add(kind, f"{path}:{line} — {text}")
 
     def _base(self, path: str) -> List[str]:
-        return _base_lines(self.repo, self.base_blobs.get(path))
+        return _base_lines(self.repo, self.base_effective(path))
+
+
+def _base_policy(repo: str, entries: Dict[str, Tuple[str, str]]) -> Policy:
+    entry = entries.get(AGENTS)
+    return read_policy(_blob_text(repo, entry[1])) if entry else Policy()
 
 
 def check(repo: str, base: str, surface: Sequence[str]) -> Report:
-    """Every changed protected file, added expected-failure row and weakened existing test, against `base`."""
-    base_commit = _resolve_base(repo, base)
-    run = _Run(repo, base_commit, _base_blobs(repo, base_commit), read_gates(repo), surface)
+    """Every changed protected file, added expected-failure row, weakened existing test and dropped declaration, against `base`."""
+    base_id = _resolve_base(repo, base)
+    entries = _base_entries(repo, base_id)
+    base_policy, current_policy = _base_policy(repo, entries), _current_policy(repo)
+    algorithm = _git(repo, "rev-parse", "--show-object-format").strip()
+    run = _Run(repo, base_id, entries, merge_gates(base_policy, current_policy), surface, algorithm)
+    report = Report(lines=[])
+    for declaration, outcome in policy_removals(base_policy, current_policy):
+        report.add("GATE_TAMPERED", f"{AGENTS} — {declaration} declared at {base_id[:8]}, {outcome}")
     candidates = [
-        path for path in sorted(set(run.base_blobs) | set(_working_paths(repo)))
+        path for path in sorted(set(entries) | set(_working_paths(repo)))
         if run.protected(path) or run.existing_test(path)
     ]
-    report = Report(lines=[])
-    for path, current in _working_blobs(repo, candidates).items():
-        if current == run.base_blobs.get(path):
-            continue
+    for path in candidates:
         try:
-            if isinstance(current, NotChecked):
-                raise current
-            run.report_change(report, path)
+            state = run.current(path)
+            if run.changed(path, state):
+                run.report_change(report, path, state)
         except (NotChecked, OSError) as exc:
             report.add("NOT_CHECKED", f"{path} — {exc}")
     return report
+
+
+def snapshot(repo: str) -> str:
+    """A raw-byte working-tree snapshot, using an empty scratch index and never running clean filters."""
+    regular = []
+    entries = []
+    for path in _working_paths(repo):
+        full = os.path.join(repo, path)
+        if not os.path.lexists(full):
+            continue
+        mode = os.lstat(full).st_mode
+        if stat.S_ISLNK(mode):
+            blob = _git(repo, "hash-object", "-w", "--stdin", stdin=os.fsencode(os.readlink(full))).strip()
+            entries.append(f"{LINK_MODE} {blob}\t{path}\0")
+        elif stat.S_ISREG(mode):
+            regular.append((path, "100755" if mode & stat.S_IXUSR else "100644"))
+        else:
+            raise NotChecked(f"cannot snapshot non-file {path}")
+    for offset in range(0, len(regular), 256):
+        batch = regular[offset:offset + 256]
+        blobs = _git(repo, "hash-object", "--no-filters", "-w", "--", *(path for path, _ in batch)).splitlines()
+        entries.extend(f"{mode} {blob}\t{path}\0" for (path, mode), blob in zip(batch, blobs))
+    with tempfile.TemporaryDirectory(prefix="gate-snapshot-") as scratch:
+        env = dict(os.environ, GIT_INDEX_FILE=os.path.join(scratch, "index"))
+        _git(repo, "update-index", "-z", "--index-info", stdin="".join(entries), env=env)
+        return _git(repo, "write-tree", env=env).strip()
 
 
 # --------------------------------------------------------------------- CLI
@@ -341,9 +478,11 @@ def check(repo: str, base: str, surface: Sequence[str]) -> Report:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="gate-integrity", description="Compare protected gate files against their blobs at a base commit.")
-    parser.add_argument("--base", required=True, help="base revision the gates are compared against")
+    parser.add_argument("--base", help="base commit or tree the gates are compared against")
+    parser.add_argument("--snapshot", action="store_true", help="print the working tree's tree id and exit")
     parser.add_argument("--spec", help="spec whose § Build Order Surface may declare protected paths")
-    parser.add_argument("--slice", type=int, help="slice number; omitted, every slice's Surface counts")
+    parser.add_argument("--slice", type=int, action="append", default=[],
+                        help="slice number, repeatable for a parallel batch; omitted, every slice's Surface counts")
     parser.add_argument("--repo", default=".", help="repository to check (default: cwd)")
     return parser
 
@@ -351,7 +490,16 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: Optional[Sequence[str]] = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
-    if args.slice is not None and args.spec is None:
+    if args.snapshot:
+        try:
+            print(snapshot(args.repo))
+        except (NotChecked, OSError) as exc:
+            print(f"gate-integrity: not checked — {exc}")
+            return 3
+        return 0
+    if args.base is None:
+        parser.error("--base is required")
+    if args.slice and args.spec is None:
         parser.error("--slice needs --spec")
     try:
         surface = read_surface(args.spec, args.slice)
@@ -360,7 +508,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         return 2
     try:
         report = check(args.repo, args.base, surface)
-    except NotChecked as exc:
+    except (NotChecked, OSError) as exc:
         print(f"gate-integrity: not checked — {exc}")
         return 3
     for line in report.lines:

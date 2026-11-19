@@ -17,7 +17,7 @@ implementation_paths:
 
 `gate-integrity.py` compares every protected file — test runners, the
 expected-failures list, CI workflows, lint and test configs — against its blob
-at a base commit by content hash, never by reading a diff. `/build` runs it at
+at a base commit or tree by content hash, never by reading a diff. `/build` runs it at
 Slice Close, where a protected change outside the slice's Surface stops the
 slice as `GATE_TAMPERED`, and `/quality-gate` runs it as Phase 0, where it
 becomes a MUST-FIX. Added expected-failure rows, new skip markers and deleted
@@ -26,13 +26,22 @@ assertions are always reported, and a check that cannot run says `not checked`.
 ## Behavior
 
 `python3 .agents/skills/quality-gate/scripts/gate-integrity.py --base <rev>
-[--spec <spec> [--slice <n>]] [--repo <dir>]` checks the working tree of
-`<repo>` (default: the current directory) against `<rev>`:
+[--spec <spec> [--slice <n>]...] [--repo <dir>]` checks the working tree of
+`<repo>` (default: the current directory) against `<rev>`, a commit or a tree.
+`gate-integrity.py --snapshot [--repo <dir>]` prints the tree id of the working
+tree (tracked, untracked, not ignored) through a scratch index, touching
+neither the real index nor working files; `/build` passes it back as `--base`.
+The snapshot writes raw blobs and a tree into Git's object store, bypassing
+clean filters even when a file is already modified at dispatch.
 
 1. **Protected set.** The protected patterns are the default list below, every
    glob on a `Protected paths:` line below the `AGENTS.md` end marker
    (whitespace-separated, backticks stripped, several lines allowed), and the
-   file named on the `Expected failures:` line. Defaults:
+   file named on the `Expected failures:` line — read from **both** the base's
+   `AGENTS.md` and the current one, so deleting a declaration never unprotects
+   what it named. Each base declaration the current `AGENTS.md` drops or
+   retargets prints `GATE_TAMPERED AGENTS.md — <declaration> declared at
+   <base8>, removed` (or `, now <target>`). Defaults:
    `.github/workflows/**`, `.gitlab-ci.yml`, `.circleci/**`, `.pre-commit-config.yaml`,
    `.eslintrc*`, `eslint.config.*`, `.prettierrc*`, `pyproject.toml`, `setup.cfg`,
    `tox.ini`, `pytest.ini`, `.flake8`, `ruff.toml`, `.ruff.toml`, `mypy.ini`,
@@ -42,15 +51,25 @@ assertions are always reported, and a check that cannot run says `not checked`.
    -c -o --exclude-standard`); a candidate is protected when a protected
    pattern matches it.
 2. **Content comparison.** Each protected path's base blob id (from
-   `ls-tree`) is compared with `git hash-object` of the working-tree file. An
-   added, deleted or edited file differs. Because the working-tree bytes are
-   hashed and the base blob is read from the object store, an
-   `assume-unchanged` or `skip-worktree` bit, a change already committed after
-   the base, and a `diff.mnemonicPrefix` or `diff.noprefix` setting all leave the
-   result unchanged.
+   `ls-tree`) is compared with the git blob id of the raw working-tree bytes,
+   computed in-process in the repository's object format. Hashing for the
+   check never runs the clean filters the current `.gitattributes` names;
+   snapshot creation uses `hash-object --no-filters` for regular files and
+   `--stdin` for link text. The one normalization accepted is CRLF read as LF (a
+   Windows checkout of an LF blob). An added, deleted or edited file differs.
+   Because the working-tree bytes are hashed and the base blob is read from the
+   object store, an `assume-unchanged` or `skip-worktree` bit, a change already
+   committed after the base, a `diff.mnemonicPrefix` or `diff.noprefix` setting
+   and a clean filter all leave the result unchanged. A symlink is compared
+   twice: its own link text, and the content it resolves to — followed through
+   the base tree on the base side and through the working tree on the current
+   side — so an unchanged link never hides a changed referent. A link that
+   leaves the repository, or resolves through an unsupported directory
+   symlink, is `NOT_CHECKED`.
 3. **Surface.** With `--spec` and `--slice`, the Surface is that slice's
    § Build Order Surface (the implicit one-slice plan reads
-   `implementation_paths`); with `--spec` alone it is the union of every
+   `implementation_paths`); `--slice` repeated takes the union of the named
+   slices (a parallel batch); with `--spec` alone it is the union of every
    slice's Surface; with neither it is empty. A Surface entry **declares** a
    protected path when it matches the path and the entry itself lies wholly
    inside a protected pattern — `tests/expected-failures.txt` and
@@ -84,8 +103,11 @@ directory segment, or a name `test_*`, `test-*`, `*_test.*`, `*.test.*`,
 
 ### In the skills
 
-- `/build` § *Slice Close* runs the script with `--base <sha> --spec <spec>
-  --slice <n>` next to `slice.py check`. Exit 1 stops the slice: the header
+- `/build` records a **gate base** with `--snapshot` before each dispatch (a
+  parallel batch: once), and § *Slice Close* runs the script with `--base
+  <gate-base> --spec <spec> --slice <n>` (one `--slice` per batch slice) next to
+  `slice.py check`, so an earlier slice's declared protected change is not
+  blamed on a later one. Exit 1 stops the slice: the header
   stays `[ ]`, the handover records `unfinished: GATE_TAMPERED <paths>`, and the
   slice stays out of the done set, so nothing blocked by it becomes ready. Exit
   3 is recorded as `gate integrity: not checked — <reason>` in the handover's
@@ -104,7 +126,8 @@ directory segment, or a name `test_*`, `test-*`, `*_test.*`, `*.test.*`,
 
 ## Inputs
 
-- `--base <rev>`: any revision `git rev-parse` resolves.
+- `--base <rev>`: any revision `git rev-parse` resolves to a commit or a tree;
+  a value starting with `-` is never read as an option.
 - `--spec`, `--slice`: a spec with `implementation_paths` frontmatter and an
   optional § Build Order.
 - `AGENTS.md` below `<!-- jplugin-agentic-development:end -->`: `Protected paths:`
@@ -113,7 +136,7 @@ directory segment, or a name `test_*`, `test-*`, `*_test.*`, `*.test.*`,
 ## Outputs
 
 Result lines and a summary on stdout, `NOT_CHECKED` reasons included; the exit
-status above. The script writes nothing.
+status above. Checking writes nothing; `--snapshot` writes Git objects only.
 
 ## Edge Cases
 
@@ -121,7 +144,12 @@ status above. The script writes nothing.
 - An edit committed after the base, with a clean working tree: still `GATE_TAMPERED`.
 - `diff.mnemonicPrefix=true` or `diff.noprefix=true`: results are identical.
 - A protected file deleted, or a new file under a protected glob: `GATE_TAMPERED`.
-- A protected path that is a symlink hashes its link target string, as git stores it: an unchanged link is clean, a retargeted one is `GATE_TAMPERED`.
+- A protected path that is a symlink: an unchanged link and referent are clean; a retargeted link, or an unchanged link whose referent changed, is `GATE_TAMPERED`, and rows added behind a linked expected-failures file are reported; a link out of the repository is `NOT_CHECKED`.
+- A clean filter in `.gitattributes` that restores the original bytes: still `GATE_TAMPERED`.
+- A CRLF checkout of an LF runner: unchanged.
+- `Protected paths:` or `Expected failures:` removed or retargeted in `AGENTS.md`: the base declaration still protects, and the removal is `GATE_TAMPERED AGENTS.md`.
+- `AGENTS.md` unreadable: `not checked`, exit 3.
+- Slice 2 closes after slice 1 changed a protected file slice 1 declared: judged against slice 2's gate base, it is not blamed.
 - The base does not resolve, or the directory is not a git work tree: `gate-integrity: not checked — <reason>`, exit 3.
 - An invalid glob on a `Protected paths:` line: `not checked`, exit 3, naming the glob.
 - A test file deleted outright: one `ASSERTION_DELETED` line per assertion it held.
@@ -135,7 +163,7 @@ status above. The script writes nothing.
 
 - **Path:** `.agents/skills/quality-gate/scripts/gate-integrity.py`
 - **Hides:** the protected-set resolution (defaults, `AGENTS.md` declarations), blob-vs-hash comparison, the surface-declaration rule and the skip/assertion patterns.
-- **Interface:** `gate-integrity.py --base <rev> [--spec <spec> [--slice <n>]] [--repo <dir>]` → result lines, exit 0/1/3.
+- **Interface:** `gate-integrity.py --base <rev> [--spec <spec> [--slice <n>]...] [--repo <dir>]` → result lines, exit 0/1/3; `--snapshot [--repo <dir>]` → a tree id, exit 0/3.
 - **Alternative considered:** a `slice.py check --gate` flag. `slice.py` is already 865 lines and `/quality-gate` has no slice; one script both callers share keeps the rules in one place.
 - **Depth:** one call resolves the protected set, hashes every candidate, reads the surface and classifies every change.
 
@@ -150,6 +178,9 @@ status above. The script writes nothing.
 | 5 | Severity of non-tamper results at `/quality-gate` | `EXPECTED_FAILURE_ADDED` SHOULD-FIX at 100; `SKIP_ADDED` and `ASSERTION_DELETED` SHOULD-FIX at 50 with one verification read; `GATE_CHANGED` NITPICK; owner human throughout | assumed | the row and the declared change are exact facts; the skip and assertion patterns also match test data (dogfooding flagged this repository's own fixtures), so a reviewer confirms them before they count toward HOLD |
 | 6 | Phase numbering | A new Phase 0 before Phase 1 | assumed | the receipt's reviewer entries are keyed by phases 1–5; renumbering would break receipts and pins for no gain |
 | 7 | Exit status of "cannot run" | `3`, distinct from clean `0`, tampered `1` and usage `2` | assumed | callers must be able to tell `not checked` from clean without parsing prose |
+| 8 | Whose `AGENTS.md` declares the policy? | The union of the base's and the current; a dropped or retargeted base declaration is `GATE_TAMPERED AGENTS.md` | review of PR #447 | the policy must not be able to remove itself; a human decides a protection change |
+| 9 | How are working bytes hashed? | In-process git blob ids of the raw bytes, CRLF-as-LF accepted; symlinks compared by link text and by resolved content | review of PR #447 | `git hash-object` runs mutable clean filters; link identity alone hid a changed referent |
+| 10 | Which base does Slice Close use? | A per-slice gate base from `--snapshot` at dispatch; `/quality-gate` Phase 0 keeps the merge-base | review of PR #447 | the session base blamed slice 2 for slice 1's declared change; slices are not committed one by one, so the snapshot is a tree, not HEAD |
 
 ## Acceptance Criteria
 

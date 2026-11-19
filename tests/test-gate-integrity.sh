@@ -142,6 +142,96 @@ else
   skip "symlink: ln -s made no symlink here (Windows without symlink support)"
 fi
 
+# --- an unchanged link does not hide a changed referent ---------------------
+R="$(gi_repo)"
+mv "$R/tests/expected-failures.txt" "$R/known-failures"
+printf '[pytest]\n' > "$R/actual-pytest-config"
+ln -s ../known-failures "$R/tests/expected-failures.txt" 2>/dev/null
+ln -s actual-pytest-config "$R/pytest.ini" 2>/dev/null
+if [ -L "$R/pytest.ini" ] && [ -L "$R/tests/expected-failures.txt" ]; then
+  git -C "$R" add -A && git -C "$R" commit -q -m links
+  run gate_in "$R" --base HEAD
+  assert_exit 0 "referent: unchanged links and referents exit 0"
+  printf 'tests/test-a.sh linux* two is two\n' >> "$R/known-failures"
+  printf 'addopts = --ignore=tests\n' >> "$R/actual-pytest-config"
+  run gate_in "$R" --base HEAD
+  assert_exit 1 "referent: a changed referent behind an unchanged link exits 1"
+  assert_contains "$output" "GATE_TAMPERED pytest.ini" "referent: the weakened config behind the link is tampering"
+  assert_contains "$output" "GATE_TAMPERED tests/expected-failures.txt" "referent: the grown list behind the link is tampering"
+  assert_contains "$output" "EXPECTED_FAILURE_ADDED tests/expected-failures.txt — tests/test-a.sh linux* two is two" \
+    "referent: the row added behind the link is reported"
+
+  R="$(gi_repo)"
+  OUT="$(fixture_dir)"
+  printf '[metadata]\n' > "$OUT/setup.cfg"
+  ln -s "$OUT/setup.cfg" "$R/setup.cfg"
+  git -C "$R" add -A && git -C "$R" commit -q -m "outside link"
+  run gate_in "$R" --base HEAD
+  assert_exit 3 "outside referent: a link out of the repository exits 3"
+  assert_contains "$output" "NOT_CHECKED setup.cfg — " "outside referent: names the link"
+  assert_contains "$output" "outside the repository" "outside referent: says why"
+
+  R="$(gi_repo)"
+  ln -s "$OUT" "$R/config-dir"
+  ln -s config-dir/setup.cfg "$R/setup.cfg"
+  git -C "$R" add -A && git -C "$R" commit -q -m "directory link"
+  run gate_in "$R" --base HEAD
+  assert_exit 3 "directory referent: an unsupported directory symlink exits 3"
+  assert_contains "$output" "NOT_CHECKED setup.cfg" "directory referent: names the gate instead of following outside"
+else
+  skip "referent: ln -s made no symlink here (Windows without symlink support)"
+fi
+
+# --- a clean filter cannot launder a changed runner -------------------------
+R="$(gi_repo)"
+SAVED="$(fixture_dir)/run.sh.orig"
+cp "$R/tests/run.sh" "$SAVED"
+printf 'tests/run.sh filter=hide\n' > "$R/.gitattributes"
+git -C "$R" config filter.hide.clean "cat '$SAVED'"
+printf '#!/bin/sh\nexit 0\n' > "$R/tests/run.sh"
+assert_eq "" "$(git -C "$R" diff --name-only HEAD -- tests/run.sh)" "clean filter fixture: git diff sees no change"
+run gate_in "$R" --base HEAD
+assert_exit 1 "clean filter: the laundered runner still exits 1"
+assert_contains "$output" "GATE_TAMPERED tests/run.sh" "clean filter: names the runner"
+
+# --- a CRLF-only checkout difference is not a change ------------------------
+R="$(gi_repo)"
+printf '#!/bin/bash\r\nfor f in tests/test-*.sh; do bash "$f"; done\r\n' > "$R/tests/run.sh"
+run gate_in "$R" --base HEAD
+assert_exit 0 "crlf: line endings alone exit 0"
+assert_not_contains "$output" "tests/run.sh" "crlf: the runner is unchanged"
+
+# ===========================================================================
+printf '\n--- the protection policy cannot remove itself ---\n'
+# ===========================================================================
+
+R="$(gi_repo)"
+BASE="$(git -C "$R" rev-parse HEAD)"
+printf '# Agents\n<!-- jplugin-agentic-development:end -->\n\nFull suite: bash tests/run.sh\n' > "$R/AGENTS.md"
+git -C "$R" commit -q -am "drop the policy"
+printf '#!/bin/sh\nexit 0\n' > "$R/tests/run.sh"
+printf 'tests/test-a.sh linux* two is two\n' >> "$R/tests/expected-failures.txt"
+run gate_in "$R" --base "$BASE"
+assert_exit 1 "policy removed: exits 1"
+assert_contains "$output" "GATE_TAMPERED tests/run.sh" "policy removed: the base declaration still protects the runner"
+assert_contains "$output" "EXPECTED_FAILURE_ADDED tests/expected-failures.txt — tests/test-a.sh linux* two is two" \
+  "policy removed: the base expected-failures file is still read"
+assert_contains "$output" "GATE_TAMPERED AGENTS.md — Protected paths: tests/run.sh declared at ${BASE:0:8}, removed" \
+  "policy removed: the removed glob is reported"
+assert_contains "$output" "GATE_TAMPERED AGENTS.md — Expected failures: tests/expected-failures.txt declared at ${BASE:0:8}, now none" \
+  "policy removed: the removed expected-failures declaration is reported"
+
+R="$(gi_repo)"
+sed 's#^Expected failures: .*#Expected failures: tests/other.txt#' "$R/AGENTS.md" > "$R/AGENTS.md.new" && mv "$R/AGENTS.md.new" "$R/AGENTS.md"
+printf 'Protected paths: src/**\n' >> "$R/AGENTS.md"
+printf 'tests/test-a.sh linux* two is two\n' >> "$R/tests/expected-failures.txt"
+run gate_in "$R" --base HEAD
+assert_contains "$output" "GATE_TAMPERED AGENTS.md — Expected failures: tests/expected-failures.txt declared at" \
+  "policy retargeted: the retarget is reported"
+assert_contains "$output" "now tests/other.txt" "policy retargeted: names the new target"
+assert_contains "$output" "EXPECTED_FAILURE_ADDED tests/expected-failures.txt" "policy retargeted: the old list is still read"
+assert_not_contains "$output" "Protected paths: src/**" "policy widened: a new declaration is not a finding"
+
 # ===========================================================================
 printf '\n--- the surface declares a protected path ---\n'
 # ===========================================================================
@@ -184,6 +274,108 @@ R="$(gi_repo)"
 printf 'tests/test-old.sh linux* old message\n# known failures\n' > "$R/tests/expected-failures.txt"
 run gate_in "$R" --base HEAD
 assert_not_contains "$output" "EXPECTED_FAILURE_ADDED" "reorder: reordered rows add nothing"
+
+# ===========================================================================
+printf '\n--- each slice is judged against its own snapshot ---\n'
+# ===========================================================================
+
+R="$(gi_repo)"
+cat > "$R/specs/f.md" <<'EOF'
+---
+implementation_paths:
+  - .github/workflows/**
+  - src/**
+---
+# Spec: f
+## Build Order
+| # | Slice | Delivers | Surface | Blocked by | ACs | Verify | Size |
+|---|-------|----------|---------|------------|-----|--------|------|
+| 1 | Gates | gates | `.github/workflows/**` | — | 1 | t | s |
+| 2 | Code | code | `src/**` | 1 | 2 | t | s |
+EOF
+git -C "$R" commit -q -am "sequential slice surfaces"
+run gate_in "$R" --snapshot
+assert_exit 0 "snapshot: exits 0"
+S0="$output"
+assert_true "snapshot: prints one tree id" grep -Eqx '[0-9a-f]{40}([0-9a-f]{24})?' <<<"$S0"
+assert_eq "" "$(git -C "$R" status --porcelain)" "snapshot: leaves the index and the tree untouched"
+
+printf 'on: pull_request\n' > "$R/.github/workflows/ci.yml"
+run gate_in "$R" --base "$S0" --spec specs/f.md --slice 1
+assert_exit 0 "two slices: the first slice's declared edit exits 0"
+assert_contains "$output" "GATE_CHANGED .github/workflows/ci.yml" "two slices: the first slice's edit is GATE_CHANGED"
+
+run gate_in "$R" --snapshot
+S1="$output"
+assert_eq "" "$(git -C "$R" diff --cached --name-only)" "dirty snapshot: accepted uncommitted work stays unstaged"
+printf 'print("slice 1")\n' > "$R/src/app.py"
+printf 'on: push\n' > "$R/.github/workflows/new.yml"
+run gate_in "$R" --base "$S1" --spec specs/f.md --slice 2
+assert_exit 1 "two slices: an undeclared protected file the second slice adds exits 1"
+assert_contains "$output" "GATE_TAMPERED .github/workflows/new.yml" "two slices: the second slice's own tamper is caught"
+assert_not_contains "$output" "GATE_TAMPERED .github/workflows/ci.yml" \
+  "two slices: the first slice's accepted edit is not blamed on the second"
+rm "$R/.github/workflows/new.yml"
+run gate_in "$R" --base "$S1" --spec specs/f.md --slice 2
+assert_exit 0 "two slices: a source-only second slice against its snapshot exits 0"
+assert_contains "$output" "gate-integrity: clean" "two slices: clean"
+
+run gate_in "$R" --base "$S0" --spec specs/f.md --slice 2
+assert_exit 1 "session base: the same second slice against the session base is blamed"
+run gate_in "$R" --base "$S0" --spec specs/f.md --slice 1 --slice 2
+assert_exit 0 "parallel batch: --slice repeated takes the union of the batch's surfaces"
+
+# Snapshot the bytes present at dispatch, even when a clean filter lies about them.
+R="$(gi_repo)"
+SAVED="$(fixture_dir)/run.sh.orig"
+cp "$R/tests/run.sh" "$SAVED"
+printf 'tests/run.sh filter=hide\n' > "$R/.gitattributes"
+git -C "$R" config filter.hide.clean "cat '$SAVED'"
+printf '#!/bin/sh\nexit 0\n' > "$R/tests/run.sh"
+run gate_in "$R" --snapshot
+S_FILTER="$output"
+run gate_in "$R" --base "$S_FILTER"
+assert_exit 0 "snapshot filter: unchanged working bytes match their dispatch snapshot"
+assert_contains "$output" "gate-integrity: clean" "snapshot filter: raw snapshot is clean"
+
+# A partial symlink read failure must retain findings for other gates.
+R="$(gi_repo)"
+printf '[pytest]\n' > "$R/actual-pytest-config"
+ln -s actual-pytest-config "$R/pytest.ini" 2>/dev/null
+if [ -L "$R/pytest.ini" ]; then
+  git -C "$R" add -A && git -C "$R" commit -q -m link
+  printf 'exit 0\n' >> "$R/tests/run.sh"
+  INJECT="$(fixture_dir)/symlink-failure.py"
+  cat > "$INJECT" <<'PY'
+import importlib.util
+import os
+import sys
+from unittest.mock import patch
+
+spec = importlib.util.spec_from_file_location("gate_integrity", sys.argv[1])
+gate = importlib.util.module_from_spec(spec)
+sys.modules[spec.name] = gate
+spec.loader.exec_module(gate)
+readlink = os.readlink
+
+def partial_failure(path):
+    if path.endswith("/pytest.ini"):
+        raise OSError("injected symlink read failure")
+    return readlink(path)
+
+with patch.object(gate.os, "readlink", side_effect=partial_failure):
+    sys.exit(gate.main(["--repo", sys.argv[2], "--base", "HEAD"]))
+PY
+  run "$PY" "$INJECT" "$GATE" "$R"
+  assert_exit 1 "symlink read failure: another tampered gate still takes precedence"
+  assert_contains "$output" "NOT_CHECKED pytest.ini" "symlink read failure: names the unreadable link"
+  assert_eq 1 "$(printf '%s\n' "$output" | sed -n '/^NOT_CHECKED /p' | wc -l | tr -d ' ')" \
+    "symlink read failure: exactly one NOT_CHECKED line"
+  assert_contains "$output" "GATE_TAMPERED tests/run.sh" "symlink read failure: keeps other findings"
+  assert_not_contains "$output" "Traceback" "symlink read failure: no traceback"
+else
+  skip "symlink read failure: ln -s made no symlink here"
+fi
 
 # ===========================================================================
 printf '\n--- skip markers and deleted assertions in existing tests ---\n'
@@ -259,5 +451,47 @@ else
   assert_contains "$output" "gate-integrity: not checked — 1 file(s) unreadable" "unreadable file: summary"
 fi
 chmod 644 "$R/tests/lib.sh"
+
+R="$(gi_repo)"
+chmod 000 "$R/AGENTS.md"
+if [ -r "$R/AGENTS.md" ]; then
+  skip "unreadable AGENTS.md: chmod 000 leaves the file readable here (root or Windows)"
+else
+  run gate_in "$R" --base HEAD
+  assert_exit 3 "unreadable AGENTS.md: exits 3, never the tampered 1"
+  assert_contains "$output" "gate-integrity: not checked — " "unreadable AGENTS.md: not checked"
+  assert_contains "$output" "AGENTS.md" "unreadable AGENTS.md: names the file"
+  assert_not_contains "$output" "Traceback" "unreadable AGENTS.md: no traceback"
+fi
+chmod 644 "$R/AGENTS.md"
+
+run gate_in "$R" --base=--all
+assert_exit 3 "option-like base: exits 3"
+assert_contains "$output" "not checked — base --all does not resolve" "option-like base: read as a revision, never an option"
+
+# Pin the Git argument boundary rather than relying on a particular Git's response.
+BOUNDARY="$(fixture_dir)/revision-boundary.py"
+cat > "$BOUNDARY" <<'PY'
+import importlib.util
+import sys
+from unittest.mock import patch
+
+spec = importlib.util.spec_from_file_location("gate_integrity", sys.argv[1])
+gate = importlib.util.module_from_spec(spec)
+sys.modules[spec.name] = gate
+spec.loader.exec_module(gate)
+git = gate._git
+
+def checked_git(repo, *args, **kwargs):
+    if args[0] == "rev-parse" and "--verify" in args:
+        assert "--end-of-options" in args, args
+        assert args.index("--end-of-options") < len(args) - 1, args
+    return git(repo, *args, **kwargs)
+
+with patch.object(gate, "_git", side_effect=checked_git):
+    gate._resolve_base(sys.argv[2], "HEAD")
+PY
+run "$PY" "$BOUNDARY" "$GATE" "$R"
+assert_exit 0 "revision boundary: --end-of-options precedes the supplied base"
 
 finish

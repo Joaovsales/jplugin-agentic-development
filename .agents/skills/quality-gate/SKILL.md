@@ -73,11 +73,12 @@ python3 .agents/skills/quality-gate/scripts/gate-integrity.py --base <merge-base
 `<merge-base>` is the one from *Scope*; pass the spec when the change has one,
 so every slice's Surface may declare a protected file. The script compares each
 protected file — the runners, the expected-failures list, CI and lint configs,
-plus the `Protected paths:` globs below the `AGENTS.md` end marker — with its
-blob at the base by content hash (`specs/gate-integrity.md`). Each line it
-prints is a finding for `Reported, not applied`:
+plus the `Protected paths:` globs below the `AGENTS.md` end marker, at the base
+and now — with its blob at the base by content hash (`specs/gate-integrity.md`).
+Each line it prints is a finding for `Reported, not applied`:
 
-- `GATE_TAMPERED` is `[MUST-FIX | confidence: 100 | autofix_class: manual | owner: human]`.
+- `GATE_TAMPERED` is `[MUST-FIX | confidence: 100 | autofix_class: manual | owner: human]`,
+  including an `AGENTS.md` line: a protection declared at the base was removed or retargeted.
 - `EXPECTED_FAILURE_ADDED` is `[SHOULD-FIX | confidence: 100 | autofix_class: manual | owner: human]`.
 - `SKIP_ADDED` and `ASSERTION_DELETED` are pattern matches, so each starts at
   `[SHOULD-FIX | confidence: 50 | autofix_class: manual | owner: human]`: read
