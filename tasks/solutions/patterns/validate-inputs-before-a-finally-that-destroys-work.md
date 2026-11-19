@@ -4,6 +4,7 @@ date: 2026-11-19
 problem_type: pattern
 module: .agents/skills/build/scripts/candidates.py
 tags: [cleanup, finally, worktrees, validation, candidates]
+applies_when: A cleanup `finally` or exit handler deletes state other agents produced (worktrees, temp trees, scratch branches)
 ---
 
 ## Context
