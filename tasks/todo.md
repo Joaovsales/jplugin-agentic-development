@@ -3104,3 +3104,9 @@ Step ledger (routine `simplify`):
 > Do not re-derive: build/SKILL.md stays at exactly 600 lines — the paragraph was reflowed, not grown; a `> Candidates:` line under a slice heading leaves `slice.py ready` and `link` unchanged (checked on a scratch copy).
 > Outcome: agent_result=True verification_result=True slice_result=True SUCCEEDED
 > Surface: undeclared tasks/todo.md — the plan block's slice-1 handover (`slice.py check --slice 2 --base 8258176`)
+
+## Session Summary — [2026-11-19] [8b6b806..fb663f6]
+
+- Completed: #445 parallel candidates — `candidates.py` (`open`, `rank`, `discard`) builds an opted-in slice N ways in detached worktrees, ranks by eligibility, checks passed, diff lines, outside-Surface paths and candidate number, applies the winner, records every candidate in the run ledger and removes every worktree, cancellation included; `/build` and the references name the flow.
+- Pending: none in this PR.
+- Carry-forward: stacked on #456 (→ #448) — merge those first; the plugin version was not bumped (the guard compares against master at 1.8.19) and needs a bump once #456 lands at 1.8.21; candidates.py imports run_ledger's private `_run_id`/`_sha` until #456's run_ledger changes settle.

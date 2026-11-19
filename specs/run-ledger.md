@@ -148,6 +148,7 @@ receive -> ledger : record --branch B --base HEAD --parent parent
 | `tokens` | int ≥ 0 or `"unknown"` | never a stand-in 0 | `--tokens` parser, default `unknown` |
 | `cost_usd` | number ≥ 0 or `"unknown"` | never a stand-in 0 | `--cost` parser, default `unknown` |
 | `recorded_at` | ISO-8601 UTC | set on first record, kept after | `record` |
+| `candidates` | `{slice id: [entry]}`, optional | one entry per candidate with rank, selected, the three outcomes, measurements and reason; `record` keeps it (specs/parallel-candidates.md) | `candidates.py rank` through `add_candidates` only |
 | `human_result` | `null`, `changes_requested`, `merged`, `closed` | follows the transition table | `decide` only |
 | `decisions` | list of results, append-only | last entry equals `human_result` | `decide` only |
 

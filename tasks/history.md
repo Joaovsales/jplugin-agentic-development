@@ -1224,3 +1224,18 @@ back vacuous and was repaired.
   a crashed write's dot-temp file. Bumped the plugin to 1.8.21.
 - Learnings: [bugs/a-pathlib-glob-reads-a-crashed-writes-dot-temp-as-a-record.md](solutions/bugs/a-pathlib-glob-reads-a-crashed-writes-dot-temp-as-a-record.md),
   rule 3 of [conventions/write-skill-prose-so-the-static-guards-can-read-it.md](solutions/conventions/write-skill-prose-so-the-static-guards-can-read-it.md).
+
+### [2026-11-19] — #445 parallel candidates (improve lane, unattended)
+
+- Plan: `specs/parallel-candidates.md` via `/plan` (D7: not `/system-design-planning` —
+  one script plus one additive field in the `run-ledger/1` record); two slices.
+- Slice 1: `.agents/skills/build/scripts/candidates.py` (`open`, `rank`, `discard`)
+  and `run_ledger.add_candidates`; `tests/test-candidates.sh`. Built inline: this
+  worker has no sub-agent tool.
+- Slice 2: `/build` Phase 1 names `> Candidates: <N>`; `references/candidates.md`
+  and `references/run-ledger.md` § *Candidates*; `tests/test-doc-conventions.sh`
+  § candidates. `build/SKILL.md` reflowed to stay at 600 lines.
+- Quality gate (inline, test-engineer `lost`): `rank` validates `--run-id` and
+  `--base`, resolves the Surface before its cleanup `try`, applies before it
+  records. Delta receipt on #442's.
+- Learnings: [patterns/validate-inputs-before-a-finally-that-destroys-work.md](solutions/patterns/validate-inputs-before-a-finally-that-destroys-work.md).
