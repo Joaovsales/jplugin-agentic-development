@@ -3047,3 +3047,16 @@ Step ledger (routine `simplify`):
 - Pending: none of the independent review findings remain open.
 - Carry-forward: review phases ran inline; the separate test-engineer review
   was recorded lost because this task explicitly prohibited helper agents.
+
+## Session Summary — 2026-11-19 [c364ffb..f3c4ce8]
+- Completed: PR #447 re-review fixes N1–N3: shared bounded link resolution
+  retains historical AGENTS policy; baseline patterns preserve Surface
+  precision; snapshots retain recorded gitlink IDs, including deinitialized
+  submodules, while refusing unsupported filesystem entries.
+- Validation: red regressions 121 passed/15 failed before the fixes; green
+  gate tests 138 assertions, 96% scanner statement coverage; affected tests
+  all 56 files/5733 assertions; full suite all 100 files/8639 assertions.
+  Quality receipt GO b837af41, policy qg1-a6dee920.
+- Pending: none of the three re-review findings remain open.
+- Carry-forward: reviews ran inline; phase 5's separate test-engineer review
+  is recorded lost because this task explicitly prohibited helper agents.
