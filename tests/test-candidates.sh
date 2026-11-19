@@ -211,6 +211,15 @@ bad="$(lib 'try:
 except rl.Refused as exc:
     print(exc)')"
 assert_contains "$bad" "bad.json: invalid" "add_candidates refuses a malformed stored record"
+unsafe="$(lib 'for run_id, base in (("../escape", "0123456789abcdef"), ("ok", "main"), ("ok\n", "0123456789abcdef")):
+    try:
+        rl.add_candidates(L, "feat/c", base, run_id, "1", [])
+    except rl.Refused as exc:
+        print("refused")')"
+assert_eq "refused
+refused
+refused" "$unsafe" "add_candidates refuses an unsafe run id or a base that is not a SHA"
+assert_file_absent "$BOX/escape.json" "a refused run id writes nothing outside the ledger"
 assert_eq "$before" "$(cat "$BOX/l1/bad.json")" "a refused add_candidates leaves the record untouched"
 rm "$BOX/l1/bad.json"
 "$PY" -c 'import json,sys; r=json.load(open(sys.argv[1])); r["candidates"]=[]; json.dump(r, open(sys.argv[1], "w"))' "$F"

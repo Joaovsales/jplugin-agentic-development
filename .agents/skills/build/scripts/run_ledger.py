@@ -297,7 +297,7 @@ def add_candidates(ledger: Path, branch: str, base: str, run_id: Optional[str],
     Same transaction as `record`: one run lock around read, merge and write.
     `candidates` is not a `record` option, so a later `record` keeps it."""
     run_id = run_id or default_run_id(branch, base)
-    if not RUN_ID_RE.match(run_id) or not SHA_RE.match(base):
+    if not RUN_ID_RE.fullmatch(run_id) or not SHA_RE.fullmatch(base):
         raise Refused(f"run-ledger: refused candidates for run {run_id!r} at base {base!r}")
     path = ledger / f"{run_id}.json"
     with run_lock(path):
