@@ -3079,3 +3079,18 @@ Step ledger (routine `simplify`):
 - Pending: none in this PR.
 - Carry-forward: nobody records `merged` automatically yet (spec D7, R1); `stats` shows undecided PRs as `open`. Stacked on #448 — merge #448 first.
 - [ ] Record merged/closed in the run ledger automatically when a PR is merged or closed <!-- task-id: run-ledger-merge-decision.specs-run-ledger-md --> — From #442 (PR #456), spec Decision D7 and Risk R1: run_ledger.py decide is the only writer of a run's human result, and… ([#457](https://github.com/Joaovsales/jplugin-agentic-development/issues/457))
+
+## Plan: parallel-candidates
+> Spec: specs/parallel-candidates.md
+> Issue: #445
+
+### Slice 1/2 — Candidate ranker
+- [ ] Candidate ranker — candidates.py opens, ranks and discards candidate worktrees; run_ledger.add_candidates records the ranking
+- [ ] TDD: tests/test-candidates.sh § deterministic — the same measurements in any order rank the same; two rank runs over identical worktrees print identical lines -> candidates.py rank (AC1)
+- [ ] TDD: tests/test-candidates.sh § eligibility — a failed or unknown check is never selected even with the smallest diff; no eligible candidate exits 1 and changes nothing -> candidates.py rank (AC2)
+- [ ] TDD: tests/test-candidates.sh § cleanup — worktrees are removed on success, on no winner, on SIGTERM mid-verification, and by discard -> candidates.py (AC3)
+- [ ] TDD: tests/test-candidates.sh § ledger — the run record holds one entry per candidate with rank, selected, outcomes, measurements and reason -> run_ledger.add_candidates (AC4)
+
+### Slice 2/2 — Build runs candidates
+- [ ] Build runs candidates — /build names the opt-in and the flow; the references document the commands and the ledger field
+- [ ] TDD: tests/test-doc-conventions.sh § candidates — /build names `> Candidates:`, open, rank and discard; references/candidates.md and run-ledger.md document the commands and the candidates field -> wiring (AC5)
