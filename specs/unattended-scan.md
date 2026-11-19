@@ -60,14 +60,17 @@ id, followed by one summary line. The pre-push hook runs the scan for every
 pushed branch under `routine/`, and for any push made with `UNATTENDED_SCAN=1`
 (the caller-declared case: `/yolo`, `/auto-push`), passing
 `--transcript "${UNATTENDED_SCAN_TRANSCRIPT:-auto}"` and `--head <local sha>`,
-plus `--base <anchor sha>`, so a commit the remote already has is not scanned
-again. Exit 1 (a high hit) or 2
+plus `--base <range base>`: the negotiated remote tip for updates, or the merge
+base of the server anchor and pushed commit for new refs. A new branch is
+therefore scanned from its fork point, without attributing later base-branch
+changes to it. Exit 1 (a high hit) or 2
 (the scan could not run) blocks the push; medium hits print and pass. The scan
 runs before the `SKIP_PREPUSH` kill switch, so an environment variable cannot
 silence it; `git push --no-verify` remains the human override.
 
-The hook anchors both the diff lower bound and scanner/rule snapshot to a SHA
-from the push remote, never a locally resolved ref. For an existing ref it uses
+The hook anchors its scanner/rule snapshot to a SHA from the push remote,
+never a locally resolved ref. The diff range is derived separately from that
+anchor. For an existing ref it uses
 the remote SHA Git supplies on pre-push stdin after server negotiation. For a new
 ref (all-zero remote SHA), it makes one `git ls-remote -- <push remote URL>` query
 for fully qualified `refs/heads/master`, `refs/heads/main` and
@@ -75,7 +78,11 @@ for fully qualified `refs/heads/master`, `refs/heads/main` and
 second argument supplies the push URL, including when it differs from origin.
 A failed query, absent base branch or anchor commit missing locally is a
 could-not-run failure (exit 2); no local ref is a fallback. Fetch the remote to
-obtain a missing anchor object before retrying.
+obtain a missing anchor object before retrying. For new refs, the range starts
+at `git merge-base <anchor sha> <local sha>`; if there is no shared history, the
+wider anchor comparison remains. The protected-file integrity check uses this
+same range. The snapshot always stays at the server anchor, including when
+that anchor is newer than the branch's fork point.
 
 The hook extracts scanner and built-ins with `git show <anchor sha>:<path>` into
 a temporary directory and runs isolated Python. Committed scanner/rule edits
@@ -85,13 +92,15 @@ remote through a human push first. An empty built-in rule set is refused, even
 for direct scanner invocations.
 
 A local hook cannot stop an agent that edits the installed
-`.git/hooks/pre-push` or bypasses it with `--no-verify`; both are residual trust
-boundaries, documented in the rules' known gaps.
+`.git/hooks/pre-push`, bypasses it with `--no-verify`, or controls local Git
+configuration (`core.hooksPath`, `url.*.insteadOf`) or `PATH`. These are residual
+trust boundaries, documented in the rules' known gaps.
 
 `/wrap-up-session` treats a scan refusal like any pre-push gate refusal, and
-on an unattended run first files the findings as one `bug` task through
+on an unattended run first files genuine findings as one `bug` task through
 `/task-registry upsert --derive-id unattended-scan --apply`, then ends through
-§ *Terminal PR assertion*.
+§ *Terminal PR assertion*. A could-not-run refusal has no findings to file;
+restore remote access, fetch the push remote to obtain the anchor, and retry.
 
 ## Inputs
 
@@ -141,7 +150,8 @@ on an unattended run first files the findings as one `bug` task through
 - **Alternative considered:** a model reviewer over the transcript — rejected,
   as esf rejected it: two runs of the same input could disagree.
 - **Depth:** one call reads both sources, applies every rule and decides the
-  exit; the hook knows only the exit code.
+  exit; the hook supplies the independently anchored snapshot and range, then
+  consumes the scanner's exit code.
 
 ## Risks
 
@@ -161,7 +171,7 @@ on an unattended run first files the findings as one `bug` task through
 | 5 | Does `SKIP_PREPUSH=1` skip the scan? | No — the scan runs before the kill switch | assumed | An unattended agent can set an environment variable; `--no-verify` stays the human override and is a documented gap |
 | 6 | A scan that cannot run | Blocks the push (exit 2) | assumed | No silent failures: an unattended push that was not scanned must not look like one that was |
 | 7 | Who opens the finding? | `/wrap-up-session`, through `/task-registry upsert --apply`; the hook never writes to a tracker | coordinator review decision | The hook reads the remote base for new refs; filing remains wrap-up's responsibility |
-| 8 | Where does snapshot/range trust come from? | Negotiated remote SHA for updates; fully qualified remote base refs queried with `ls-remote` for new refs; require the anchor commit locally and never fall back to local refs | coordinator review decision (N1) | Local tracking refs and branch names are writable by the pusher |
+| 8 | Where does snapshot/range trust come from? | Negotiated remote SHA for updates; fully qualified remote base refs queried with `ls-remote` for new refs; require the anchor commit locally and never fall back to local refs; new-ref ranges start at its merge base with the pushed commit while snapshots stay at the anchor | coordinator review decisions (N1, N2) | Local tracking refs and branch names are writable by the pusher |
 
 ## Acceptance Criteria
 

@@ -1212,3 +1212,11 @@ lookup or the local anchor object is missing. Real installed-hook pushes now
 refuse all three ref-trust attacks; lookup failure, missing-object and alternate
 push-URL journeys are covered. Corrected the existing scanner trust learning
 and documented the installed-hook residual boundary.
+
+### [2026-11-19] — PR #450 N2 fork-point range
+
+Separated new-ref range ancestry from policy trust: diffs and protected-file
+checks start at the server anchor's merge base with the branch, while scanner
+and rules still load from the server anchor. Four actual-push stale-base cases
+pass and the trust probes still refuse. Clarified no-finding recovery for a
+could-not-run scan and the Git-configuration/PATH residual boundary.

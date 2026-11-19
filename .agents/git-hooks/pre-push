@@ -65,10 +65,14 @@ EOF
     echo "BLOCKED: unattended scan could not run — remote anchor $_anchor is not a local commit; fetch the remote." >&2
     return 2
   fi
+  # New refs use their fork point for the range; the snapshot stays at the anchor.
+  # Without shared history the anchor comparison remains the wider scan.
+  _base="$_anchor"
+  case "$_remote_sha" in *[!0]*) ;; *) _base=$(git merge-base "$_anchor" "$_local_sha") || _base="$_anchor" ;; esac
   # This integrity check is outside the scanner/rules that it protects.
   _integrity=0
   for _protected in "$SCANNER" "$SCAN_RULES"; do
-    git diff --quiet "$_anchor" "$_local_sha" -- "$_protected"
+    git diff --quiet "$_base" "$_local_sha" -- "$_protected"
     case $? in
       0) ;;
       1) echo "[MUST-FIX | confidence: 100 | autofix_class: manual | owner: human] diff:$_protected:1 — check-gate-edit: edits the scanner or built-in rules." >&2; _integrity=1 ;;
@@ -83,7 +87,7 @@ EOF
     return 1
   fi
   # Isolated Python also keeps the pushing tree off the import path.
-  python3 -I "$_snapshot/unattended_scan.py" scan --base "$_anchor" --head "$_local_sha" \
+  python3 -I "$_snapshot/unattended_scan.py" scan --base "$_base" --head "$_local_sha" \
     --transcript "${UNATTENDED_SCAN_TRANSCRIPT:-auto}" >&2
   _scan_status=$?
   rm -rf "$_snapshot"

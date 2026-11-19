@@ -517,8 +517,11 @@ the rules, their fixtures and their known false negatives are
 one — in `.agents/unattended-scan-rules.json`.
 
 A refusal is a push-gate refusal: never bypass it (`--no-verify` is a human's
-override, not the session's). The hook only reads remote policy (new refs); wrap-up files the
-findings, once, before § *Terminal PR assertion*:
+override, not the session's). For new refs, the hook reads the remote base SHA;
+policy comes from that anchor's local commit object. A could-not-run refusal
+(offline lookup or an unfetched anchor) has no findings to file: restore remote
+access, run `git fetch <push remote>`, and retry. For a finding refusal, wrap-up
+files the findings once before § *Terminal PR assertion*:
 
 ```bash
 python3 .agents/skills/task-registry/scripts/task-registry.py upsert \

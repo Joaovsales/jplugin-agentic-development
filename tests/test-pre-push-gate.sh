@@ -612,6 +612,52 @@ run env -u CLAUDE_CODE_SESSION_ID -u UNATTENDED_SCAN -u UNATTENDED_SCAN_TRANSCRI
 assert_exit 1 "Remote anchor: absent server base branches refuse a new ref"
 assert_contains "$output" "push remote has no base branch" "Remote anchor: empty lookup has an actionable refusal"
 
+# A clean new branch is judged from its fork point, even after server master moves.
+for change in readme ci scanner removed-doc-line; do
+  D="$(scan_repo scanforkpoint)"
+  ORIGIN=$(git -C "$D" remote get-url origin)
+  commit_line "$D" docs/old.md "$HIT"
+  git -C "$D" push -q origin HEAD:refs/heads/master
+  FORK=$(sha "$D")
+  OTHER="$(fixture_dir)"
+  git clone -q "$ORIGIN" "$OTHER"
+  git -C "$OTHER" config user.name Test
+  git -C "$OTHER" config user.email test@example.invalid
+  case "$change" in
+    readme) commit_line "$OTHER" README.md "server-only change" ;;
+    ci) commit_line "$OTHER" .github/workflows/ci.yml "on: push" ;;
+    scanner)
+      "$TEST_PYTHON" - "$OTHER/.agents/skills/wrap-up-session/scripts/unattended_scan.py" <<'PYTHON'
+import pathlib, sys
+path = pathlib.Path(sys.argv[1])
+text = path.read_text()
+assert "def main(" in text
+path.write_text(text.replace("def main(", 'print("SERVER-ANCHOR-SNAPSHOT")\n\ndef main(', 1))
+PYTHON
+      git -C "$OTHER" add -A; git -C "$OTHER" commit -qm "server scanner update"
+      ;;
+    removed-doc-line)
+      rm "$OTHER/docs/old.md"
+      git -C "$OTHER" add -A; git -C "$OTHER" commit -qm "server removes old example"
+      ;;
+  esac
+  git -C "$OTHER" push -q origin HEAD:refs/heads/master
+  git -C "$D" fetch -q origin
+  git -C "$D" checkout -q -b routine/improve/444-stale "$FORK"
+  commit_line "$D" notes.txt "clean routine change"
+  install_scan_hook "$D"
+  run env -u CLAUDE_CODE_SESSION_ID -u UNATTENDED_SCAN -u UNATTENDED_SCAN_TRANSCRIPT \
+    SKIP_PREPUSH=1 git -C "$D" push origin "HEAD:$ROUTINE"
+  assert_exit 0 "Fork point: server $change does not refuse a clean actual push"
+  assert_contains "$output" "unattended-scan: 0 high, 0 medium" "Fork point: server $change leaves the branch diff clean"
+  assert_not_contains "$output" "[MUST-FIX" "Fork point: server $change is not attributed to the branch"
+  if [ "$change" = scanner ]; then
+    assert_contains "$output" "SERVER-ANCHOR-SNAPSHOT" "Fork point: policy still executes from the newer server anchor"
+  fi
+  assert_eq "$(sha "$D")" "$(git --git-dir="$ORIGIN" rev-parse --verify "$ROUTINE" 2>/dev/null)" \
+    "Fork point: server $change permits the exact routine head remotely"
+done
+
 # /wrap-up-session names the refusal and files it; the hook never writes to a tracker.
 WRAP="$REPO/.agents/skills/wrap-up-session"
 assert_file_contains "$WRAP/SKILL.md" 'BLOCKED: unattended scan' \

@@ -3042,3 +3042,11 @@ Step ledger (routine `simplify`):
 - Carry-forward:
   - Installed .git/hooks/pre-push edits and --no-verify remain outside what a local hook can prevent.
   - #452 remains outside this PR; the separate test-engineer review is unavailable in this worker dispatch.
+
+## Session Summary — [2026-11-19] [6ff10a3..6ff10a3]
+
+- Completed:
+  - PR #450 / #444 N2: fork-point range for new refs with policy still anchored to the server; four stale-base actual-push cases and both doc nits.
+- Carry-forward:
+  - #452 and the documented local-hook environment boundary remain outside this PR.
+  - Separate test-engineer review is unavailable because this worker dispatch prohibits helpers.

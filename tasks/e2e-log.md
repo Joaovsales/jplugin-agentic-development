@@ -1803,3 +1803,19 @@ Negative: the unfixed hook failed 20 assertions, including all three bypass refu
 Result: PASS
 
 Not checked: native agent sessions, external tracker writes, and mutation of the installed hook itself; installed-hook edits and --no-verify are explicit residual boundaries.
+
+## E2E Walkthrough — Unattended scan fork-point range (PR #450 N2) — 2026-11-19
+
+Spec: specs/unattended-scan.md
+Tier: CLI-FUNCTIONAL
+Driver: actual pushes through the installed pre-push hook to isolated bare remotes; SKIP_PREPUSH=1, no helper agents.
+Evidence: /tmp/pr450-n2-before.log, /tmp/pr450-n2-hook.log, /tmp/pr450-n2-reviewer-stale.log, /tmp/pr450-n2-reviewer-trust.log; Fork point cases in tests/test-pre-push-gate.sh.
+Journey:
+  ✓ Seed a flagged historical doc line, fork a clean branch adding only notes.txt, advance server master through another clone, then fetch the anchor without rebasing the branch.
+  ✓ README-only server change (control), CI workflow edit, scanner edit and deletion of the flagged doc line each permit the clean actual push with zero high/medium findings and the exact branch SHA created remotely.
+  ✓ The server scanner edit prints SERVER-ANCHOR-SNAPSHOT, proving policy still comes from the newer anchor while the diff uses the older fork point.
+  ✓ The reviewer's original four stale-base probes all exit 0 and create their remote routine refs; all six trust probes still refuse without executing the attacker scanner or creating a remote routine ref.
+Negative: before the fix, the CI/scanner/removed-line cases failed 12 assertions while the README control passed; after the fix all 160 hook assertions pass.
+Result: PASS
+
+Docs checked: could-not-run failures produce no finding task and require connectivity/fetch/retry; local Git configuration and PATH are named alongside installed-hook edits and --no-verify as residual boundaries.
