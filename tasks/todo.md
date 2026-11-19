@@ -3022,3 +3022,9 @@ Step ledger (routine `simplify`):
 - Completed: PR #449 review fixes — `verdict` bound to a `split --manifest` (growth and deletion refuse, AC6); unequal-run-count weighting fixture (AC7); learning corrected.
 - Pending: none in this PR.
 - Carry-forward: the manifest is a file the author keeps; nothing outside the run pins it before tuning.
+
+
+## Session Summary — [2026-11-19] [b11feb3..b11feb3]
+- Completed: PR #449 remaining MUST-FIX — required externally retained `--expect` fingerprint; regenerated, replaced and unlink-and-regenerated manifests refuse; original manifests verify; 72 CLI assertions and a seven-failure guard mutation.
+- Pending: none in the requested implementation; final release verification is recorded in the PR.
+- Carry-forward: the orchestrator must retain the original fingerprint honestly outside the tuning loop; rewriting its own recorded anchor is outside the agreed boundary. No paid evaluation or live candidate spawning was performed.

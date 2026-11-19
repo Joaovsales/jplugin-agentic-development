@@ -2,7 +2,7 @@
 """Hold variant-lift prompts out of tuning, and promote only on a holdout win.
 
   variant-holdout.py split <prompts.json> [--manifest <manifest.json>] [--json]
-  variant-holdout.py verdict <manifest.json> <scores.jsonl> [--json]
+  variant-holdout.py verdict <manifest.json> <scores.jsonl> --expect <fingerprint> [--json]
 
 prompts.json is a JSON array of prompt strings. scores.jsonl carries one graded
 run per line: {"prompt": str, "arm": "unchanged"|"previous"|"candidate",
@@ -11,11 +11,12 @@ run per line: {"prompt": str, "arm": "unchanged"|"previous"|"candidate",
 The split is a function of the prompt set: distinct prompts (whitespace
 collapsed) sorted by SHA-256, the first half held out. Because the cut depends
 on the whole set, adding or dropping a prompt moves it, so `split --manifest`
-pins the split-time set before tuning and `verdict` is bound to it: it refuses a
-manifest whose membership the rule does not reproduce, and a scored prompt set
-that differs from the manifest's in either direction. Fewer than four distinct
-prompts refuse. The verdict is promote only when the candidate's holdout mean
-beats both baselines; a run without cost_usd makes its arm's cost unknown,
+records the split-time set and prints its fingerprint. The orchestrator retains
+that fingerprint outside the tuning loop before tuning starts; `verdict` requires
+it via --expect. It refuses a replaced manifest, membership the rule does not
+reproduce, and a scored prompt set that differs in either direction. Fewer than
+four distinct prompts refuse. The verdict is promote only when the candidate's
+holdout mean beats both baselines; a run without cost_usd makes its arm's cost unknown,
 never zero.
 """
 
@@ -70,6 +71,11 @@ def write_manifest(path, sets):
         raise rt.TranscriptError(f"{path}: manifest already exists; a split is pinned once, before tuning") from exc
     except OSError as exc:
         raise rt.TranscriptError(f"{path}: cannot write manifest: {exc}") from exc
+
+
+def manifest_fingerprint(sets):
+    canonical = json.dumps(sets, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
 def read_manifest(path):
@@ -177,6 +183,7 @@ def main():
     verdict_cmd = sub.add_parser("verdict")
     verdict_cmd.add_argument("manifest", type=Path, metavar="manifest.json")
     verdict_cmd.add_argument("path", type=Path, metavar="scores.jsonl")
+    verdict_cmd.add_argument("--expect", required=True, metavar="fingerprint")
     for command in (split_cmd, verdict_cmd):
         command.add_argument("--json", action="store_true")
     args = parser.parse_args()
@@ -185,11 +192,15 @@ def main():
         if args.manifest:
             write_manifest(args.manifest, sets)
         if args.json:
-            print(json.dumps(sets, indent=2))
+            print(json.dumps({**sets, "fingerprint": manifest_fingerprint(sets)}, indent=2))
         else:
+            print(f"split: fingerprint {manifest_fingerprint(sets)}")
             print_split(sets)
         return
-    result = judge(read_manifest(args.manifest), read_scores(args.path))
+    sets = read_manifest(args.manifest)
+    if manifest_fingerprint(sets) != args.expect:
+        raise rt.TranscriptError("manifest fingerprint mismatch; use the fingerprint recorded before tuning")
+    result = judge(sets, read_scores(args.path))
     if args.json:
         print(json.dumps(result, indent=2, allow_nan=False))
         return

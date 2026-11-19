@@ -34,8 +34,15 @@ intersecting `split(original)["tuning"]` with `split(changed)["holdout"]`.
 ## How to apply
 
 When a "fixed by the content" split has to resist tampering, test it under set
-growth *and* shrinkage, not only reordering. Pin the split-time set and
-require the scored set to equal it: `variant-holdout.py split --manifest`
-writes the membership before tuning, and `verdict <manifest> <scores>`
-re-applies the rule to validate the manifest, then refuses any added or
-missing prompt before computing a mean.
+growth *and* shrinkage, not only reordering. Pin both the split-time set and an
+independently retained identity. PR #449's re-review regenerated the manifest
+after tuning, replaced its contents consistently and unlinked/regenerated the
+original path; each restored a false promotion despite a valid partition.
+
+`split --manifest` writes the membership and prints its canonical SHA-256
+fingerprint. The orchestrator records it in the report header outside the
+tuning loop before dispatch, passes it unchanged through required `verdict
+--expect`, and publishes it with results. The verdict checks identity,
+partition membership and equality of the scored prompt set before means.
+Rewriting the orchestrator's own recorded fingerprint remains out of scope;
+a hash stored only in the mutable manifest would not provide this anchor.

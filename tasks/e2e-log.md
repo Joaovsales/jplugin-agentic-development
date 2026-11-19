@@ -1804,3 +1804,26 @@ Tier: CLI-FUNCTIONAL
 Journey: run one holdout prompt ten times at 1.0, one once at 0.0 and the third at 0.5, then duplicate the first prompt's runs.
 Negative: candidate holdout mean remains exactly 0.5 and rejects against 0.6, with identical JSON after duplication; the flat-run-mean mutation fails four assertions, whereas all 40 old assertions accepted it.
 Result: PASS
+
+
+## E2E Walkthrough — Eval manifest fingerprint anchor — 2026-11-19 b11feb3
+
+Spec: specs/eval-holdout.md
+Commit: b11feb3250f1f100579b9005071effd36bf115f3 (fingerprint-anchor working tree)
+Driver: real Python CLI and synthetic graded-run fixtures; no paid evaluation or live tuning-agent dispatch.
+Evidence: `/tmp/pr449-anchor-fix/anchored-probes.log`, `/tmp/pr449-anchor-fix/green.log`, `/tmp/pr449-anchor-fix/mutant-tests.log`.
+Manifest fingerprint: cefde2563f5a74e3c5dc3ee70722522bd86740e22cabe3369008914b79625b8a
+
+### AC-5: Retain the orchestrator's fingerprint outside tuning
+Tier: CLI-FUNCTIONAL
+Journey: split the original prompts, save its fingerprint in `/tmp/pr449-anchor-fix/eval-original.md` before replacement probes, and pass that stored value unchanged to verdict. Mode B's report-header, pre-dispatch and required --expect instructions are checked in the 72-assertion CLI regression test.
+Negative: omitting --expect refuses with exit 2; an incorrect expected fingerprint also refuses. The original tuning-only candidate still rejects with its original fingerprint.
+Result: PASS (CLI protocol; live agent dispatch was not exercised)
+
+### AC-8: Reject a consistently replaced manifest
+Tier: CLI-FUNCTIONAL
+Journey: replay the reviewer's exact expanded and pruned score inputs, retaining each original fingerprint while generating a second manifest, replacing the original contents, and unlinking/regenerating the original path.
+Negative: all three changed manifests exit 2 with fingerprint mismatch and empty stdout; the preserved original manifests still verify and reject. The old implementation promoted all three replacements. Removing only the fingerprint comparison yields seven failing assertions, including all three replacement regressions.
+Result: PASS
+
+Regression coverage: AC1–4 and AC6–7 remain green in the same 72-assertion test. An orchestrator rewriting its own recorded fingerprint is outside the declared boundary.
