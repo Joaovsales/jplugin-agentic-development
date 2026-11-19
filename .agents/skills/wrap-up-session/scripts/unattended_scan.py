@@ -59,7 +59,7 @@ ACTION_KEYS = ("command", "cmd", "file_path", "path", "url")
 ANSI_RE = re.compile(r"\x1b(?:\[[0-?]*[ -/]*[@-~]|\][^\x07\x1b]*(?:\x07|\x1b\\)|[@-Z\\-_])")
 LINE_BREAK_RE = re.compile(r"\r\n|\r|\n")
 SESSION_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]*$")
-HUNK_RE = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@")
+HUNK_RE = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@")
 EXCERPT_MAX = 160
 
 
@@ -94,8 +94,8 @@ def logical_lines(physical: Iterable[Tuple[int, str]]) -> List[Tuple[int, str]]:
 
     ANSI escapes are removed; `\\r\\n`, a lone `\\r` and `\\n` all end a line, so
     text hidden behind a carriage return is scanned on its own; a line ending in
-    a backslash is joined to the next. Each logical line keeps the number of the
-    physical line it started on.
+    a backslash or a shell pipe is joined to the next (including blank lines).
+    Each logical line keeps the number of the physical line it started on.
     """
     out: List[Tuple[int, str]] = []
     pending: Optional[Tuple[int, str]] = None
@@ -104,6 +104,9 @@ def logical_lines(physical: Iterable[Tuple[int, str]]) -> List[Tuple[int, str]]:
             start, text = (pending[0], pending[1] + segment) if pending else (number, segment)
             if text.endswith("\\"):
                 pending = (start, text[:-1])
+                continue
+            if text.rstrip().endswith("|") and not text.lstrip().startswith("|"):
+                pending = (start, text + " ")
                 continue
             pending = None
             out.append((start, text))
@@ -174,6 +177,8 @@ def _read_rule_file(path: str, builtin: bool) -> List[Rule]:
     unknown = sorted(set(doc) - FILE_KEYS[builtin])
     if unknown:
         raise _fail(path, f"unknown key(s) {', '.join(unknown)} — a project file only adds rules")
+    if builtin and not doc["rules"]:
+        raise _fail(path, "no rules in the built-in rule set")
     rules = [_parse_rule(raw, path) for raw in doc["rules"]]
     seen = set()
     for rule in rules:
@@ -232,11 +237,21 @@ def diff_sources(base: str, head: str) -> Tuple[List[str], List[Tuple[str, List[
     """The changed paths, and the added lines of each file, in diff order."""
     paths = [p for p in _git("diff", "--no-renames", "--name-only", "-z", base, head).split("\0") if p]
     patch = _git("-c", "core.quotepath=false", "diff", "--no-color", "--no-ext-diff", "--no-textconv",
-                 "--no-renames", "-U0", "--src-prefix=a/", "--dst-prefix=b/", base, head)
+                 "--no-renames", "--text", "-U0", "--inter-hunk-context=0",
+                 "--src-prefix=a/", "--dst-prefix=b/", base, head)
     files: List[Tuple[str, List[Tuple[int, str]]]] = []
     current: Optional[List[Tuple[int, str]]] = None
     number = 0
+    remaining = 0
     for line in patch.split("\n"):
+        # Inside a zero-context hunk, every '+' is source, even '+++ b/...'.
+        if remaining:
+            if line.startswith("+"):
+                if current is not None:
+                    current.append((number, line[1:]))
+                number += 1
+                remaining -= 1
+            continue
         if line.startswith("+++ "):
             target = _unquote(line[4:])
             current = None
@@ -245,10 +260,10 @@ def diff_sources(base: str, head: str) -> Tuple[List[str], List[Tuple[str, List[
                 files.append((target[2:], current))
         elif line.startswith("@@"):
             found = HUNK_RE.match(line)
-            number = int(found.group(1)) if found else 0
-        elif line.startswith("+") and current is not None:
-            current.append((number, line[1:]))
-            number += 1
+            if not found:
+                raise ScanError(f"malformed diff hunk: {line}")
+            number = int(found.group(1))
+            remaining = int(found.group(2)) if found.group(2) is not None else 1
     return paths, files
 
 

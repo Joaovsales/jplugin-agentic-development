@@ -1754,3 +1754,33 @@ Steps executed:
   ✓ gh pr view 420 reports CLOSED with mergedAt=null; its closing comment links retained results.
 Negative: results tree has no graph-hint shell or Codex hint adapter, and the live installer registered no PreToolUse treatment.
 Result: PASS
+
+## E2E Walkthrough — Unattended scan review fixes (PR #450) — 2026-11-19
+
+Spec: specs/unattended-scan.md
+Driver: real pre-push hook, scanner CLI and actual git pushes to isolated local bare remotes; no browser surface.
+Evidence: /tmp/pr450-after-real-push.log, /tmp/pr450-after-adversarial.log, /tmp/pr450-after-diff-header.log, /tmp/pr450-mutations.log, /tmp/pr450-refusal-filing.log.
+
+### AC-2: Trusted scanner and high-severity refusal
+Tier: CLI-FUNCTIONAL
+Journey: run the reviewer's actual-push probes against the installed hook in scratch repositories.
+Steps executed:
+  ✓ Control dangerous script, committed empty rules plus dangerous script, and binary-attributed dangerous script each refused with exit 1; no remote routine ref was created.
+  ✓ Committed and dirty scanner replacements, empty rules, and selective rule removal were refused in hook regressions; a dirty scanner returning 2 did not affect a clean push.
+  ✓ Valid-shell here-document containing a spoofed +++ header still produced pipe-to-shell at setup.sh:4; bash -n exited 0.
+  ✓ Feed the real refusal findings to the registry CLI in the scratch repo with local provider and one --evidence per line; two invocations created then updated exactly one task row/detail file. The original multiline --evidence form refused with exit 2, so the wrap-up recipe now repeats the flag.
+Negative: SKIP_PREPUSH=1 was set throughout the actual-push probes and did not silence the scan.
+Result: PASS
+
+### AC-1/3/5: Source normalization, add-only rules and independent coverage
+Tier: CLI-FUNCTIONAL
+Journey: scan independent diff and transcript payloads; mutate the scanner to remove one transcript rule's source.
+Steps executed:
+  ✓ Newline and blank-line pipeline continuations refused in both sources; benign jq pipelines and separate commands passed.
+  ✓ Harmless rg, grep and git log searches passed; substitutions, backticks, shell -c, wrapped commands and subsequent credential commands refused.
+  ✓ Binary attributes and NUL content did not suppress the dangerous added line.
+  ✓ Removing pipe-to-shell transcript support failed the source-specific fixture assertion while its diff hit still passed.
+Negative: original scanner/rules failed the new binary, framing, multiline, empty-rule and search regressions; retained mutations exited 1.
+Result: PASS
+
+Not checked: no native Claude/Codex/Pi session or external tracker publication was launched; the refusal-to-task journey used the real CLI and isolated local tracker.

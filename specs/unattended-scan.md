@@ -48,7 +48,10 @@ fixtures, then scans:
 Both sources pass through the same normalisation before any rule sees them:
 ANSI escape sequences are removed, `\r\n` becomes `\n` and a lone `\r` starts a
 new line (so text hidden behind a carriage return is scanned), and a line
-ending in a backslash is joined to the next.
+ending in a backslash or shell pipeline operator is joined to the next command,
+including intervening blank lines. Text extraction forces text even for files
+marked binary or holding NUL bytes; hunk counts distinguish patch framing from
+added source lines.
 
 Each hit prints one finding in the finding-model format — `high` is
 `MUST-FIX`, `medium` is `SHOULD-FIX`, always `confidence: 75`,
@@ -62,6 +65,16 @@ remote already has is not scanned again. Exit 1 (a high hit) or 2
 (the scan could not run) blocks the push; medium hits print and pass. The scan
 runs before the `SKIP_PREPUSH` kill switch, so an environment variable cannot
 silence it; `git push --no-verify` remains the human override.
+
+The hook extracts the scanner and built-in rules with `git show` into a temporary
+directory from the merge base with the first available remote baseline
+(`origin/master`, `origin/main`, `origin/develop`), and runs isolated Python.
+The pushing tree never supplies that executable or those built-ins; committed
+scanner/rule edits in the pushed range are independently high-severity hits in
+the hook. The diff range still uses the remote tip when available. A missing
+baseline or a baseline without the scanner/rules refuses the push: initial
+installation must reach the trusted branch through a human push first. An
+empty built-in rule set is refused, even for direct scanner invocations.
 
 `/wrap-up-session` treats a scan refusal like any pre-push gate refusal, and
 on an unattended run first files the findings as one `bug` task through
@@ -100,8 +113,8 @@ on an unattended run first files the findings as one `bug` task through
 - A truncated final JSONL record (the session is still writing) and any other
   line that is not JSON are scanned as raw text, never dropped.
 - A branch deletion (all-zero local sha) is not scanned.
-- A tree without the scanner (or without `python3`) cannot be scanned, so an
-  unattended push from it is refused like any other exit 2.
+- A trusted baseline without the scanner/rules (or a host without `python3`)
+  cannot run the scan, so an unattended push is refused like any other exit 2.
 - Two scans of the same input print byte-identical output and exit the same.
 
 ## Interfaces

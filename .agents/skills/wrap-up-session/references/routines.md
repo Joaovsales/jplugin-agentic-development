@@ -524,9 +524,10 @@ findings, once, before § *Terminal PR assertion*:
 python3 .agents/skills/task-registry/scripts/task-registry.py upsert \
   --derive-id unattended-scan --source "<branch>" --kind bug \
   --title "Unattended scan refused <branch>" \
-  --evidence "<the scan's finding lines, verbatim>" --apply
+  --evidence "<one finding line, verbatim>" --evidence "<next finding line>" --apply
 ```
 
+Repeat `--evidence` once per finding; each value must be a single line.
 The report names the refusal, each rule id it printed and the filed task. The
 work stays on the local branch for a human to review.
 

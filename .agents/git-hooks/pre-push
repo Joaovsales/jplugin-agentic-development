@@ -20,6 +20,7 @@ PUSH_REFS=$(cat)
 # block: an unattended push that was not scanned must not look like one that was.
 # No network: the finding is filed by /wrap-up-session, never from here.
 SCANNER=".agents/skills/wrap-up-session/scripts/unattended_scan.py"
+SCAN_RULES=".agents/skills/wrap-up-session/scripts/unattended-scan-rules.json"
 
 unattended_scan() {
   _local_ref="$1"; _local_sha="$2"; _remote_ref="$3"; _remote_sha="$4"
@@ -30,15 +31,49 @@ unattended_scan() {
       *) return 0 ;;
     esac
   fi
-  # Only what this push adds; a remote tip this clone has never seen widens the
-  # scan to the scanner's default base rather than narrowing it.
-  _base=()
+  # Trust the merge base with the remote default branch, never pushed/dirty code.
+  # A baseline without the scanner refuses: bootstrap it through a human push.
+  _trusted=""
+  for _ref in origin/master origin/main origin/develop; do
+    if git rev-parse --verify --quiet "$_ref^{commit}" >/dev/null; then
+      _trusted=$(git merge-base "$_ref" "$_local_sha") || return 1
+      break
+    fi
+  done
+  if [ -z "$_trusted" ]; then
+    echo "BLOCKED: unattended scan could not run — no trusted remote baseline." >&2
+    return 1
+  fi
+  # The diff range and the trust baseline are separate: remote branch commits
+  # are excluded from the range, but never supply the executable or its rules.
+  _base="$_trusted"
   case "$_remote_sha" in
-    *[!0]*) git cat-file -e "$_remote_sha^{commit}" 2>/dev/null && _base=(--base "$_remote_sha") ;;
+    *[!0]*) git cat-file -e "$_remote_sha^{commit}" 2>/dev/null && _base="$_remote_sha" ;;
   esac
-  python3 "$SCANNER" scan "${_base[@]+"${_base[@]}"}" --head "$_local_sha" \
+  # This integrity check is outside the scanner/rules that it protects.
+  _integrity=0
+  for _protected in "$SCANNER" "$SCAN_RULES"; do
+    git diff --quiet "$_base" "$_local_sha" -- "$_protected"
+    case $? in
+      0) ;;
+      1) echo "[MUST-FIX | confidence: 100 | autofix_class: manual | owner: human] diff:$_protected:1 — check-gate-edit: edits the scanner or built-in rules." >&2; _integrity=1 ;;
+      *) echo "BLOCKED: unattended scan could not inspect scanner/rule changes." >&2; return 1 ;;
+    esac
+  done
+  _snapshot=$(mktemp -d) || return 1
+  if ! git show "$_trusted:$SCANNER" > "$_snapshot/unattended_scan.py" ||
+     ! git show "$_trusted:$SCAN_RULES" > "$_snapshot/unattended-scan-rules.json"; then
+    rm -rf "$_snapshot"
+    echo "BLOCKED: unattended scan could not run — trusted baseline lacks scanner/rules." >&2
+    return 1
+  fi
+  # Isolated Python also keeps the pushing tree off the import path.
+  python3 -I "$_snapshot/unattended_scan.py" scan --base "$_base" --head "$_local_sha" \
     --transcript "${UNATTENDED_SCAN_TRANSCRIPT:-auto}" >&2
-  case $? in
+  _scan_status=$?
+  rm -rf "$_snapshot"
+  [ "$_integrity" = "0" ] || _scan_status=1
+  case "$_scan_status" in
     0) return 0 ;;
     1) echo "BLOCKED: unattended scan — a high-severity finding on ${_local_ref#refs/heads/} (above). A human overrides with git push --no-verify." >&2 ;;
     *) echo "BLOCKED: unattended scan could not run on ${_local_ref#refs/heads/} — an unattended push must be scanned." >&2 ;;

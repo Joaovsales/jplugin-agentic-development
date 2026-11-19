@@ -450,6 +450,49 @@ push_hook "$D" "$ROUTINE" "$(sha "$D")" "$ZERO"
 assert_eq "1" "$HOOK_RC" "Unattended scan: a scan that cannot run blocks the push"
 assert_contains "$OUT" "BLOCKED: unattended scan" "Unattended scan: the cannot-run refusal names the scan"
 
+# A pushed tree and dirty checkout cannot choose the code or built-ins that scan it.
+for target in unattended_scan.py unattended-scan-rules.json; do
+  for state in committed dirty; do
+    D="$(scan_repo scantamper)"
+    commit_line "$D" scripts/setup.sh "$HIT"
+    if [ "$target" = unattended_scan.py ]; then
+      printf 'raise SystemExit(0)\n' > "$D/.agents/skills/wrap-up-session/scripts/$target"
+    else
+      printf '{"rules":[]}\n' > "$D/.agents/skills/wrap-up-session/scripts/$target"
+    fi
+    if [ "$state" = committed ]; then
+      git -C "$D" add -A; git -C "$D" commit -qm tamper
+    fi
+    push_hook "$D" "$ROUTINE" "$(sha "$D")" "$ZERO" SKIP_PREPUSH=1
+    assert_eq "1" "$HOOK_RC" "Unattended trust: $state $target cannot permit a dangerous push"
+    assert_contains "$OUT" "pipe-to-shell" "Unattended trust: $state $target uses the trusted rules"
+    if [ "$state" = committed ]; then
+      assert_contains "$OUT" "check-gate-edit" "Unattended trust: pushed $target changes are high"
+    fi
+  done
+done
+
+D="$(scan_repo scantrustclean)"
+commit_line "$D" notes.txt "clean"
+printf 'raise SystemExit(2)\n' > "$D/.agents/skills/wrap-up-session/scripts/unattended_scan.py"
+printf '{"rules":[]}\n' > "$D/.agents/skills/wrap-up-session/scripts/unattended-scan-rules.json"
+push_hook "$D" "$ROUTINE" "$(sha "$D")" "$ZERO" SKIP_PREPUSH=1
+assert_eq "0" "$HOOK_RC" "Unattended trust: dirty scanner and rules are never executed or loaded"
+
+# Selective removal is as dangerous as empty rules; a scanner edit alone is high.
+for target in unattended_scan.py unattended-scan-rules.json; do
+  D="$(scan_repo scantrustedit)"
+  if [ "$target" = unattended_scan.py ]; then
+    printf 'raise SystemExit(0)\n' > "$D/.agents/skills/wrap-up-session/scripts/$target"
+  else
+    printf '{"rules":[{"id":"irrelevant","severity":"medium","kind":"path","pattern":"^irrelevant$","description":"irrelevant","match":["irrelevant"],"no_match":["safe"],"gaps":["x"]}]}\n' > "$D/.agents/skills/wrap-up-session/scripts/$target"
+  fi
+  git -C "$D" add -A; git -C "$D" commit -qm tamper
+  push_hook "$D" "$ROUTINE" "$(sha "$D")" "$ZERO" SKIP_PREPUSH=1
+  assert_eq "1" "$HOOK_RC" "Unattended trust: $target self-edit alone is refused"
+  assert_contains "$OUT" "check-gate-edit" "Unattended trust: $target self-edit is high"
+done
+
 # /wrap-up-session names the refusal and files its finding (the hook cannot: no network).
 WRAP="$REPO/.agents/skills/wrap-up-session"
 assert_file_contains "$WRAP/SKILL.md" 'BLOCKED: unattended scan' \

@@ -1194,3 +1194,12 @@ back vacuous and was repaired.
 - Quality gate: Phase 4 inline, test-engineer lost (no Agent tool in the Orca
   worker); receipt aaed27bb GO (policy qg1-314de3d6).
 - Learning: [patterns/a-pre-push-hook-with-two-ref-readers-reads-stdin-once.md](solutions/patterns/a-pre-push-hook-with-two-ref-readers-reads-stdin-once.md).
+
+### [2026-11-19] — PR #450 independent review fixes
+
+Preserved the previous worker's regression fixtures and fixed all six review
+findings: trusted scanner/rule snapshots, binary text extraction, hunk framing,
+multiline pipelines, quoted reconnaissance and transcript-source assertions.
+Actual scratch pushes now refuse every reported bypass; independent mutation
+checks prove the new regressions fail against the original scanner and missing
+transcript support. Learning: [scanner trust boundary](solutions/bugs/unattended-scan-must-not-trust-the-pushed-tree.md).

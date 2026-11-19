@@ -3024,3 +3024,13 @@ Step ledger (routine `simplify`):
   - `/yolo` and `/auto-push` do not yet export `UNATTENDED_SCAN=1` themselves;
     they reach the scan through `/wrap-up-session`'s unattended push.
   - The Phase 5.1 test-engineer review was lost (no Agent tool in the worker).
+
+## Session Summary — [2026-11-19] [295bd59..295bd59]
+
+- Completed:
+  - PR #450 / #444: all six independent review fixes, preserving the prior worker's fixtures; trusted scanner snapshots, binary and hunk framing, multiline pipelines, quoted reconnaissance and separate transcript coverage.
+  - Real scratch push and local refusal-to-registry walkthroughs; corrected one-line evidence arguments in the wrap-up recipe.
+- Carry-forward:
+  - #452: the existing pre-push force guard remains outside this PR.
+  - Initial unattended-scan bootstrap requires scanner/rules in the trusted remote baseline.
+  - Phase 4 review was inline; phase 5 test-engineer review was lost because this worker dispatch prohibits helpers.
