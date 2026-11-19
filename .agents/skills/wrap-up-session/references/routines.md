@@ -101,10 +101,8 @@ and the union of the selectors are the same set.
 ### Priority is not a selector
 
 `now` and `next` are the **priority** axis. They order candidates *within* a
-routine's pool; they never select a routine. Measured against the pipeline repo,
-9 of 28 open issues carried both a priority and a kind label — so a design that
-selected on both axes had two routines claiming one issue in a third of all
-cases. Ordering within a pool is what makes the selectors a total function.
+routine's pool; they never select a routine. Ordering within a pool is what
+makes the selectors a total function.
 
 ### An unclassified issue belongs to nobody
 

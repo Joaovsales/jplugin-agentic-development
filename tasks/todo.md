@@ -3002,3 +3002,28 @@ Step ledger (routine `simplify`):
     `pi-subagents`.
   - The code-graph timing bounds in `test-session-start.sh` fail on a loaded
     Windows host.
+- [ ] enforced-prose in .agents/skills/wrap-up-session/references/routines.md <!-- task-id: simplify.agents-skills-wrap-up-session-references-routines-md.enforced-prose-in-agents-skills-wrap-up-session-references-routines-md --> ([#453](https://github.com/Joaovsales/jplugin-agentic-development/issues/453))
+
+## Plan: simplify-enforced-prose-in-agents-skills-wrap-up-session-references-routines-md
+
+> Routine: `simplify` #453 · branch `routine/simplify/453-enforced-prose-in-routines-md` · spec `specs/simplify-enforced-prose-in-agents-skills-wrap-up-session-references-routines-md.md`
+
+### Slice 1/1 — priority rule without its history
+[x] TDD: `routines.md` § *Priority is not a selector* keeps "never select a routine" and "total function" and drops "9 of 28"; the affected tests and `bash tests/test-citations.sh` green before and after -> remove the measurement sentence; pin "total function" in `tests/test-routines-contract.sh` (AC 1, 2)
+
+> Handover: one sentence removed from `.agents/skills/wrap-up-session/references/routines.md` § *Priority is not a selector* (553 -> 551 lines); the measurement keeps its home in `specs/category-routines.md`; one assertion added for the kept "total function" sentence.
+
+Step ledger (routine `simplify`):
+- [x] 1. `task-registry select --routine simplify` — #453 (filed this run by `/make-it-simpler --unattended` discovery)
+- [x] 2. `task-registry claim 453 --routine simplify --apply --approve`
+- [x] 3. branch `routine/simplify/453-enforced-prose-in-routines-md`
+- [x] 4.1 `/make-it-simpler #453` — before-proof recorded, scope re-checked (minor, 1 slice, reproduces), spec with safe-moves § Decisions
+- [x] 4.2 `/plan <spec>` — under `/make-it-simpler` § *Overrides*: § Decisions carried, nothing asked, no build prompt
+- [x] 4.3 `/build` — the one TDD row above, in place (inline: a two-line slice)
+- [x] 4.4 `/quality-gate` — Phases 1–4 inline, no findings; test-engineer dispatched, one AC-coverage finding fixed (pinned "total function"); receipt GO d2025fec policy qg1-314de3d6
+- [x] 5. `/wrap-up-session` — full suite 99/99 green; version bumped to 1.8.20
+
+## Session Summary — [2026-11-19] [887e959..70de7e4]
+- Completed: #453 — `routines.md` § *Priority is not a selector* drops the pipeline-repo measurement the spec records (simplify routine).
+- Pending: none from this run.
+- Carry-forward: the `duplicate-rule` "Item 7 is read, not remembered" paragraph still lives in quality-gate, system-design-planning and software-design-expert-review, but its derived id is done (#372) so it cannot be refiled under that key; PR #438 also bumps plugin.json to 1.8.20 — whichever merges second re-runs `scripts/bump-plugin-version.sh`.
