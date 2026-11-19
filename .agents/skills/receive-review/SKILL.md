@@ -165,7 +165,7 @@ For multi-item feedback:
 ### Record the rework run
 
 When a reviewer asks for changes on an open PR whose branch has a run in
-`tasks/runs/` (`/build`'s `references/run-ledger.md`), mark that run and
+`tasks/runs/` (`.agents/skills/build/references/run-ledger.md`), mark that run and
 record this round as its rework. Before the first change:
 
 ```bash
