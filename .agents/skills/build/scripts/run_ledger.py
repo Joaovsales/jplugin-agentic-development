@@ -198,18 +198,39 @@ def load_ledger(ledger: Path) -> List[Dict[str, object]]:
 # --------------------------------------------------------------------------
 # Commands
 
-def cmd_record(args: argparse.Namespace) -> int:
-    run_id = args.run_id or f"{_slug(args.branch)}-{args.base[:12]}"
-    if args.parent == run_id:
-        print(f"run_ledger.py record: error: run {run_id} cannot be its own parent", file=sys.stderr)
-        return 2
-    path = args.ledger / f"{run_id}.json"
-    stored = load_record(path) if path.exists() else {
+def default_run_id(branch: str, base: str) -> str:
+    return f"{_slug(branch)}-{base[:12]}"
+
+
+def _stored_or_new(path: Path, run_id: str) -> Dict[str, object]:
+    return load_record(path) if path.exists() else {
         "schema": SCHEMA, "run_id": run_id, "spec": None, "pr": None, "parent_run_id": None,
         "models": {}, "slices": [], "tokens": UNKNOWN_VALUE, "cost_usd": UNKNOWN_VALUE,
         "recorded_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "human_result": None, "decisions": [],
     }
+
+
+def add_candidates(ledger: Path, branch: str, base: str, run_id: Optional[str],
+                   slice_id: str, entries: List[Dict[str, object]]) -> str:
+    """Write one slice's ranked candidates (candidates.py rank) into the run record.
+
+    `candidates` is not a `record` option, so a later `record` keeps it."""
+    run_id = run_id or default_run_id(branch, base)
+    stored = _stored_or_new(ledger / f"{run_id}.json", run_id)
+    record = {"branch": branch, "base_sha": base, **stored,
+              "candidates": {**stored.get("candidates", {}), slice_id: entries}}
+    write_record(ledger, record)
+    return run_id
+
+
+def cmd_record(args: argparse.Namespace) -> int:
+    run_id = args.run_id or default_run_id(args.branch, args.base)
+    if args.parent == run_id:
+        print(f"run_ledger.py record: error: run {run_id} cannot be its own parent", file=sys.stderr)
+        return 2
+    path = args.ledger / f"{run_id}.json"
+    stored = _stored_or_new(path, run_id)
     given = {
         "branch": args.branch, "base_sha": args.base, "spec": args.spec, "pr": args.pr,
         "parent_run_id": args.parent,
