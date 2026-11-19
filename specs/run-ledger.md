@@ -140,7 +140,7 @@ receive -> ledger : record --branch B --base HEAD --parent parent
 | Field | Type | Invariant | Enforced by |
 |-------|------|-----------|-------------|
 | `schema` | `"run-ledger/1"` | constant | `load_record` |
-| `run_id` | string `[A-Za-z0-9][A-Za-z0-9._-]*` | equals the file name stem | `record`, `load_record` |
+| `run_id` | string `[A-Za-z0-9][A-Za-z0-9._-]*` | equals the file name stem; a dot-file in the ledger is a write's temp, never a record | `record`, `load_record`, `load_ledger` |
 | `branch`, `base_sha` | string, hex ≥ 7 | present | `record` arguments are required |
 | `spec`, `pr`, `parent_run_id` | string, int ≥ 1, run id — or `null` | `parent_run_id` ≠ `run_id` | `record` |
 | `models` | `{tier: name}` | non-empty strings | `--model` parser |

@@ -3072,3 +3072,9 @@ Step ledger (routine `simplify`):
 > Do not re-derive: a skill naming another skill's reference uses the full `.agents/skills/<skill>/references/…` path (test-skill-references RefInt); merged #448 fixes at 875778f change no field or label `run_ledger.py` reads.
 > Outcome: agent_result=True verification_result=True slice_result=True SUCCEEDED
 > Surface: undeclared tasks/todo.md (the plan block) plus the eight #448 files the merge a049285 brought in (`slice.py check --slice 2 --base 49f0a1f`); no slice-2 edit outside its Surface.
+
+## Session Summary — [2026-11-19] [7da69f9..81fb364]
+
+- Completed: #442 run ledger — `run_ledger.py` (`record`, `decide`, `last`, `stats`) writes one `tasks/runs/<run-id>.json` per run; `/build` Phase 6, `/receive-review` and `references/run-ledger.md` name every caller; quality-gate fix for a crashed write's temp file; plugin 1.8.21.
+- Pending: none in this PR.
+- Carry-forward: nobody records `merged` automatically yet (spec D7, R1); `stats` shows undecided PRs as `open`. Stacked on #448 — merge #448 first.

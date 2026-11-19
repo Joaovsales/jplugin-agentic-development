@@ -1782,3 +1782,15 @@ Evidence: /tmp/pr448-followup/red.log and /tmp/pr448-followup/green.log.
 
 Red proof: 40 assertions passed and 6 failed before the source change. Green proof: all 46 assertions passed after it. Field names, labels and exit statuses are unchanged.
 Not checked: live agent-driven header mutation and independent test-engineer dispatch — the worker task forbids helper agents.
+
+## CLI walkthrough — #442 run ledger — 2026-11-19 — 81fb364
+
+Spec: specs/run-ledger.md (AC1–AC5).
+Driver: the actual `run_ledger.py` CLI against a scratch ledger directory, following the flow in `.agents/skills/build/references/run-ledger.md`.
+
+- `/build` Phase 6's `record` with `--slice "1 attempts=1 <Outcome line>"`, tokens and cost → `record: recorded feat-demo-0123456789ab` (the default run id).
+- `/receive-review`'s flow: `last --branch feat/demo` printed the parent; `decide … --result changes_requested` recorded it; the rework `record … --parent` recorded `feat-demo-fedcba987654`.
+- The merger's `decide … --result merged` was recorded; a later `decide … --result closed` was refused, exit 1, with `a final human decision is never overwritten`.
+- `stats` over three runs: `runs=3 prs=2 merged=1 closed=0 open=1`, `first_pass_rate=0/1 (0%)`, `attempts_per_merged_pr=2.00`, `cost_per_merged_pr=0.60`, `tokens_per_merged_pr=1200`. These are the two-run chain's sums, derived from the files.
+
+Not checked: a live `/build` or `/receive-review` session invoking these calls. The wiring is pinned by `tests/test-doc-conventions.sh` § run ledger.

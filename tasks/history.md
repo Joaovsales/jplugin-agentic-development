@@ -1206,3 +1206,21 @@ back vacuous and was repaired.
 ### [2026-11-19] — Outcome boundary repair
 - Key changes: PR #448's final summary follows the diagnostic, and an explicit newline follows both replayed streams; regressions cover multiline argv and merged partial text/binary stderr.
 - Learnings captured: [outcome output producers](solutions/bugs/print-authoritative-outcomes-after-every-output-producer.md).
+
+### [2026-11-19] — #442 run ledger (improve lane, unattended, resumed)
+
+- Resumed after the previous worker hit the usage limit with both slices committed
+  (`49f0a1f`, `7034240`) but slice 2 not closed.
+- Slice 1: `.agents/skills/build/scripts/run_ledger.py` writes one
+  `tasks/runs/<run-id>.json` per run (`record`, `decide`, `last`, `stats`) and
+  derives first-pass rate, attempts and cost/tokens per merged PR from the files.
+- Slice 2: `/build` Phase 6 step 5, `/receive-review` § *Record the rework run*,
+  and `.agents/skills/build/references/run-ledger.md`. Its affected run found a
+  RefInt failure: `/receive-review` named `references/run-ledger.md` bare. Fixed
+  with the full path.
+- Merged PR #448's review fixes twice (875778f, cf87923); no field or label
+  `run_ledger.py` reads changed.
+- Quality gate (inline, test-engineer `lost`): `run_ledger.py` ignores and cleans
+  a crashed write's dot-temp file. Bumped the plugin to 1.8.21.
+- Learnings: [bugs/a-pathlib-glob-reads-a-crashed-writes-dot-temp-as-a-record.md](solutions/bugs/a-pathlib-glob-reads-a-crashed-writes-dot-temp-as-a-record.md),
+  rule 3 of [conventions/write-skill-prose-so-the-static-guards-can-read-it.md](solutions/conventions/write-skill-prose-so-the-static-guards-can-read-it.md).
