@@ -2,7 +2,7 @@
 title: git hash-object on a symlink path hashes the file it points to, not the link git stores
 date: 2026-11-18
 problem_type: bug
-module: .agents/skills/quality-gate/scripts/gate-integrity.py — _Run.current, _Run.base_effective
+module: .agents/skills/quality-gate/scripts/gate-integrity.py — _Contents.current, _Contents.base_effective
 tags: [git, hash-object, symlink, content-hash, gate-integrity, false-positive]
 symptoms: an unchanged, committed symlink `pytest.ini -> real.txt` was reported `GATE_TAMPERED pytest.ini` (exit 1), which would stop a /build slice; a symlink retargeted at a missing file came out NOT_CHECKED instead of GATE_TAMPERED
 root_cause: git records a symlink as a blob whose content is the link's target path, and `git ls-tree` gives that blob id. `git hash-object <path>` and `--stdin-paths` open the path and follow the link, so they hash the target file's bytes — never equal to the stored blob — and fail outright on a dangling link
@@ -32,3 +32,11 @@ for a rewritten runner. Blob ids are now computed in-process
 normalization. Regression tests: `tests/test-gate-integrity.sh` § "an unchanged
 link does not hide a changed referent" and § "a clean filter cannot launder a
 changed runner".
+
+The re-review also found policy discovery reading a historical `AGENTS.md`
+symlink's link-text blob as instructions, silently losing the baseline policy.
+Gate contents and policy discovery now share `_Contents` resolution in both
+historical and working trees. A missing, outside or unsupported policy
+referent is not checked; it never becomes an empty policy. Regression:
+`tests/test-gate-integrity.sh` sections `linked policy`, `current policy link`,
+`historical policy link` and `dangling policy link`.

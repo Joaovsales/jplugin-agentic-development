@@ -232,6 +232,70 @@ assert_contains "$output" "now tests/other.txt" "policy retargeted: names the ne
 assert_contains "$output" "EXPECTED_FAILURE_ADDED tests/expected-failures.txt" "policy retargeted: the old list is still read"
 assert_not_contains "$output" "Protected paths: src/**" "policy widened: a new declaration is not a finding"
 
+# --- linked policy uses the historical referent, not the link text ----------
+R="$(gi_repo)"
+mkdir -p "$R/config"
+mv "$R/AGENTS.md" "$R/config/agent-policy.md"
+ln -s config/agent-policy.md "$R/AGENTS.md" 2>/dev/null
+if [ -L "$R/AGENTS.md" ]; then
+  git -C "$R" add -A && git -C "$R" commit -q -m "linked policy"
+  run gate_in "$R" --base HEAD
+  assert_exit 0 "linked policy: unchanged policy is clean"
+  printf '<!-- jplugin-agentic-development:end -->\n' > "$R/config/agent-policy.md"
+  printf 'exit 0\n' >> "$R/tests/run.sh"
+  printf 'tests/test-a.sh linux* two is two\n' >> "$R/tests/expected-failures.txt"
+  run gate_in "$R" --base HEAD
+  assert_exit 1 "linked policy: removing declarations cannot hide tampering"
+  assert_contains "$output" "GATE_TAMPERED AGENTS.md" "linked policy: reports removed historical declarations"
+  assert_contains "$output" "GATE_TAMPERED tests/run.sh" "linked policy: keeps the historical protected runner"
+  assert_contains "$output" "EXPECTED_FAILURE_ADDED tests/expected-failures.txt — tests/test-a.sh linux* two is two" \
+    "linked policy: keeps the historical expected-failures list"
+
+  R="$(gi_repo)"
+  OUT="$(fixture_dir)/policy.md"
+  cp "$R/AGENTS.md" "$OUT"
+  rm "$R/AGENTS.md"
+  ln -s "$OUT" "$R/AGENTS.md"
+  run gate_in "$R" --base HEAD
+  assert_exit 3 "current policy link: outside referent is not checked"
+  assert_contains "$output" "outside the repository" "current policy link: explains unsupported referent"
+  git -C "$R" add AGENTS.md && git -C "$R" commit -q -m "outside policy link"
+  rm "$R/AGENTS.md"
+  cp "$OUT" "$R/AGENTS.md"
+  run gate_in "$R" --base HEAD
+  assert_exit 3 "historical policy link: outside referent is not an empty policy"
+  assert_contains "$output" "outside the repository" "historical policy link: explains unsupported referent"
+
+  R="$(gi_repo)"
+  rm "$R/AGENTS.md"
+  ln -s missing-policy.md "$R/AGENTS.md"
+  git -C "$R" add AGENTS.md && git -C "$R" commit -q -m "dangling policy link"
+  run gate_in "$R" --base HEAD
+  assert_exit 3 "dangling policy link: missing referent is not an empty policy"
+  assert_not_contains "$output" "gate-integrity: clean" "dangling policy link: never clean"
+else
+  skip "linked policy: ln -s made no symlink here"
+fi
+
+# --- added protection cannot relax an existing gate's Surface precision -----
+R="$(gi_repo)"
+printf 'exit 0\n' >> "$R/tests/run.sh"
+run gate_in "$R" --base HEAD --spec specs/f.md --slice 1
+assert_exit 1 "overlapping policy control: broad Surface does not declare the runner"
+printf 'Protected paths: tests/**\n' >> "$R/AGENTS.md"
+run gate_in "$R" --base HEAD --spec specs/f.md --slice 1
+assert_exit 1 "overlapping policy: a new broad glob cannot authorize the runner"
+assert_contains "$output" "GATE_TAMPERED tests/run.sh" "overlapping policy: preserves the baseline authorization boundary"
+assert_not_contains "$output" "GATE_CHANGED tests/run.sh" "overlapping policy: never downgrades existing tampering"
+
+R="$(gi_repo)"
+printf 'Protected paths: src/**\n' >> "$R/AGENTS.md"
+printf 'print("changed")\n' > "$R/src/app.py"
+run gate_in "$R" --base HEAD --spec specs/f.md --slice 1
+assert_exit 0 "new protection: an unrelated new declaration still allows its own Surface"
+assert_contains "$output" "GATE_CHANGED src/app.py" "new protection: the newly protected source is checked"
+assert_not_contains "$output" "GATE_TAMPERED AGENTS.md" "new protection: unrelated protection is not policy tampering"
+
 # ===========================================================================
 printf '\n--- the surface declares a protected path ---\n'
 # ===========================================================================
@@ -337,6 +401,36 @@ S_FILTER="$output"
 run gate_in "$R" --base "$S_FILTER"
 assert_exit 0 "snapshot filter: unchanged working bytes match their dispatch snapshot"
 assert_contains "$output" "gate-integrity: clean" "snapshot filter: raw snapshot is clean"
+
+# --- committed submodules retain their gitlink IDs in the snapshot ----------
+R="$(gi_repo)"
+DEP="$(fixture_repo)"
+printf 'dependency\n' > "$DEP/dep.txt"
+git -C "$DEP" add -A && git -C "$DEP" commit -q -m dependency
+DEP_ID="$(git -C "$DEP" rev-parse HEAD)"
+git -C "$R" -c protocol.file.allow=always submodule add -q "$DEP" vendor/dep
+git -C "$R" add -A && git -C "$R" commit -q -m "add submodule"
+run gate_in "$R" --snapshot
+assert_exit 0 "submodule snapshot: a clean project with a gitlink succeeds"
+if [ "$status" -eq 0 ]; then
+  assert_contains "$(git -C "$R" ls-tree "$output" -- vendor/dep)" "160000 commit $DEP_ID" \
+    "submodule snapshot: retains the recorded commit ID and mode"
+fi
+assert_eq "" "$(git -C "$R" status --porcelain)" "submodule snapshot: real index and worktree stay clean"
+git -C "$R" submodule deinit -q -f -- vendor/dep
+run gate_in "$R" --snapshot
+assert_exit 0 "submodule snapshot: a deinitialized gitlink is supported"
+if [ "$status" -eq 0 ]; then
+  assert_contains "$(git -C "$R" ls-tree "$output" -- vendor/dep)" "160000 commit $DEP_ID" \
+    "submodule snapshot: deinitialized gitlink keeps its ID"
+fi
+
+R="$(gi_repo)"
+rm "$R/src/app.py"
+mkdir "$R/src/app.py"
+run gate_in "$R" --snapshot
+assert_exit 3 "unsupported snapshot type: an ordinary directory replacing a file is refused"
+assert_contains "$output" "cannot snapshot non-file src/app.py" "unsupported snapshot type: refusal names the directory"
 
 # A partial symlink read failure must retain findings for other gates.
 R="$(gi_repo)"

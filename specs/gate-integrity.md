@@ -33,6 +33,8 @@ tree (tracked, untracked, not ignored) through a scratch index, touching
 neither the real index nor working files; `/build` passes it back as `--base`.
 The snapshot writes raw blobs and a tree into Git's object store, bypassing
 clean filters even when a file is already modified at dispatch.
+Tracked submodules retain their index's mode-160000 gitlink object IDs,
+including when deinitialized; other unsupported filesystem types still refuse.
 
 1. **Protected set.** The protected patterns are the default list below, every
    glob on a `Protected paths:` line below the `AGENTS.md` end marker
@@ -50,6 +52,10 @@ clean filters even when a file is already modified at dispatch.
    tracked and untracked, non-ignored files of the working tree (`git ls-files
    -c -o --exclude-standard`); a candidate is protected when a protected
    pattern matches it.
+   Policy discovery resolves `AGENTS.md` through the same bounded,
+   repository-contained link rules as gate contents, separately in the base
+   tree and working tree. An outside, dangling or unsupported policy link is
+   `not checked`, never an empty policy.
 2. **Content comparison.** Each protected path's base blob id (from
    `ls-tree`) is compared with the git blob id of the raw working-tree bytes,
    computed in-process in the repository's object format. Hashing for the
@@ -73,7 +79,11 @@ clean filters even when a file is already modified at dispatch.
    slice's Surface; with neither it is empty. A Surface entry **declares** a
    protected path when it matches the path and the entry itself lies wholly
    inside a protected pattern — `tests/expected-failures.txt` and
-   `.github/workflows/**` declare, a broad `tests/**` does not.
+   `.github/workflows/**` declare, a broad `tests/**` does not. For paths already
+   protected by the defaults or base declarations, only those historical
+   patterns set Surface precision: adding a broader current glob cannot
+   authorize an earlier gate. Current declarations set precision only for
+   newly protected paths, so unrelated added protection remains allowed.
 4. **Report.** One line per result, then one summary line:
 
    | Line | When |

@@ -50,6 +50,7 @@ from registry.globs import SpecPathError, match_path, pattern_covered_by, valida
 END_MARKER = "<!-- jplugin-agentic-development:end -->"
 AGENTS = "AGENTS.md"
 LINK_MODE = "120000"
+GITLINK_MODE = "160000"
 MAX_LINK_HOPS = 40
 PROTECTED_KEY = "Protected paths:"
 EXPECTED_FAILURES_KEY = "Expected failures:"
@@ -93,6 +94,7 @@ class Gates:
 
     patterns: Tuple[str, ...]
     expected_failures: FrozenSet[str]
+    baseline_patterns: Tuple[str, ...]
 
 
 # ------------------------------------------------------------------- git
@@ -182,22 +184,25 @@ def read_policy(text: str) -> Policy:
     return Policy(tuple(dict.fromkeys(protected)), expected)
 
 
-def _current_policy(repo: str) -> Policy:
-    agents = os.path.join(repo, AGENTS)
-    if not os.path.exists(agents):
-        return Policy()
+def _current_policy(contents: _Contents) -> Policy:
     try:
-        with open(agents, encoding="utf-8", errors="replace") as handle:
-            return read_policy(handle.read())
-    except OSError as exc:
-        raise NotChecked(f"{AGENTS} unreadable: {exc.strerror or exc}")
+        state = contents.current(AGENTS)
+        if state.identity and state.effective_path is None:
+            raise NotChecked("symlink referent is missing")
+        return read_policy("\n".join(_working_lines(contents.repo, state.effective_path)))
+    except (NotChecked, OSError) as exc:
+        raise NotChecked(f"{AGENTS} unreadable: {exc}")
 
 
 def merge_gates(base: Policy, current: Policy) -> Gates:
     """The defaults plus both policies: a declaration removed since the base still protects."""
     expected = frozenset(path for path in (base.expected_failures, current.expected_failures) if path)
-    patterns = (*DEFAULT_PROTECTED, *base.protected, *current.protected, *sorted(expected))
-    return Gates(patterns=tuple(dict.fromkeys(patterns)), expected_failures=expected)
+    baseline = (*DEFAULT_PROTECTED, *base.protected)
+    if base.expected_failures:
+        baseline += (base.expected_failures,)
+    patterns = (*baseline, *current.protected, *sorted(expected))
+    return Gates(patterns=tuple(dict.fromkeys(patterns)), expected_failures=expected,
+                 baseline_patterns=tuple(dict.fromkeys(baseline)))
 
 
 def policy_removals(base: Policy, current: Policy) -> List[Tuple[str, str]]:
@@ -333,21 +338,12 @@ class _State:
 
 
 @dataclass
-class _Run:
-    """One check's fixed inputs: what the base held, what is protected, what the Surface declares."""
+class _Contents:
+    """Resolve historical and working contents under the same bounded, repository-contained link rules."""
 
     repo: str
-    base_id: str
     base_entries: Dict[str, Tuple[str, str]]
-    gates: Gates
-    surface: Sequence[str]
     algorithm: str
-
-    def protected(self, path: str) -> bool:
-        return any(match_path(pattern, path) for pattern in self.gates.patterns)
-
-    def existing_test(self, path: str) -> bool:
-        return path in self.base_entries and path not in self.gates.expected_failures and is_test_file(path)
 
     def base_effective(self, path: str) -> Optional[str]:
         """The blob id of what `path` holds at the base, a symlink followed through the base tree."""
@@ -393,19 +389,38 @@ class _Run:
             path = _link_step(path, target)
         raise NotChecked(f"more than {MAX_LINK_HOPS} symlinks deep")
 
+
+@dataclass
+class _Run:
+    """One check's fixed inputs: content, baseline identity, protection and Surface authorization."""
+
+    contents: _Contents
+    base_id: str
+    gates: Gates
+    surface: Sequence[str]
+
+    def protected(self, path: str) -> bool:
+        return any(match_path(pattern, path) for pattern in self.gates.patterns)
+
+    def existing_test(self, path: str) -> bool:
+        return path in self.contents.base_entries and path not in self.gates.expected_failures and is_test_file(path)
+
     def changed(self, path: str, state: _State) -> bool:
-        identity = self.base_entries.get(path, ("", None))[1]
-        effective = self.base_effective(path)
+        identity = self.contents.base_entries.get(path, ("", None))[1]
+        effective = self.contents.base_effective(path)
         same_identity = identity in state.identity if identity else not state.identity
         same_effective = effective in state.effective if effective else not state.effective
         return not (same_identity and same_effective)
 
     def report_change(self, report: Report, path: str, state: _State) -> None:
         if self.protected(path):
-            declared = _declares(self.surface, self.gates.patterns, path)
+            boundary = self.gates.baseline_patterns
+            if not any(match_path(pattern, path) for pattern in boundary):
+                boundary = self.gates.patterns
+            declared = _declares(self.surface, boundary, path)
             kind, how = ("GATE_CHANGED", "declared in") if declared else ("GATE_TAMPERED", "not declared in")
             report.add(kind, f"{path} — changed since {self.base_id[:8]}, {how} the surface")
-        current_lines = _working_lines(self.repo, state.effective_path)
+        current_lines = _working_lines(self.contents.repo, state.effective_path)
         if path in self.gates.expected_failures:
             for row in added_expected_failures(self._base(path), current_lines):
                 report.add("EXPECTED_FAILURE_ADDED", f"{path} — {row}")
@@ -414,21 +429,24 @@ class _Run:
                 report.add(kind, f"{path}:{line} — {text}")
 
     def _base(self, path: str) -> List[str]:
-        return _base_lines(self.repo, self.base_effective(path))
+        return _base_lines(self.contents.repo, self.contents.base_effective(path))
 
 
-def _base_policy(repo: str, entries: Dict[str, Tuple[str, str]]) -> Policy:
-    entry = entries.get(AGENTS)
-    return read_policy(_blob_text(repo, entry[1])) if entry else Policy()
+def _base_policy(contents: _Contents) -> Policy:
+    blob = contents.base_effective(AGENTS)
+    if blob is None and AGENTS in contents.base_entries:
+        raise NotChecked(f"{AGENTS} historical symlink referent is missing")
+    return read_policy(_blob_text(contents.repo, blob))
 
 
 def check(repo: str, base: str, surface: Sequence[str]) -> Report:
     """Every changed protected file, added expected-failure row, weakened existing test and dropped declaration, against `base`."""
     base_id = _resolve_base(repo, base)
     entries = _base_entries(repo, base_id)
-    base_policy, current_policy = _base_policy(repo, entries), _current_policy(repo)
     algorithm = _git(repo, "rev-parse", "--show-object-format").strip()
-    run = _Run(repo, base_id, entries, merge_gates(base_policy, current_policy), surface, algorithm)
+    contents = _Contents(repo, entries, algorithm)
+    base_policy, current_policy = _base_policy(contents), _current_policy(contents)
+    run = _Run(contents, base_id, merge_gates(base_policy, current_policy), surface)
     report = Report(lines=[])
     for declaration, outcome in policy_removals(base_policy, current_policy):
         report.add("GATE_TAMPERED", f"{AGENTS} — {declaration} declared at {base_id[:8]}, {outcome}")
@@ -438,7 +456,7 @@ def check(repo: str, base: str, surface: Sequence[str]) -> Report:
     ]
     for path in candidates:
         try:
-            state = run.current(path)
+            state = contents.current(path)
             if run.changed(path, state):
                 run.report_change(report, path, state)
         except (NotChecked, OSError) as exc:
@@ -450,7 +468,20 @@ def snapshot(repo: str) -> str:
     """A raw-byte working-tree snapshot, using an empty scratch index and never running clean filters."""
     regular = []
     entries = []
+    gitlinks = {}
+    for record in _git(repo, "ls-files", "--stage", "-z").split("\0"):
+        if not record:
+            continue
+        meta, path = record.split("\t", 1)
+        mode, oid, stage = meta.split()
+        if mode == GITLINK_MODE:
+            if stage != "0":
+                raise NotChecked(f"cannot snapshot unmerged gitlink {path}")
+            gitlinks[path] = oid
     for path in _working_paths(repo):
+        if path in gitlinks:
+            entries.append(f"{GITLINK_MODE} {gitlinks[path]}\t{path}\0")
+            continue
         full = os.path.join(repo, path)
         if not os.path.lexists(full):
             continue
