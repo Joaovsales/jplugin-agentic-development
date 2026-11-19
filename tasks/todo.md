@@ -3059,5 +3059,10 @@ Step ledger (routine `simplify`):
 > Surface: undeclared specs/run-ledger.md, specs/run-ledger.plan.html, tasks/todo.md — plan artifacts committed with the slice (`slice.py check --slice 1 --base 7da69f9`).
 
 ### Slice 2/2 — Runs record themselves
-- [ ] Runs record themselves — /build Phase 6 records the run; /receive-review records a rework with its parent; the reference names every caller
-- [ ] TDD: tests/test-doc-conventions.sh § run ledger — Phase 6 calls run_ledger.py record; /receive-review decides changes_requested and records --parent; the reference names the merger's decide -> wiring (AC5)
+- [x] Runs record themselves — /build Phase 6 records the run; /receive-review records a rework with its parent; the reference names every caller
+- [x] TDD: tests/test-doc-conventions.sh § run ledger — Phase 6 calls run_ledger.py record; /receive-review decides changes_requested and records --parent; the reference names the merger's decide -> wiring (AC5)
+
+> Handover: landed 49f0a1f..63f1ed4 — `/build` Phase 6 step 5 records the run; `/receive-review` § *Record the rework run* decides the parent `changes_requested` and records `--parent`; `.agents/skills/build/references/run-ledger.md` names every caller, the merger's `decide` included; `tests/test-doc-conventions.sh` § run ledger pins AC5.
+> Do not re-derive: a skill naming another skill's reference uses the full `.agents/skills/<skill>/references/…` path (test-skill-references RefInt); merged #448 fixes at 875778f change no field or label `run_ledger.py` reads.
+> Outcome: agent_result=True verification_result=True slice_result=True SUCCEEDED
+> Surface: undeclared tasks/todo.md (the plan block) plus the eight #448 files the merge a049285 brought in (`slice.py check --slice 2 --base 49f0a1f`); no slice-2 edit outside its Surface.
