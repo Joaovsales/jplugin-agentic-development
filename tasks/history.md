@@ -1230,3 +1230,9 @@ back vacuous and was repaired.
 - Verification: deterministic process races, crash recovery, timeout, malformed payloads and executable caller blocks are covered by `tests/run-ledger-regressions.py` through `tests/test-run-ledger.sh`.
 - Learnings captured: [atomic replace does not serialize ledger writers](solutions/bugs/atomic-replace-does-not-serialize-ledger-writers.md).
 - Closure verification: resumed worker reran focused (54 assertions), affected (58 files / 5807 assertions) and full (101 files / 8641 assertions) suites; all passed with 0 failures, receipt `4a792b03` GO.
+
+## Session Summary — [2026-11-20] [5396683..9b6876a]
+
+- Completed: verified live claude-mem ranks 1, 2 and 4, restored the worker and semantic search, and recorded the sanitized runbook, measurements and private-evidence pointers in `docs/claude-mem-retention/`. The full suite passed 101 test files and 8641 assertions; policy coverage was 84 percent.
+- Pending: rank 3 was not attempted because the owner required Chroma to remain enabled; a controlled future A/B is proposed in the runbook.
+- Carry-forward: the single full-database rollback archive was restored and verified before redundant snapshots were pruned; the MCP dependency pin is scoped and temporary, while observer exclusion and the retention timer are durable. Independent review was not checked because this dispatch prohibited helpers.
