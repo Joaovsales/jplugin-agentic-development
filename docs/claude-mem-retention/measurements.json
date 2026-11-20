@@ -1,0 +1,152 @@
+{
+  "measured_at": "2026-11-20T15:24:37.107179+00:00",
+  "units": "bytes only; allocated bytes use st_blocks * 512",
+  "scope": "Live .claude-mem tree, the complete operation-created .local/state/claude-mem-retention tree, retained /tmp execution evidence, and installed policy files. Shared pre-existing uv/model caches are outside this owned-data scope; OS free-space change is reported separately and is not wholly attributed to this operation.",
+  "footprint": {
+    "live_before_allocated": 96979128320,
+    "live_after_allocated": 67356229632,
+    "live_before_regular": 96977818330,
+    "live_after_regular": 67355893595,
+    "state_after_allocated": 11742363648,
+    "scratch_after_allocated": 278528,
+    "installed_helpers_allocated": 20480,
+    "owned_before_allocated": 96979128320,
+    "owned_after_allocated": 79098892288,
+    "net_owned_reduction": 17880236032,
+    "os_free_before": 128061882368,
+    "os_free_after": 146284658688
+  },
+  "ranks": {
+    "1": {
+      "status": "done",
+      "immediate_reclaimed_bytes": 0,
+      "durability": "Supported external settings file; no installed-plugin patch"
+    },
+    "2": {
+      "status": "done",
+      "raw_text_bytes_removed": 24337131504,
+      "sdk_prefix_rows": 5513,
+      "prompt_prefix_rows": 5514,
+      "database_before_bytes": 27687800832,
+      "database_after_bytes": 1178554368,
+      "database_reduction_bytes": 26509246464,
+      "full_rollback_archive_allocated": 11411402752,
+      "reduction_less_full_rollback_charge": 15097843712
+    },
+    "3": {
+      "status": "not attempted",
+      "reason": "Owner explicitly required Chroma to remain enabled; no OFF arm or Chroma removal occurred.",
+      "reclaimed_bytes": 0,
+      "off_loss": "not measured"
+    },
+    "4": {
+      "status": "done",
+      "payload_bytes_expired": 797565935,
+      "counts": {
+        "failed": 66073,
+        "session_prompts": 2463,
+        "prompt_rows": 15494
+      },
+      "database_before_bytes": 1178554368,
+      "database_after_bytes": 382652416,
+      "database_reduction_bytes": 795901952,
+      "log_files_archived": 134,
+      "log_regular_bytes_removed": 242018125,
+      "log_allocated_bytes_removed": 242987008,
+      "retention_exports_allocated": 321146880,
+      "net_database_and_log_reduction_less_exports": 717742080
+    }
+  },
+  "wal": {
+    "before": {
+      "path": "claude-mem.db-wal",
+      "bytes": 2092733432,
+      "allocated_bytes": 2092740608,
+      "directory": false,
+      "mtime_ns": 1795185513746895272
+    },
+    "after": {
+      "path": "claude-mem.db-wal",
+      "bytes": 4095312,
+      "allocated_bytes": 4100096,
+      "directory": false,
+      "mtime_ns": 1795188275036556613
+    },
+    "shm_after": {
+      "path": "claude-mem.db-shm",
+      "bytes": 32768,
+      "allocated_bytes": 32768,
+      "directory": false,
+      "mtime_ns": 1795188274190542899
+    },
+    "note": "WAL capacity changed when the worker was stopped and replaced; no manual WAL deletion or explicit rank-5 checkpoint was performed."
+  },
+  "rollback": {
+    "utc": "2026-11-20T15:15:32.695377+00:00",
+    "archive": "rollback-pre-cleanup.tar.zst",
+    "archive_bytes": 11411397439,
+    "archive_allocated_bytes": 11411402752,
+    "archive_sha256": "6e342ce0bcf2a569ed5a35e9f69fe153bce9ffbd42f68eb887931fee761babfb",
+    "restore_checks": {
+      "PRAGMA quick_check": [
+        [
+          "ok"
+        ]
+      ],
+      "PRAGMA foreign_key_check": []
+    },
+    "counts": {
+      "sdk_sessions": 12715,
+      "observations": 6799,
+      "session_summaries": 23,
+      "user_prompts": 25735,
+      "pending_messages": 68850
+    },
+    "restored_byte_identical": true,
+    "free_before_prune": 59030511616,
+    "free_after_prune": 146279501824,
+    "members": {
+      "original-at-swap.db": {
+        "bytes": 27687800832,
+        "allocated_bytes": 27687813120,
+        "sha256": "5f3b8734bfce1025aa665b2cd68c25eecce547c65ead3a202d9380b94d017ef6"
+      },
+      "original-at-swap.db-wal": {
+        "bytes": 2092733432,
+        "allocated_bytes": 2092740608,
+        "sha256": "f65f8fab4614bb78e0e20ddac814989e9daa819cb9a6fb9e0a068bbe52c79ef3"
+      },
+      "original-at-swap.db-shm": {
+        "bytes": 32768,
+        "allocated_bytes": 32768,
+        "sha256": "8a870444d46321f9ee4dffa66f83413327c1764d7035332d4d3ddb7c56a70901"
+      }
+    }
+  },
+  "live_proof": {
+    "utc": "2026-11-20T15:11:48.918613+00:00",
+    "session_rows": 1,
+    "prompt_rows": 1,
+    "observations_before": 6799,
+    "injection_status": 200,
+    "injection_bytes": 5385,
+    "injection_sha256": "15f23ccf512eca650b487f000c0811e59273cb53808e5b5b3978f201bf70ffb0",
+    "new_observation_confirmed": true,
+    "observations_after": 6805
+  },
+  "coverage": {
+    "covered_lines": 87,
+    "num_statements": 104,
+    "percent_covered": 83.65384615384616,
+    "percent_covered_display": "84",
+    "missing_lines": 17,
+    "excluded_lines": 0
+  },
+  "notes": [
+    "Rank 2 and rank 4 database reductions are separate checkpoints, not competing final sizes.",
+    "The complete rollback archive is charged once to rank 2; retention exports are charged to rank 4.",
+    "The total footprint also captures WAL/SHM changes, live Chroma growth, logs written during verification, and evidence/policy overhead. Per-rank main-file savings alone are not whole-disk reclaim.",
+    "The initial backup and first interrupted-validation snapshot were superseded; no raw snapshot intermediates remain.",
+    "No semantic search benefit or loss can be inferred from the broken pre-cleanup ON arm."
+  ]
+}

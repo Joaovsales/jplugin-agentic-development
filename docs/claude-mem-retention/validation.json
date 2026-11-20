@@ -1,0 +1,48 @@
+{
+  "verified_at": "2026-11-20T16:28:04.335841+00:00",
+  "full_suite": {
+    "command": "bash .agents/skills/build/scripts/cached-suite.sh -- bash tests/run.sh",
+    "exit_code": 0,
+    "test_files": 102,
+    "assertions_passed": 8645,
+    "failed": 0,
+    "skipped": 0,
+    "result": "RESULT: all 102 test files passed",
+    "log": "<HOME>/.local/state/claude-mem-retention/20261120-durability/full-suite-final.log",
+    "sha256": "74a189c190ce135224fc473c0efdea2b5ea03bcee351f4a03062b217311f4684"
+  },
+  "policy_test": {
+    "command": "python3 docs/claude-mem-retention/test_retention.py",
+    "exit_code": 0,
+    "statement_coverage_percent": 84
+  },
+  "systemd": {
+    "unit_verification_exit": 0,
+    "actual_service_result": "success",
+    "actual_service_exit": 0,
+    "timer": "active"
+  },
+  "review": {
+    "method": "Self-review of policy, rollback, privacy and runbook; no helper agents per dispatch constraint",
+    "independent_review": "not checked: helpers prohibited by dispatch"
+  },
+  "version_bump": "not required: docs/, tests/ and task bookkeeping are outside the four manifest payload roots",
+  "retention_full_suite": {
+    "command": "bash .agents/skills/build/scripts/cached-suite.sh -- bash tests/run.sh",
+    "exit_code": 0,
+    "test_files": 101,
+    "assertions_passed": 8641,
+    "failed": 0,
+    "skipped": 0,
+    "log": "<HOME>/.local/state/claude-mem-retention/20261120/full-suite.log",
+    "sha256": "db65d18836a24220a762aa997b04b9f375316d3239baed07c1104d28d4bbbe94"
+  },
+  "semantic_health_test": {
+    "command": "python3 docs/claude-mem-retention/test_semantic_health.py",
+    "tests": 9,
+    "exit_code": 0,
+    "covered_statements": 106,
+    "total_statements": 123,
+    "statement_coverage_percent": 86.1788617886179
+  }
+}

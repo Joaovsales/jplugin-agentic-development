@@ -1,0 +1,10 @@
+[Unit]
+Description=Daily claude-mem retention
+
+[Timer]
+OnCalendar=*-*-* 04:00:00
+RandomizedDelaySec=300
+Persistent=true
+
+[Install]
+WantedBy=timers.target

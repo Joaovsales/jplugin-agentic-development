@@ -1,0 +1,3083 @@
+{
+  "units": "bytes",
+  "before_live": [
+    {
+      "path": ".",
+      "bytes": 4096,
+      "allocated_bytes": 4096,
+      "directory": true
+    },
+    {
+      "path": "chroma",
+      "bytes": 4096,
+      "allocated_bytes": 4096,
+      "directory": true
+    },
+    {
+      "path": "chroma/<segment>",
+      "bytes": 4096,
+      "allocated_bytes": 4096,
+      "directory": true
+    },
+    {
+      "path": "chroma/<segment>/data_level0.bin",
+      "bytes": 110931088,
+      "allocated_bytes": 110936064,
+      "directory": false
+    },
+    {
+      "path": "chroma/<segment>/header.bin",
+      "bytes": 100,
+      "allocated_bytes": 4096,
+      "directory": false
+    },
+    {
+      "path": "chroma/<segment>/index_metadata.pickle",
+      "bytes": 3155370,
+      "allocated_bytes": 3158016,
+      "directory": false
+    },
+    {
+      "path": "chroma/<segment>/length.bin",
+      "bytes": 264752,
+      "allocated_bytes": 270336,
+      "directory": false
+    },
+    {
+      "path": "chroma/<segment>/link_lists.bin",
+      "bytes": 584420,
+      "allocated_bytes": 589824,
+      "directory": false
+    },
+    {
+      "path": "chroma/chroma.sqlite3",
+      "bytes": 66799529984,
+      "allocated_bytes": 66799550464,
+      "directory": false
+    },
+    {
+      "path": "claude-mem.db",
+      "bytes": 27685740544,
+      "allocated_bytes": 27685752832,
+      "directory": false
+    },
+    {
+      "path": "claude-mem.db-shm",
+      "bytes": 32768,
+      "allocated_bytes": 32768,
+      "directory": false
+    },
+    {
+      "path": "claude-mem.db-wal",
+      "bytes": 2092733432,
+      "allocated_bytes": 2092740608,
+      "directory": false
+    },
+    {
+      "path": "corpora",
+      "bytes": 4096,
+      "allocated_bytes": 4096,
+      "directory": true
+    },
+    {
+      "path": "logs",
+      "bytes": 12288,
+      "allocated_bytes": 12288,
+      "directory": true
+    },
+    {
+      "path": "logs/claude-mem-2026-04-17.log",
+      "bytes": 7048656,
+      "allocated_bytes": 7057408,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-04-19.log",
+      "bytes": 266204,
+      "allocated_bytes": 270336,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-04-20.log",
+      "bytes": 496615,
+      "allocated_bytes": 503808,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-04-21.log",
+      "bytes": 390033,
+      "allocated_bytes": 397312,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-04-22.log",
+      "bytes": 55389,
+      "allocated_bytes": 61440,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-04-23.log",
+      "bytes": 599532,
+      "allocated_bytes": 606208,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-04-24.log",
+      "bytes": 236001,
+      "allocated_bytes": 241664,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-04-27.log",
+      "bytes": 93598,
+      "allocated_bytes": 98304,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-04-28.log",
+      "bytes": 621864,
+      "allocated_bytes": 626688,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-04-29.log",
+      "bytes": 2072221,
+      "allocated_bytes": 2076672,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-04-30.log",
+      "bytes": 145175,
+      "allocated_bytes": 151552,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-05-10.log",
+      "bytes": 4177526,
+      "allocated_bytes": 4186112,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-05-11.log",
+      "bytes": 237330,
+      "allocated_bytes": 241664,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-05-12.log",
+      "bytes": 28061,
+      "allocated_bytes": 32768,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-05-13.log",
+      "bytes": 885,
+      "allocated_bytes": 4096,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-05-14.log",
+      "bytes": 750957,
+      "allocated_bytes": 757760,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-05-15.log",
+      "bytes": 455257,
+      "allocated_bytes": 462848,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-05-16.log",
+      "bytes": 313428,
+      "allocated_bytes": 319488,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-05-17.log",
+      "bytes": 7630791,
+      "allocated_bytes": 7643136,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-05-18.log",
+      "bytes": 57426,
+      "allocated_bytes": 65536,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-05-19.log",
+      "bytes": 340668,
+      "allocated_bytes": 348160,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-05-20.log",
+      "bytes": 239583,
+      "allocated_bytes": 245760,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-05-21.log",
+      "bytes": 246934,
+      "allocated_bytes": 253952,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-05-22.log",
+      "bytes": 1134079,
+      "allocated_bytes": 1138688,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-05-23.log",
+      "bytes": 53709,
+      "allocated_bytes": 61440,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-05-24.log",
+      "bytes": 27554502,
+      "allocated_bytes": 27602944,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-05-25.log",
+      "bytes": 686786,
+      "allocated_bytes": 692224,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-05-26.log",
+      "bytes": 397765,
+      "allocated_bytes": 405504,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-05-27.log",
+      "bytes": 1108014,
+      "allocated_bytes": 1114112,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-05-28.log",
+      "bytes": 576656,
+      "allocated_bytes": 581632,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-05-29.log",
+      "bytes": 650812,
+      "allocated_bytes": 655360,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-05-30.log",
+      "bytes": 182434,
+      "allocated_bytes": 188416,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-05-31.log",
+      "bytes": 326378,
+      "allocated_bytes": 331776,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-06-01.log",
+      "bytes": 886061,
+      "allocated_bytes": 892928,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-06-02.log",
+      "bytes": 302332,
+      "allocated_bytes": 307200,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-06-03.log",
+      "bytes": 500471,
+      "allocated_bytes": 507904,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-06-04.log",
+      "bytes": 731068,
+      "allocated_bytes": 737280,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-06-05.log",
+      "bytes": 222737,
+      "allocated_bytes": 229376,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-06-06.log",
+      "bytes": 51612,
+      "allocated_bytes": 57344,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-06-07.log",
+      "bytes": 359380,
+      "allocated_bytes": 364544,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-06-08.log",
+      "bytes": 941837,
+      "allocated_bytes": 946176,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-06-09.log",
+      "bytes": 895510,
+      "allocated_bytes": 901120,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-06-10.log",
+      "bytes": 420580,
+      "allocated_bytes": 425984,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-06-13.log",
+      "bytes": 4846,
+      "allocated_bytes": 8192,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-06-14.log",
+      "bytes": 425747,
+      "allocated_bytes": 430080,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-06-16.log",
+      "bytes": 13945,
+      "allocated_bytes": 16384,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-06-17.log",
+      "bytes": 178887,
+      "allocated_bytes": 184320,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-06-20.log",
+      "bytes": 40665,
+      "allocated_bytes": 45056,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-06-24.log",
+      "bytes": 2574490,
+      "allocated_bytes": 2580480,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-06-25.log",
+      "bytes": 193593,
+      "allocated_bytes": 200704,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-06-26.log",
+      "bytes": 261047,
+      "allocated_bytes": 266240,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-06-28.log",
+      "bytes": 156695,
+      "allocated_bytes": 163840,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-06-30.log",
+      "bytes": 90361,
+      "allocated_bytes": 98304,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-07-01.log",
+      "bytes": 4994985,
+      "allocated_bytes": 5005312,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-07-05.log",
+      "bytes": 139762,
+      "allocated_bytes": 147456,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-07-06.log",
+      "bytes": 107808,
+      "allocated_bytes": 114688,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-07-07.log",
+      "bytes": 99960,
+      "allocated_bytes": 106496,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-07-08.log",
+      "bytes": 633352,
+      "allocated_bytes": 638976,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-07-09.log",
+      "bytes": 8714930,
+      "allocated_bytes": 8728576,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-07-10.log",
+      "bytes": 294760,
+      "allocated_bytes": 299008,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-07-11.log",
+      "bytes": 698233,
+      "allocated_bytes": 704512,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-07-12.log",
+      "bytes": 441327,
+      "allocated_bytes": 446464,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-07-13.log",
+      "bytes": 728391,
+      "allocated_bytes": 733184,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-07-14.log",
+      "bytes": 1459226,
+      "allocated_bytes": 1466368,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-07-15.log",
+      "bytes": 7705,
+      "allocated_bytes": 8192,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-07-27.log",
+      "bytes": 851190,
+      "allocated_bytes": 856064,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-07-28.log",
+      "bytes": 6618545,
+      "allocated_bytes": 6627328,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-07-29.log",
+      "bytes": 967513,
+      "allocated_bytes": 974848,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-07-30.log",
+      "bytes": 14617006,
+      "allocated_bytes": 14643200,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-07-31.log",
+      "bytes": 711281,
+      "allocated_bytes": 716800,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-08-01.log",
+      "bytes": 292937,
+      "allocated_bytes": 299008,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-08-03.log",
+      "bytes": 146191,
+      "allocated_bytes": 151552,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-08-04.log",
+      "bytes": 562071,
+      "allocated_bytes": 569344,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-08-05.log",
+      "bytes": 716130,
+      "allocated_bytes": 720896,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-08-06.log",
+      "bytes": 1496314,
+      "allocated_bytes": 1503232,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-08-07.log",
+      "bytes": 662593,
+      "allocated_bytes": 667648,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-08-08.log",
+      "bytes": 3295,
+      "allocated_bytes": 4096,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-08-09.log",
+      "bytes": 7499898,
+      "allocated_bytes": 7512064,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-08-10.log",
+      "bytes": 5211525,
+      "allocated_bytes": 5222400,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-08-11.log",
+      "bytes": 6294029,
+      "allocated_bytes": 6303744,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-08-12.log",
+      "bytes": 8229512,
+      "allocated_bytes": 8245248,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-08-13.log",
+      "bytes": 1509403,
+      "allocated_bytes": 1515520,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-08-14.log",
+      "bytes": 3502558,
+      "allocated_bytes": 3514368,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-08-17.log",
+      "bytes": 411511,
+      "allocated_bytes": 417792,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-08-18.log",
+      "bytes": 7953907,
+      "allocated_bytes": 7962624,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-08-19.log",
+      "bytes": 15662874,
+      "allocated_bytes": 15679488,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-08-20.log",
+      "bytes": 1504846,
+      "allocated_bytes": 1511424,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-08-21.log",
+      "bytes": 6671966,
+      "allocated_bytes": 6680576,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-08-22.log",
+      "bytes": 303409,
+      "allocated_bytes": 311296,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-08-24.log",
+      "bytes": 520935,
+      "allocated_bytes": 528384,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-08-25.log",
+      "bytes": 6648387,
+      "allocated_bytes": 6660096,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-08-26.log",
+      "bytes": 440646,
+      "allocated_bytes": 446464,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-08-27.log",
+      "bytes": 4728609,
+      "allocated_bytes": 4739072,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-08-28.log",
+      "bytes": 1157101,
+      "allocated_bytes": 1163264,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-08-29.log",
+      "bytes": 10041367,
+      "allocated_bytes": 10055680,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-08-30.log",
+      "bytes": 316745,
+      "allocated_bytes": 323584,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-08-31.log",
+      "bytes": 58412,
+      "allocated_bytes": 65536,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-09-01.log",
+      "bytes": 614102,
+      "allocated_bytes": 618496,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-09-02.log",
+      "bytes": 1229579,
+      "allocated_bytes": 1236992,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-09-03.log",
+      "bytes": 296600,
+      "allocated_bytes": 303104,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-09-04.log",
+      "bytes": 19870686,
+      "allocated_bytes": 19902464,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-09-05.log",
+      "bytes": 1870313,
+      "allocated_bytes": 1875968,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-09-06.log",
+      "bytes": 1077104,
+      "allocated_bytes": 1081344,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-09-07.log",
+      "bytes": 1481795,
+      "allocated_bytes": 1486848,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-09-08.log",
+      "bytes": 1468936,
+      "allocated_bytes": 1474560,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-09-09.log",
+      "bytes": 324613,
+      "allocated_bytes": 331776,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-09-10.log",
+      "bytes": 585606,
+      "allocated_bytes": 589824,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-09-11.log",
+      "bytes": 85742,
+      "allocated_bytes": 90112,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-09-12.log",
+      "bytes": 114620,
+      "allocated_bytes": 118784,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-09-13.log",
+      "bytes": 253244,
+      "allocated_bytes": 258048,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-09-14.log",
+      "bytes": 44764,
+      "allocated_bytes": 49152,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-09-16.log",
+      "bytes": 5427813,
+      "allocated_bytes": 5443584,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-09-19.log",
+      "bytes": 209514,
+      "allocated_bytes": 217088,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-09-20.log",
+      "bytes": 44824,
+      "allocated_bytes": 49152,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-09-24.log",
+      "bytes": 68963,
+      "allocated_bytes": 73728,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-09-28.log",
+      "bytes": 42817,
+      "allocated_bytes": 49152,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-09-29.log",
+      "bytes": 589054,
+      "allocated_bytes": 593920,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-09-30.log",
+      "bytes": 27081,
+      "allocated_bytes": 32768,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-10-01.log",
+      "bytes": 87159,
+      "allocated_bytes": 94208,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-10-02.log",
+      "bytes": 178379,
+      "allocated_bytes": 184320,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-10-03.log",
+      "bytes": 251924,
+      "allocated_bytes": 258048,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-10-04.log",
+      "bytes": 146041,
+      "allocated_bytes": 151552,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-10-05.log",
+      "bytes": 1456,
+      "allocated_bytes": 4096,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-10-06.log",
+      "bytes": 910104,
+      "allocated_bytes": 917504,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-10-07.log",
+      "bytes": 68215,
+      "allocated_bytes": 73728,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-10-08.log",
+      "bytes": 27077,
+      "allocated_bytes": 32768,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-10-09.log",
+      "bytes": 9675593,
+      "allocated_bytes": 9703424,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-10-10.log",
+      "bytes": 26708,
+      "allocated_bytes": 32768,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-10-11.log",
+      "bytes": 184388,
+      "allocated_bytes": 192512,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-10-12.log",
+      "bytes": 319941,
+      "allocated_bytes": 327680,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-10-13.log",
+      "bytes": 123691,
+      "allocated_bytes": 131072,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-10-14.log",
+      "bytes": 157070,
+      "allocated_bytes": 163840,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-10-15.log",
+      "bytes": 337778,
+      "allocated_bytes": 344064,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-10-16.log",
+      "bytes": 162383,
+      "allocated_bytes": 167936,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-10-18.log",
+      "bytes": 194543,
+      "allocated_bytes": 200704,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-10-20.log",
+      "bytes": 215603,
+      "allocated_bytes": 221184,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-10-22.log",
+      "bytes": 111774,
+      "allocated_bytes": 118784,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-10-24.log",
+      "bytes": 2134723,
+      "allocated_bytes": 2142208,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-10-25.log",
+      "bytes": 297766,
+      "allocated_bytes": 303104,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-10-26.log",
+      "bytes": 13679014,
+      "allocated_bytes": 13705216,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-10-27.log",
+      "bytes": 198136,
+      "allocated_bytes": 204800,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-10-28.log",
+      "bytes": 370749,
+      "allocated_bytes": 376832,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-10-29.log",
+      "bytes": 199773,
+      "allocated_bytes": 204800,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-10-30.log",
+      "bytes": 259980,
+      "allocated_bytes": 266240,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-11-02.log",
+      "bytes": 1014854,
+      "allocated_bytes": 1019904,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-11-03.log",
+      "bytes": 228523,
+      "allocated_bytes": 233472,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-11-04.log",
+      "bytes": 70470,
+      "allocated_bytes": 77824,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-11-08.log",
+      "bytes": 416300,
+      "allocated_bytes": 421888,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-11-09.log",
+      "bytes": 29294,
+      "allocated_bytes": 36864,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-11-10.log",
+      "bytes": 210317,
+      "allocated_bytes": 217088,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-11-11.log",
+      "bytes": 292026,
+      "allocated_bytes": 299008,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-11-12.log",
+      "bytes": 285099,
+      "allocated_bytes": 290816,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-11-13.log",
+      "bytes": 9360343,
+      "allocated_bytes": 9375744,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-11-14.log",
+      "bytes": 153232,
+      "allocated_bytes": 159744,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-11-15.log",
+      "bytes": 576159,
+      "allocated_bytes": 581632,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-11-16.log",
+      "bytes": 449161,
+      "allocated_bytes": 454656,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-11-18.log",
+      "bytes": 832015,
+      "allocated_bytes": 839680,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-11-19.log",
+      "bytes": 524700,
+      "allocated_bytes": 532480,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-11-20.log",
+      "bytes": 23642,
+      "allocated_bytes": 28672,
+      "directory": false
+    },
+    {
+      "path": "observer-sessions",
+      "bytes": 4096,
+      "allocated_bytes": 4096,
+      "directory": true
+    },
+    {
+      "path": "observer-sessions/<entry-53d9d11fb82f>",
+      "bytes": 4096,
+      "allocated_bytes": 4096,
+      "directory": true
+    },
+    {
+      "path": "observer-sessions/<entry-bc4cb3f119d4>",
+      "bytes": 4096,
+      "allocated_bytes": 4096,
+      "directory": true
+    },
+    {
+      "path": "observer-sessions/<entry-f68baadb7339>",
+      "bytes": 481,
+      "allocated_bytes": 4096,
+      "directory": false
+    },
+    {
+      "path": "settings.json",
+      "bytes": 2431,
+      "allocated_bytes": 4096,
+      "directory": false
+    },
+    {
+      "path": "supervisor.json",
+      "bytes": 250,
+      "allocated_bytes": 4096,
+      "directory": false
+    },
+    {
+      "path": "transcript-watch-state.json",
+      "bytes": 491967,
+      "allocated_bytes": 499712,
+      "directory": false
+    },
+    {
+      "path": "transcript-watch.json",
+      "bytes": 3212,
+      "allocated_bytes": 4096,
+      "directory": false
+    },
+    {
+      "path": "watchdog.log",
+      "bytes": 766412,
+      "allocated_bytes": 774144,
+      "directory": false
+    },
+    {
+      "path": "watchdog.py",
+      "bytes": 6890,
+      "allocated_bytes": 8192,
+      "directory": false
+    },
+    {
+      "path": "worker.pid",
+      "bytes": 78,
+      "allocated_bytes": 4096,
+      "directory": false
+    }
+  ],
+  "after_live": [
+    {
+      "path": ".",
+      "bytes": 4096,
+      "allocated_bytes": 4096,
+      "directory": true
+    },
+    {
+      "path": "chroma",
+      "bytes": 4096,
+      "allocated_bytes": 4096,
+      "directory": true
+    },
+    {
+      "path": "chroma/<segment>",
+      "bytes": 4096,
+      "allocated_bytes": 4096,
+      "directory": true
+    },
+    {
+      "path": "chroma/<segment>/data_level0.bin",
+      "bytes": 121174800,
+      "allocated_bytes": 121180160,
+      "directory": false
+    },
+    {
+      "path": "chroma/<segment>/header.bin",
+      "bytes": 100,
+      "allocated_bytes": 4096,
+      "directory": false
+    },
+    {
+      "path": "chroma/<segment>/index_metadata.pickle",
+      "bytes": 3460908,
+      "allocated_bytes": 3461120,
+      "directory": false
+    },
+    {
+      "path": "chroma/<segment>/length.bin",
+      "bytes": 289200,
+      "allocated_bytes": 294912,
+      "directory": false
+    },
+    {
+      "path": "chroma/<segment>/link_lists.bin",
+      "bytes": 638924,
+      "allocated_bytes": 643072,
+      "directory": false
+    },
+    {
+      "path": "chroma/chroma.sqlite3",
+      "bytes": 66799529984,
+      "allocated_bytes": 66799550464,
+      "directory": false
+    },
+    {
+      "path": "claude-mem.db",
+      "bytes": 382652416,
+      "allocated_bytes": 382664704,
+      "directory": false
+    },
+    {
+      "path": "claude-mem.db-shm",
+      "bytes": 32768,
+      "allocated_bytes": 32768,
+      "directory": false
+    },
+    {
+      "path": "claude-mem.db-wal",
+      "bytes": 4095312,
+      "allocated_bytes": 4100096,
+      "directory": false
+    },
+    {
+      "path": "corpora",
+      "bytes": 4096,
+      "allocated_bytes": 4096,
+      "directory": true
+    },
+    {
+      "path": "logs",
+      "bytes": 12288,
+      "allocated_bytes": 12288,
+      "directory": true
+    },
+    {
+      "path": "logs/claude-mem-2026-10-09.log",
+      "bytes": 9675593,
+      "allocated_bytes": 9703424,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-10-16.log",
+      "bytes": 162383,
+      "allocated_bytes": 167936,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-10-22.log",
+      "bytes": 111774,
+      "allocated_bytes": 118784,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-10-24.log",
+      "bytes": 2134723,
+      "allocated_bytes": 2142208,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-10-25.log",
+      "bytes": 297766,
+      "allocated_bytes": 303104,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-10-26.log",
+      "bytes": 13679014,
+      "allocated_bytes": 13705216,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-10-27.log",
+      "bytes": 198136,
+      "allocated_bytes": 204800,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-10-28.log",
+      "bytes": 370749,
+      "allocated_bytes": 376832,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-10-29.log",
+      "bytes": 199773,
+      "allocated_bytes": 204800,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-10-30.log",
+      "bytes": 259980,
+      "allocated_bytes": 266240,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-11-02.log",
+      "bytes": 1014854,
+      "allocated_bytes": 1019904,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-11-03.log",
+      "bytes": 228523,
+      "allocated_bytes": 233472,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-11-04.log",
+      "bytes": 70470,
+      "allocated_bytes": 77824,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-11-08.log",
+      "bytes": 416300,
+      "allocated_bytes": 421888,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-11-09.log",
+      "bytes": 29294,
+      "allocated_bytes": 36864,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-11-10.log",
+      "bytes": 210317,
+      "allocated_bytes": 217088,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-11-11.log",
+      "bytes": 292026,
+      "allocated_bytes": 299008,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-11-12.log",
+      "bytes": 285099,
+      "allocated_bytes": 290816,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-11-13.log",
+      "bytes": 9549871,
+      "allocated_bytes": 9564160,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-11-14.log",
+      "bytes": 153232,
+      "allocated_bytes": 159744,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-11-15.log",
+      "bytes": 576159,
+      "allocated_bytes": 581632,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-11-16.log",
+      "bytes": 449161,
+      "allocated_bytes": 454656,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-11-18.log",
+      "bytes": 832015,
+      "allocated_bytes": 839680,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-11-19.log",
+      "bytes": 524700,
+      "allocated_bytes": 532480,
+      "directory": false
+    },
+    {
+      "path": "logs/claude-mem-2026-11-20.log",
+      "bytes": 1024273,
+      "allocated_bytes": 1032192,
+      "directory": false
+    },
+    {
+      "path": "observer-sessions",
+      "bytes": 4096,
+      "allocated_bytes": 4096,
+      "directory": true
+    },
+    {
+      "path": "observer-sessions/<entry-53d9d11fb82f>",
+      "bytes": 4096,
+      "allocated_bytes": 4096,
+      "directory": true
+    },
+    {
+      "path": "observer-sessions/<entry-bc4cb3f119d4>",
+      "bytes": 4096,
+      "allocated_bytes": 4096,
+      "directory": true
+    },
+    {
+      "path": "observer-sessions/<entry-f68baadb7339>",
+      "bytes": 481,
+      "allocated_bytes": 4096,
+      "directory": false
+    },
+    {
+      "path": "settings.json",
+      "bytes": 2526,
+      "allocated_bytes": 4096,
+      "directory": false
+    },
+    {
+      "path": "supervisor.json",
+      "bytes": 522,
+      "allocated_bytes": 4096,
+      "directory": false
+    },
+    {
+      "path": "transcript-watch-state.json",
+      "bytes": 492617,
+      "allocated_bytes": 499712,
+      "directory": false
+    },
+    {
+      "path": "transcript-watch.json",
+      "bytes": 3212,
+      "allocated_bytes": 4096,
+      "directory": false
+    },
+    {
+      "path": "watchdog.log",
+      "bytes": 766670,
+      "allocated_bytes": 774144,
+      "directory": false
+    },
+    {
+      "path": "watchdog.py",
+      "bytes": 6890,
+      "allocated_bytes": 8192,
+      "directory": false
+    },
+    {
+      "path": "worker.pid",
+      "bytes": 80,
+      "allocated_bytes": 4096,
+      "directory": false
+    }
+  ],
+  "after_state": [
+    {
+      "path": ".",
+      "bytes": 4096,
+      "allocated_bytes": 4096,
+      "directory": true
+    },
+    {
+      "path": "20261120",
+      "bytes": 4096,
+      "allocated_bytes": 4096,
+      "directory": true
+    },
+    {
+      "path": "20261120/actual-live-mcp-processes.json",
+      "bytes": 963,
+      "allocated_bytes": 4096,
+      "directory": false
+    },
+    {
+      "path": "20261120/after.json",
+      "bytes": 8988,
+      "allocated_bytes": 12288,
+      "directory": false
+    },
+    {
+      "path": "20261120/audit-starting-evidence.md",
+      "bytes": 89212,
+      "allocated_bytes": 90112,
+      "directory": false
+    },
+    {
+      "path": "20261120/backup-validation.json",
+      "bytes": 329,
+      "allocated_bytes": 4096,
+      "directory": false
+    },
+    {
+      "path": "20261120/baseline-first-attempt.json",
+      "bytes": 11171,
+      "allocated_bytes": 12288,
+      "directory": false
+    },
+    {
+      "path": "20261120/baseline-on-Q01.raw",
+      "bytes": 47,
+      "allocated_bytes": 4096,
+      "directory": false
+    },
+    {
+      "path": "20261120/baseline-on-Q02.raw",
+      "bytes": 60,
+      "allocated_bytes": 4096,
+      "directory": false
+    },
+    {
+      "path": "20261120/baseline-on-Q03.raw",
+      "bytes": 60,
+      "allocated_bytes": 4096,
+      "directory": false
+    },
+    {
+      "path": "20261120/baseline-on-Q04.raw",
+      "bytes": 60,
+      "allocated_bytes": 4096,
+      "directory": false
+    },
+    {
+      "path": "20261120/baseline-on-Q05.raw",
+      "bytes": 60,
+      "allocated_bytes": 4096,
+      "directory": false
+    },
+    {
+      "path": "20261120/baseline-on-Q06.raw",
+      "bytes": 60,
+      "allocated_bytes": 4096,
+      "directory": false
+    },
+    {
+      "path": "20261120/baseline-on-Q07.raw",
+      "bytes": 60,
+      "allocated_bytes": 4096,
+      "directory": false
+    },
+    {
+      "path": "20261120/baseline-on-Q08.raw",
+      "bytes": 60,
+      "allocated_bytes": 4096,
+      "directory": false
+    },
+    {
+      "path": "20261120/baseline-on-Q09.raw",
+      "bytes": 87,
+      "allocated_bytes": 4096,
+      "directory": false
+    },
+    {
+      "path": "20261120/baseline-on-Q10.raw",
+      "bytes": 8673,
+      "allocated_bytes": 12288,
+      "directory": false
+    },
+    {
+      "path": "20261120/baseline-on.json",
+      "bytes": 12872,
+      "allocated_bytes": 16384,
+      "directory": false
+    },
+    {
+      "path": "20261120/before.json",
+      "bytes": 33266,
+      "allocated_bytes": 36864,
+      "directory": false
+    },
+    {
+      "path": "20261120/capture-live-mcp-response.raw",
+      "bytes": 6513,
+      "allocated_bytes": 8192,
+      "directory": false
+    },
+    {
+      "path": "20261120/commands.json",
+      "bytes": 63009,
+      "allocated_bytes": 65536,
+      "directory": false
+    },
+    {
+      "path": "20261120/consolidation.json",
+      "bytes": 1214,
+      "allocated_bytes": 4096,
+      "directory": false
+    },
+    {
+      "path": "20261120/events.jsonl",
+      "bytes": 18824,
+      "allocated_bytes": 24576,
+      "directory": false
+    },
+    {
+      "path": "20261120/exclusion-match-test.log",
+      "bytes": 67,
+      "allocated_bytes": 4096,
+      "directory": false
+    },
+    {
+      "path": "20261120/final-on-Q01.raw",
+      "bytes": 6313,
+      "allocated_bytes": 8192,
+      "directory": false
+    },
+    {
+      "path": "20261120/final-on-Q02.raw",
+      "bytes": 7226,
+      "allocated_bytes": 8192,
+      "directory": false
+    },
+    {
+      "path": "20261120/final-on-Q03.raw",
+      "bytes": 7114,
+      "allocated_bytes": 8192,
+      "directory": false
+    },
+    {
+      "path": "20261120/final-on-Q04.raw",
+      "bytes": 8001,
+      "allocated_bytes": 8192,
+      "directory": false
+    },
+    {
+      "path": "20261120/final-on-Q05.raw",
+      "bytes": 7327,
+      "allocated_bytes": 8192,
+      "directory": false
+    },
+    {
+      "path": "20261120/final-on-Q06.raw",
+      "bytes": 7912,
+      "allocated_bytes": 8192,
+      "directory": false
+    },
+    {
+      "path": "20261120/final-on-Q07.raw",
+      "bytes": 6675,
+      "allocated_bytes": 8192,
+      "directory": false
+    },
+    {
+      "path": "20261120/final-on-Q08.raw",
+      "bytes": 7568,
+      "allocated_bytes": 8192,
+      "directory": false
+    },
+    {
+      "path": "20261120/final-on-Q09.raw",
+      "bytes": 87,
+      "allocated_bytes": 4096,
+      "directory": false
+    },
+    {
+      "path": "20261120/final-on-Q10.raw",
+      "bytes": 8673,
+      "allocated_bytes": 12288,
+      "directory": false
+    },
+    {
+      "path": "20261120/final-on.json",
+      "bytes": 77922,
+      "allocated_bytes": 81920,
+      "directory": false
+    },
+    {
+      "path": "20261120/headroom-recovery.json",
+      "bytes": 544,
+      "allocated_bytes": 4096,
+      "directory": false
+    },
+    {
+      "path": "20261120/initial-live-mcp-provenance.txt",
+      "bytes": 1180,
+      "allocated_bytes": 4096,
+      "directory": false
+    },
+    {
+      "path": "20261120/injection-after.raw",
+      "bytes": 5385,
+      "allocated_bytes": 8192,
+      "directory": false
+    },
+    {
+      "path": "20261120/live-observation.log",
+      "bytes": 40,
+      "allocated_bytes": 4096,
+      "directory": false
+    },
+    {
+      "path": "20261120/live-proof.json",
+      "bytes": 504,
+      "allocated_bytes": 4096,
+      "directory": false
+    },
+    {
+      "path": "20261120/live-session-init.log",
+      "bytes": 40,
+      "allocated_bytes": 4096,
+      "directory": false
+    },
+    {
+      "path": "20261120/maintenance-commands.log",
+      "bytes": 173,
+      "allocated_bytes": 4096,
+      "directory": false
+    },
+    {
+      "path": "20261120/mcp-bin",
+      "bytes": 4096,
+      "allocated_bytes": 4096,
+      "directory": true
+    },
+    {
+      "path": "20261120/mcp-bin/uvx",
+      "bytes": 485,
+      "allocated_bytes": 4096,
+      "directory": false
+    },
+    {
+      "path": "20261120/mcp-help.log",
+      "bytes": 2141,
+      "allocated_bytes": 4096,
+      "directory": false
+    },
+    {
+      "path": "20261120/mcp-pinned-help.log",
+      "bytes": 1351,
+      "allocated_bytes": 4096,
+      "directory": false
+    },
+    {
+      "path": "20261120/path.before.txt",
+      "bytes": 1872,
+      "allocated_bytes": 4096,
+      "directory": false
+    },
+    {
+      "path": "20261120/pipeline",
+      "bytes": 4096,
+      "allocated_bytes": 4096,
+      "directory": true
+    },
+    {
+      "path": "20261120/pipeline/capture-live-mcp.py",
+      "bytes": 1255,
+      "allocated_bytes": 4096,
+      "directory": false
+    },
+    {
+      "path": "20261120/pipeline/clean-copy.py",
+      "bytes": 2402,
+      "allocated_bytes": 4096,
+      "directory": false
+    },
+    {
+      "path": "20261120/pipeline/compress-backup.py",
+      "bytes": 1822,
+      "allocated_bytes": 4096,
+      "directory": false
+    },
+    {
+      "path": "20261120/pipeline/consolidate.py",
+      "bytes": 3757,
+      "allocated_bytes": 4096,
+      "directory": false
+    },
+    {
+      "path": "20261120/pipeline/generate-report.py",
+      "bytes": 11108,
+      "allocated_bytes": 12288,
+      "directory": false
+    },
+    {
+      "path": "20261120/pipeline/live-proof.py",
+      "bytes": 2971,
+      "allocated_bytes": 4096,
+      "directory": false
+    },
+    {
+      "path": "20261120/pipeline/maintenance.py",
+      "bytes": 7728,
+      "allocated_bytes": 8192,
+      "directory": false
+    },
+    {
+      "path": "20261120/pipeline/operation.py",
+      "bytes": 6787,
+      "allocated_bytes": 8192,
+      "directory": false
+    },
+    {
+      "path": "20261120/pipeline/rebuild-proof.py",
+      "bytes": 1451,
+      "allocated_bytes": 4096,
+      "directory": false
+    },
+    {
+      "path": "20261120/pipeline/relevance.py",
+      "bytes": 2592,
+      "allocated_bytes": 4096,
+      "directory": false
+    },
+    {
+      "path": "20261120/pipeline/retention.py",
+      "bytes": 6021,
+      "allocated_bytes": 8192,
+      "directory": false
+    },
+    {
+      "path": "20261120/pipeline/test-retention.py",
+      "bytes": 2848,
+      "allocated_bytes": 4096,
+      "directory": false
+    },
+    {
+      "path": "20261120/pipeline/timeline.py",
+      "bytes": 1689,
+      "allocated_bytes": 4096,
+      "directory": false
+    },
+    {
+      "path": "20261120/pipeline/verify-restored.py",
+      "bytes": 970,
+      "allocated_bytes": 4096,
+      "directory": false
+    },
+    {
+      "path": "20261120/post-swap.json",
+      "bytes": 8983,
+      "allocated_bytes": 12288,
+      "directory": false
+    },
+    {
+      "path": "20261120/pre-maintenance.json",
+      "bytes": 33267,
+      "allocated_bytes": 36864,
+      "directory": false
+    },
+    {
+      "path": "20261120/protocol.json",
+      "bytes": 568,
+      "allocated_bytes": 4096,
+      "directory": false
+    },
+    {
+      "path": "20261120/queries.json",
+      "bytes": 3142,
+      "allocated_bytes": 4096,
+      "directory": false
+    },
+    {
+      "path": "20261120/quiescence.json",
+      "bytes": 90,
+      "allocated_bytes": 4096,
+      "directory": false
+    },
+    {
+      "path": "20261120/rank1.json",
+      "bytes": 321,
+      "allocated_bytes": 4096,
+      "directory": false
+    },
+    {
+      "path": "20261120/rank2-copy.json",
+      "bytes": 1358,
+      "allocated_bytes": 4096,
+      "directory": false
+    },
+    {
+      "path": "20261120/rank4-before-preserved.json",
+      "bytes": 364,
+      "allocated_bytes": 4096,
+      "directory": false
+    },
+    {
+      "path": "20261120/rank4-validation.json",
+      "bytes": 850,
+      "allocated_bytes": 4096,
+      "directory": false
+    },
+    {
+      "path": "20261120/rank4.json",
+      "bytes": 784,
+      "allocated_bytes": 4096,
+      "directory": false
+    },
+    {
+      "path": "20261120/rebuild-proof-private.json",
+      "bytes": 1111,
+      "allocated_bytes": 4096,
+      "directory": false
+    },
+    {
+      "path": "20261120/rebuild-proof.json",
+      "bytes": 324,
+      "allocated_bytes": 4096,
+      "directory": false
+    },
+    {
+      "path": "20261120/rebuild-proof.log",
+      "bytes": 34,
+      "allocated_bytes": 4096,
+      "directory": false
+    },
+    {
+      "path": "20261120/relevance-judgments-private.json",
+      "bytes": 7351,
+      "allocated_bytes": 8192,
+      "directory": false
+    },
+    {
+      "path": "20261120/relevance-protocol.json",
+      "bytes": 896,
+      "allocated_bytes": 4096,
+      "directory": false
+    },
+    {
+      "path": "20261120/relevance-view-private.txt",
+      "bytes": 27655,
+      "allocated_bytes": 28672,
+      "directory": false
+    },
+    {
+      "path": "20261120/restart-recovery.json",
+      "bytes": 257,
+      "allocated_bytes": 4096,
+      "directory": false
+    },
+    {
+      "path": "20261120/restore-rehearsal.json",
+      "bytes": 923,
+      "allocated_bytes": 4096,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives",
+      "bytes": 4096,
+      "allocated_bytes": 4096,
+      "directory": true
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx",
+      "bytes": 12288,
+      "allocated_bytes": 12288,
+      "directory": true
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-04-17.log.gz",
+      "bytes": 532280,
+      "allocated_bytes": 532480,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-04-19.log.gz",
+      "bytes": 24435,
+      "allocated_bytes": 24576,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-04-20.log.gz",
+      "bytes": 39128,
+      "allocated_bytes": 40960,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-04-21.log.gz",
+      "bytes": 30976,
+      "allocated_bytes": 32768,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-04-22.log.gz",
+      "bytes": 7785,
+      "allocated_bytes": 8192,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-04-23.log.gz",
+      "bytes": 45812,
+      "allocated_bytes": 49152,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-04-24.log.gz",
+      "bytes": 20477,
+      "allocated_bytes": 20480,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-04-27.log.gz",
+      "bytes": 8535,
+      "allocated_bytes": 12288,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-04-28.log.gz",
+      "bytes": 42269,
+      "allocated_bytes": 45056,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-04-29.log.gz",
+      "bytes": 142935,
+      "allocated_bytes": 143360,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-04-30.log.gz",
+      "bytes": 12104,
+      "allocated_bytes": 12288,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-05-10.log.gz",
+      "bytes": 263656,
+      "allocated_bytes": 266240,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-05-11.log.gz",
+      "bytes": 17815,
+      "allocated_bytes": 20480,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-05-12.log.gz",
+      "bytes": 2696,
+      "allocated_bytes": 4096,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-05-13.log.gz",
+      "bytes": 450,
+      "allocated_bytes": 4096,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-05-14.log.gz",
+      "bytes": 57248,
+      "allocated_bytes": 57344,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-05-15.log.gz",
+      "bytes": 39022,
+      "allocated_bytes": 40960,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-05-16.log.gz",
+      "bytes": 31328,
+      "allocated_bytes": 32768,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-05-17.log.gz",
+      "bytes": 504748,
+      "allocated_bytes": 507904,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-05-18.log.gz",
+      "bytes": 5495,
+      "allocated_bytes": 8192,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-05-19.log.gz",
+      "bytes": 32285,
+      "allocated_bytes": 32768,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-05-20.log.gz",
+      "bytes": 30700,
+      "allocated_bytes": 32768,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-05-21.log.gz",
+      "bytes": 26232,
+      "allocated_bytes": 28672,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-05-22.log.gz",
+      "bytes": 94802,
+      "allocated_bytes": 98304,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-05-23.log.gz",
+      "bytes": 4209,
+      "allocated_bytes": 8192,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-05-24.log.gz",
+      "bytes": 1528469,
+      "allocated_bytes": 1531904,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-05-25.log.gz",
+      "bytes": 52122,
+      "allocated_bytes": 53248,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-05-26.log.gz",
+      "bytes": 49323,
+      "allocated_bytes": 53248,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-05-27.log.gz",
+      "bytes": 116122,
+      "allocated_bytes": 118784,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-05-28.log.gz",
+      "bytes": 50867,
+      "allocated_bytes": 53248,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-05-29.log.gz",
+      "bytes": 79812,
+      "allocated_bytes": 81920,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-05-30.log.gz",
+      "bytes": 21979,
+      "allocated_bytes": 24576,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-05-31.log.gz",
+      "bytes": 42909,
+      "allocated_bytes": 45056,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-06-01.log.gz",
+      "bytes": 107862,
+      "allocated_bytes": 110592,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-06-02.log.gz",
+      "bytes": 43360,
+      "allocated_bytes": 45056,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-06-03.log.gz",
+      "bytes": 33217,
+      "allocated_bytes": 36864,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-06-04.log.gz",
+      "bytes": 42119,
+      "allocated_bytes": 45056,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-06-05.log.gz",
+      "bytes": 21181,
+      "allocated_bytes": 24576,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-06-06.log.gz",
+      "bytes": 7140,
+      "allocated_bytes": 8192,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-06-07.log.gz",
+      "bytes": 42278,
+      "allocated_bytes": 45056,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-06-08.log.gz",
+      "bytes": 57320,
+      "allocated_bytes": 57344,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-06-09.log.gz",
+      "bytes": 49309,
+      "allocated_bytes": 53248,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-06-10.log.gz",
+      "bytes": 23039,
+      "allocated_bytes": 24576,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-06-13.log.gz",
+      "bytes": 1155,
+      "allocated_bytes": 4096,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-06-14.log.gz",
+      "bytes": 51850,
+      "allocated_bytes": 53248,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-06-16.log.gz",
+      "bytes": 2400,
+      "allocated_bytes": 4096,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-06-17.log.gz",
+      "bytes": 16424,
+      "allocated_bytes": 20480,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-06-20.log.gz",
+      "bytes": 3970,
+      "allocated_bytes": 4096,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-06-24.log.gz",
+      "bytes": 198864,
+      "allocated_bytes": 200704,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-06-25.log.gz",
+      "bytes": 22720,
+      "allocated_bytes": 24576,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-06-26.log.gz",
+      "bytes": 30638,
+      "allocated_bytes": 32768,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-06-28.log.gz",
+      "bytes": 18111,
+      "allocated_bytes": 20480,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-06-30.log.gz",
+      "bytes": 10596,
+      "allocated_bytes": 12288,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-07-01.log.gz",
+      "bytes": 399360,
+      "allocated_bytes": 401408,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-07-05.log.gz",
+      "bytes": 14017,
+      "allocated_bytes": 16384,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-07-06.log.gz",
+      "bytes": 16083,
+      "allocated_bytes": 16384,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-07-07.log.gz",
+      "bytes": 13753,
+      "allocated_bytes": 16384,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-07-08.log.gz",
+      "bytes": 75718,
+      "allocated_bytes": 77824,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-07-09.log.gz",
+      "bytes": 770750,
+      "allocated_bytes": 774144,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-07-10.log.gz",
+      "bytes": 41922,
+      "allocated_bytes": 45056,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-07-11.log.gz",
+      "bytes": 73951,
+      "allocated_bytes": 77824,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-07-12.log.gz",
+      "bytes": 63621,
+      "allocated_bytes": 65536,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-07-13.log.gz",
+      "bytes": 89370,
+      "allocated_bytes": 90112,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-07-14.log.gz",
+      "bytes": 156961,
+      "allocated_bytes": 159744,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-07-15.log.gz",
+      "bytes": 1449,
+      "allocated_bytes": 4096,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-07-27.log.gz",
+      "bytes": 76145,
+      "allocated_bytes": 77824,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-07-28.log.gz",
+      "bytes": 560057,
+      "allocated_bytes": 561152,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-07-29.log.gz",
+      "bytes": 131162,
+      "allocated_bytes": 135168,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-07-30.log.gz",
+      "bytes": 1211576,
+      "allocated_bytes": 1212416,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-07-31.log.gz",
+      "bytes": 106229,
+      "allocated_bytes": 106496,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-08-01.log.gz",
+      "bytes": 31243,
+      "allocated_bytes": 32768,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-08-03.log.gz",
+      "bytes": 18828,
+      "allocated_bytes": 20480,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-08-04.log.gz",
+      "bytes": 86176,
+      "allocated_bytes": 90112,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-08-05.log.gz",
+      "bytes": 110612,
+      "allocated_bytes": 114688,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-08-06.log.gz",
+      "bytes": 191296,
+      "allocated_bytes": 192512,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-08-07.log.gz",
+      "bytes": 94747,
+      "allocated_bytes": 98304,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-08-08.log.gz",
+      "bytes": 1142,
+      "allocated_bytes": 4096,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-08-09.log.gz",
+      "bytes": 605640,
+      "allocated_bytes": 606208,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-08-10.log.gz",
+      "bytes": 449533,
+      "allocated_bytes": 450560,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-08-11.log.gz",
+      "bytes": 557094,
+      "allocated_bytes": 561152,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-08-12.log.gz",
+      "bytes": 628625,
+      "allocated_bytes": 630784,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-08-13.log.gz",
+      "bytes": 152007,
+      "allocated_bytes": 155648,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-08-14.log.gz",
+      "bytes": 294300,
+      "allocated_bytes": 294912,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-08-17.log.gz",
+      "bytes": 54743,
+      "allocated_bytes": 57344,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-08-18.log.gz",
+      "bytes": 780990,
+      "allocated_bytes": 782336,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-08-19.log.gz",
+      "bytes": 1744795,
+      "allocated_bytes": 1744896,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-08-20.log.gz",
+      "bytes": 323586,
+      "allocated_bytes": 327680,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-08-21.log.gz",
+      "bytes": 777434,
+      "allocated_bytes": 778240,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-08-22.log.gz",
+      "bytes": 61300,
+      "allocated_bytes": 61440,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-08-24.log.gz",
+      "bytes": 111598,
+      "allocated_bytes": 114688,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-08-25.log.gz",
+      "bytes": 736787,
+      "allocated_bytes": 737280,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-08-26.log.gz",
+      "bytes": 73341,
+      "allocated_bytes": 73728,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-08-27.log.gz",
+      "bytes": 591419,
+      "allocated_bytes": 593920,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-08-28.log.gz",
+      "bytes": 240276,
+      "allocated_bytes": 241664,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-08-29.log.gz",
+      "bytes": 1115707,
+      "allocated_bytes": 1118208,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-08-30.log.gz",
+      "bytes": 55299,
+      "allocated_bytes": 57344,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-08-31.log.gz",
+      "bytes": 17519,
+      "allocated_bytes": 20480,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-09-01.log.gz",
+      "bytes": 109469,
+      "allocated_bytes": 110592,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-09-02.log.gz",
+      "bytes": 189827,
+      "allocated_bytes": 192512,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-09-03.log.gz",
+      "bytes": 60732,
+      "allocated_bytes": 61440,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-09-04.log.gz",
+      "bytes": 2436139,
+      "allocated_bytes": 2437120,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-09-05.log.gz",
+      "bytes": 333733,
+      "allocated_bytes": 335872,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-09-06.log.gz",
+      "bytes": 191784,
+      "allocated_bytes": 192512,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-09-07.log.gz",
+      "bytes": 299328,
+      "allocated_bytes": 303104,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-09-08.log.gz",
+      "bytes": 298054,
+      "allocated_bytes": 299008,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-09-09.log.gz",
+      "bytes": 61736,
+      "allocated_bytes": 65536,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-09-10.log.gz",
+      "bytes": 133611,
+      "allocated_bytes": 135168,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-09-11.log.gz",
+      "bytes": 18230,
+      "allocated_bytes": 20480,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-09-12.log.gz",
+      "bytes": 16193,
+      "allocated_bytes": 16384,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-09-13.log.gz",
+      "bytes": 48950,
+      "allocated_bytes": 49152,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-09-14.log.gz",
+      "bytes": 10480,
+      "allocated_bytes": 12288,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-09-16.log.gz",
+      "bytes": 597411,
+      "allocated_bytes": 598016,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-09-19.log.gz",
+      "bytes": 35768,
+      "allocated_bytes": 36864,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-09-20.log.gz",
+      "bytes": 7916,
+      "allocated_bytes": 8192,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-09-24.log.gz",
+      "bytes": 11987,
+      "allocated_bytes": 12288,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-09-28.log.gz",
+      "bytes": 8544,
+      "allocated_bytes": 12288,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-09-29.log.gz",
+      "bytes": 116481,
+      "allocated_bytes": 118784,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-09-30.log.gz",
+      "bytes": 5967,
+      "allocated_bytes": 8192,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-10-01.log.gz",
+      "bytes": 19706,
+      "allocated_bytes": 20480,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-10-02.log.gz",
+      "bytes": 32590,
+      "allocated_bytes": 32768,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-10-03.log.gz",
+      "bytes": 41847,
+      "allocated_bytes": 45056,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-10-04.log.gz",
+      "bytes": 32009,
+      "allocated_bytes": 32768,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-10-05.log.gz",
+      "bytes": 642,
+      "allocated_bytes": 4096,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-10-06.log.gz",
+      "bytes": 111511,
+      "allocated_bytes": 114688,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-10-07.log.gz",
+      "bytes": 13673,
+      "allocated_bytes": 16384,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-10-08.log.gz",
+      "bytes": 5361,
+      "allocated_bytes": 8192,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-10-10.log.gz",
+      "bytes": 4229,
+      "allocated_bytes": 8192,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-10-11.log.gz",
+      "bytes": 32645,
+      "allocated_bytes": 32768,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-10-12.log.gz",
+      "bytes": 61832,
+      "allocated_bytes": 65536,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-10-13.log.gz",
+      "bytes": 13699,
+      "allocated_bytes": 16384,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-10-14.log.gz",
+      "bytes": 32205,
+      "allocated_bytes": 32768,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-10-15.log.gz",
+      "bytes": 76956,
+      "allocated_bytes": 77824,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-10-18.log.gz",
+      "bytes": 32869,
+      "allocated_bytes": 36864,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/claude-mem-2026-10-20.log.gz",
+      "bytes": 35340,
+      "allocated_bytes": 36864,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/failed.jsonl.gz",
+      "bytes": 178209093,
+      "allocated_bytes": 178216960,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/prompt_rows.jsonl.gz",
+      "bytes": 88921337,
+      "allocated_bytes": 88928256,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/report.json",
+      "bytes": 784,
+      "allocated_bytes": 4096,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-archives/run-fps29ecx/session_prompts.jsonl.gz",
+      "bytes": 29693784,
+      "allocated_bytes": 29696000,
+      "directory": false
+    },
+    {
+      "path": "20261120/retention-test.json",
+      "bytes": 199,
+      "allocated_bytes": 4096,
+      "directory": false
+    },
+    {
+      "path": "20261120/rollback-pre-cleanup.tar.zst",
+      "bytes": 11411397439,
+      "allocated_bytes": 11411402752,
+      "directory": false
+    },
+    {
+      "path": "20261120/scratch-chroma",
+      "bytes": 4096,
+      "allocated_bytes": 4096,
+      "directory": true
+    },
+    {
+      "path": "20261120/scratch-chroma/<segment>",
+      "bytes": 4096,
+      "allocated_bytes": 4096,
+      "directory": true
+    },
+    {
+      "path": "20261120/scratch-chroma/<segment>/data_level0.bin",
+      "bytes": 167600,
+      "allocated_bytes": 167936,
+      "directory": false
+    },
+    {
+      "path": "20261120/scratch-chroma/<segment>/header.bin",
+      "bytes": 100,
+      "allocated_bytes": 4096,
+      "directory": false
+    },
+    {
+      "path": "20261120/scratch-chroma/<segment>/length.bin",
+      "bytes": 400,
+      "allocated_bytes": 4096,
+      "directory": false
+    },
+    {
+      "path": "20261120/scratch-chroma/<segment>/link_lists.bin",
+      "bytes": 0,
+      "allocated_bytes": 0,
+      "directory": false
+    },
+    {
+      "path": "20261120/scratch-chroma/chroma.sqlite3",
+      "bytes": 299008,
+      "allocated_bytes": 299008,
+      "directory": false
+    },
+    {
+      "path": "20261120/settings.before.json",
+      "bytes": 2431,
+      "allocated_bytes": 4096,
+      "directory": false
+    },
+    {
+      "path": "20261120/settings.rank1.json",
+      "bytes": 2526,
+      "allocated_bytes": 4096,
+      "directory": false
+    },
+    {
+      "path": "20261120/shim-hits.jsonl",
+      "bytes": 97,
+      "allocated_bytes": 4096,
+      "directory": false
+    },
+    {
+      "path": "20261120/supplemental-on-Q01.raw",
+      "bytes": 20887,
+      "allocated_bytes": 24576,
+      "directory": false
+    },
+    {
+      "path": "20261120/supplemental-on-Q02.raw",
+      "bytes": 22202,
+      "allocated_bytes": 24576,
+      "directory": false
+    },
+    {
+      "path": "20261120/supplemental-on-Q03.raw",
+      "bytes": 23498,
+      "allocated_bytes": 24576,
+      "directory": false
+    },
+    {
+      "path": "20261120/supplemental-on-Q04.raw",
+      "bytes": 23214,
+      "allocated_bytes": 24576,
+      "directory": false
+    },
+    {
+      "path": "20261120/supplemental-on-Q05.raw",
+      "bytes": 19765,
+      "allocated_bytes": 20480,
+      "directory": false
+    },
+    {
+      "path": "20261120/supplemental-on-Q06.raw",
+      "bytes": 22113,
+      "allocated_bytes": 24576,
+      "directory": false
+    },
+    {
+      "path": "20261120/supplemental-on-Q07.raw",
+      "bytes": 19905,
+      "allocated_bytes": 20480,
+      "directory": false
+    },
+    {
+      "path": "20261120/supplemental-on-Q08.raw",
+      "bytes": 24414,
+      "allocated_bytes": 24576,
+      "directory": false
+    },
+    {
+      "path": "20261120/supplemental-on-Q09.raw",
+      "bytes": 87,
+      "allocated_bytes": 4096,
+      "directory": false
+    },
+    {
+      "path": "20261120/supplemental-on-Q10.raw",
+      "bytes": 24174,
+      "allocated_bytes": 24576,
+      "directory": false
+    },
+    {
+      "path": "20261120/supplemental-on.json",
+      "bytes": 230208,
+      "allocated_bytes": 233472,
+      "directory": false
+    },
+    {
+      "path": "20261120/supplemental-queries.json",
+      "bytes": 3152,
+      "allocated_bytes": 4096,
+      "directory": false
+    },
+    {
+      "path": "20261120/timeline-candidates-private.json",
+      "bytes": 3,
+      "allocated_bytes": 4096,
+      "directory": false
+    },
+    {
+      "path": "20261120/timeline-private.json",
+      "bytes": 7905788,
+      "allocated_bytes": 7909376,
+      "directory": false
+    },
+    {
+      "path": "20261120/timeline-signatures-private.json",
+      "bytes": 6511,
+      "allocated_bytes": 8192,
+      "directory": false
+    },
+    {
+      "path": "20261120/tool-calls.json",
+      "bytes": 145245,
+      "allocated_bytes": 147456,
+      "directory": false
+    },
+    {
+      "path": "20261120/work-before.json",
+      "bytes": 157,
+      "allocated_bytes": 4096,
+      "directory": false
+    },
+    {
+      "path": "archives",
+      "bytes": 4096,
+      "allocated_bytes": 4096,
+      "directory": true
+    },
+    {
+      "path": "archives/run-jkcod9nq",
+      "bytes": 4096,
+      "allocated_bytes": 4096,
+      "directory": true
+    },
+    {
+      "path": "archives/run-jkcod9nq/failed.jsonl.gz",
+      "bytes": 33,
+      "allocated_bytes": 4096,
+      "directory": false
+    },
+    {
+      "path": "archives/run-jkcod9nq/prompt_rows.jsonl.gz",
+      "bytes": 38,
+      "allocated_bytes": 4096,
+      "directory": false
+    },
+    {
+      "path": "archives/run-jkcod9nq/report.json",
+      "bytes": 713,
+      "allocated_bytes": 4096,
+      "directory": false
+    },
+    {
+      "path": "archives/run-jkcod9nq/session_prompts.jsonl.gz",
+      "bytes": 42,
+      "allocated_bytes": 4096,
+      "directory": false
+    },
+    {
+      "path": "last-run.json",
+      "bytes": 713,
+      "allocated_bytes": 4096,
+      "directory": false
+    }
+  ],
+  "after_execution_scratch": [
+    {
+      "path": ".",
+      "bytes": 4096,
+      "allocated_bytes": 4096,
+      "directory": true
+    },
+    {
+      "path": ".coverage",
+      "bytes": 53248,
+      "allocated_bytes": 53248,
+      "directory": false
+    },
+    {
+      "path": "__pycache__",
+      "bytes": 4096,
+      "allocated_bytes": 4096,
+      "directory": true
+    },
+    {
+      "path": "__pycache__/operation.cpython-312.pyc",
+      "bytes": 13735,
+      "allocated_bytes": 16384,
+      "directory": false
+    },
+    {
+      "path": "__pycache__/operation.cpython-313.pyc",
+      "bytes": 12971,
+      "allocated_bytes": 16384,
+      "directory": false
+    },
+    {
+      "path": "__pycache__/retention.cpython-312.pyc",
+      "bytes": 10714,
+      "allocated_bytes": 12288,
+      "directory": false
+    },
+    {
+      "path": "audit.md",
+      "bytes": 89212,
+      "allocated_bytes": 90112,
+      "directory": false
+    },
+    {
+      "path": "capture-live-mcp.py",
+      "bytes": 1255,
+      "allocated_bytes": 4096,
+      "directory": false
+    },
+    {
+      "path": "clean-copy.py",
+      "bytes": 2402,
+      "allocated_bytes": 4096,
+      "directory": false
+    },
+    {
+      "path": "compress-backup.py",
+      "bytes": 1822,
+      "allocated_bytes": 4096,
+      "directory": false
+    },
+    {
+      "path": "consolidate.py",
+      "bytes": 3757,
+      "allocated_bytes": 4096,
+      "directory": false
+    },
+    {
+      "path": "coverage.json",
+      "bytes": 3114,
+      "allocated_bytes": 4096,
+      "directory": false
+    },
+    {
+      "path": "generate-report.py",
+      "bytes": 11108,
+      "allocated_bytes": 12288,
+      "directory": false
+    },
+    {
+      "path": "live-proof.py",
+      "bytes": 2971,
+      "allocated_bytes": 4096,
+      "directory": false
+    },
+    {
+      "path": "maintenance.py",
+      "bytes": 7728,
+      "allocated_bytes": 8192,
+      "directory": false
+    },
+    {
+      "path": "operation.py",
+      "bytes": 6787,
+      "allocated_bytes": 8192,
+      "directory": false
+    },
+    {
+      "path": "rebuild-proof.py",
+      "bytes": 1451,
+      "allocated_bytes": 4096,
+      "directory": false
+    },
+    {
+      "path": "relevance.py",
+      "bytes": 2592,
+      "allocated_bytes": 4096,
+      "directory": false
+    },
+    {
+      "path": "retention.py",
+      "bytes": 6021,
+      "allocated_bytes": 8192,
+      "directory": false
+    },
+    {
+      "path": "test-retention.py",
+      "bytes": 2848,
+      "allocated_bytes": 4096,
+      "directory": false
+    },
+    {
+      "path": "timeline.py",
+      "bytes": 1689,
+      "allocated_bytes": 4096,
+      "directory": false
+    },
+    {
+      "path": "verify-restored.py",
+      "bytes": 970,
+      "allocated_bytes": 4096,
+      "directory": false
+    }
+  ]
+}

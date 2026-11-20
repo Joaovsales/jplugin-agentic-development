@@ -1230,3 +1230,27 @@ back vacuous and was repaired.
 - Verification: deterministic process races, crash recovery, timeout, malformed payloads and executable caller blocks are covered by `tests/run-ledger-regressions.py` through `tests/test-run-ledger.sh`.
 - Learnings captured: [atomic replace does not serialize ledger writers](solutions/bugs/atomic-replace-does-not-serialize-ledger-writers.md).
 - Closure verification: resumed worker reran focused (54 assertions), affected (58 files / 5807 assertions) and full (101 files / 8641 assertions) suites; all passed with 0 failures, receipt `4a792b03` GO.
+
+## Session Summary — [2026-11-20] [5396683..9b6876a]
+
+- Completed: verified live claude-mem ranks 1, 2 and 4, restored the worker and semantic search, and recorded the sanitized runbook, measurements and private-evidence pointers in `docs/claude-mem-retention/`. The full suite passed 101 test files and 8641 assertions; policy coverage was 84 percent.
+- Pending: rank 3 was not attempted because the owner required Chroma to remain enabled; a controlled future A/B is proposed in the runbook.
+- Carry-forward: the single full-database rollback archive was restored and verified before redundant snapshots were pruned; the MCP dependency pin is scoped and temporary, while observer exclusion and the retention timer are durable. Independent review was not checked because this dispatch prohibited helpers.
+
+## Session Summary — [2026-11-20] [d025401..6189fea]
+
+- Completed: replaced the temporary claude-mem PATH shim with a persistent scoped uv tool receipt and proved an ordinary restart; installed a cause-agnostic, failure-only semantic detector and timer. The isolated known-good/broken/restored canary returned detector statuses 0/1/0 with unchanged production process identities and zero production fault-injection downtime. The final suite passed 102 files and 8645 assertions; nine detector tests passed with 86 percent statement coverage.
+- Pending: no implementation work remains for this follow-up; Chroma stays enabled and the proposed relevance A/B remains an owner decision.
+- Carry-forward: run the detector after every plugin update because a changed invocation can bypass a tool receipt; the original verified data rollback remains untouched. Independent helper review was not checked because the dispatch prohibited helpers. Evidence and the reproducible repair are in `docs/claude-mem-retention/`.
+
+## Session Summary — [2026-11-20] [2d56278..ace351a]
+
+- Completed: ran the Layer-2 gate on the claude-mem retention artifacts; applied five eligible findings covering log-rotation attestation, restart retries, scan-boundary event loss, bounded service timeouts and the public evidence-manifest name. Sixteen detector tests passed with 87 percent statement coverage; the affected suite passed 10 files and 1757 assertions, and the full suite passed 102 files and 8645 assertions with zero failures or skips.
+- Pending: gate verdict STOP; the human owner must resolve the concurrent log-append/stat/unlink data-loss race (MUST-FIX) and choose a backward-clock checkpoint policy (SHOULD-FIX). Live scripts, units, store and rollback were not changed by this review; repository fixes require installation before operational adoption.
+- Carry-forward: receipt b300852b binds the reviewed tree; Phase 4 ran inline with no independent corroboration or confidence promotion, and independent test adequacy review was not checked because helpers were prohibited. The README records the destructive-path limits and retains both the scoped-pin undo and the detector check after every plugin update; all public evidence stays structural and sanitized.
+
+## Session Summary — [2026-11-20] [3ed0598..f098cee]
+
+- Completed: resolved the owner-authorized F5/F6 findings in source. Rotation retains raw inodes instead of unlinking them; the detector reads fixed append-only prefixes and checks event identities independent of wall-clock progression. Deterministic red-before tests reproduced lost final appends, missed rotated events and backward-clock alarms; 24 detector tests now pass, with 85 percent retention and 86 percent detector statement coverage. The implementation full suite passed 102 files and 8645 assertions with zero failures or skips; the final tree is checked again after this closure record.
+- Pending: operational installation remains explicit owner work. Both live timers are enabled and active, but their installed scripts predate the fixes and both live start timeouts remain infinity; the README gives a bounded, quiesced upgrade procedure. No live scripts, units, database, worker, Chroma setting or rollback were changed by this task.
+- Carry-forward: future log rotation reclaims zero bytes because retained raw inodes protect late writes; automatic purge needs writer/reader coordination. Legacy monitor state seeds a complete identity baseline before its first corrected probe and cannot reconstruct unrecorded history. Phase 4 runs inline with no independent corroboration or confidence promotion; independent test adequacy review is not checked because helpers are prohibited.

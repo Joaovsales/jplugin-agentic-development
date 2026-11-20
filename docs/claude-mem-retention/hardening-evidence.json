@@ -1,0 +1,322 @@
+{
+  "verified_at": "2026-11-20T16:22:03.940037+00:00",
+  "production_bundle_unchanged": true,
+  "probe_file": "<HOME>/.local/state/claude-mem-retention/semantic-probe.json",
+  "probe_file_sha256": "5d22d79318d1a7f58e528907a64d23f5639902c2944d34286d5107b0c23778f4",
+  "connection_markers": {
+    "production_restart": "[2026-11-20 12:49:02.019] Connected to chroma-mcp successfully",
+    "canary_known_good": "[2026-11-20 13:18:33.441] Connected to chroma-mcp successfully",
+    "canary_restored": "[2026-11-20 13:18:38.296] Connected to chroma-mcp successfully"
+  },
+  "mechanism": "Persistent uv-managed chroma-mcp environment; ordinary uvx invocation reuses its tool receipt",
+  "installed_tool": "<HOME>/.local/share/uv/tools/chroma-mcp",
+  "receipt_requirements": [
+    {
+      "name": "chroma-mcp"
+    },
+    {
+      "name": "chroma-mcp",
+      "specifier": "==0.2.6"
+    },
+    {
+      "name": "pydantic",
+      "specifier": "<2.11"
+    }
+  ],
+  "python": "3.13",
+  "ordinary_restart": {
+    "utc": "2026-11-20T15:49:01.366827+00:00",
+    "ordinary_command": true,
+    "cli_exit": -9,
+    "daemon_changed": true,
+    "health_status": "ok",
+    "no_shim_path": true
+  },
+  "production_processes": [
+    {
+      "argv": [
+        "<HOME>/.local/bin/uv",
+        "tool",
+        "uvx",
+        "--python",
+        "3.13",
+        "chroma-mcp",
+        "--client-type",
+        "persistent",
+        "--data-dir",
+        "<HOME>/.claude-mem/chroma"
+      ]
+    },
+    {
+      "argv": [
+        "<HOME>/.local/share/uv/tools/chroma-mcp/bin/python",
+        "<HOME>/.local/share/uv/tools/chroma-mcp/bin/chroma-mcp",
+        "--client-type",
+        "persistent",
+        "--data-dir",
+        "<HOME>/.claude-mem/chroma"
+      ]
+    }
+  ],
+  "durable_healthy": {
+    "utc": "2026-11-20T15:49:02.722304+00:00",
+    "exit": 0,
+    "stdout_bytes": 0,
+    "stderr_bytes": 0,
+    "state": {
+      "checked_at": "2026-11-20T15:49:02.713401+00:00",
+      "successful_connection_at": "2026-11-20T15:49:02.019000+00:00",
+      "failure_events_since_previous": 0,
+      "semantic_result_count": 1
+    }
+  },
+  "canary_known_good": {
+    "utc": "2026-11-20T16:18:33.940499+00:00",
+    "exit": 0,
+    "stdout_bytes": 0,
+    "stderr_bytes": 0,
+    "state": {
+      "checked_at": "2026-11-20T16:18:33.928306+00:00",
+      "successful_connection_at": "2026-11-20T16:18:33.441000+00:00",
+      "failure_events_since_previous": 0,
+      "semantic_result_count": 1
+    }
+  },
+  "canary_query_baseline": {
+    "utc": "2026-11-20T16:18:34.077279+00:00",
+    "http_status": 200,
+    "results": 1,
+    "source_hit": true,
+    "query_is_synthetic_canary": true
+  },
+  "snapshot_restore_rehearsal": {
+    "utc": "2026-11-20T16:18:35.717980+00:00",
+    "restore_command_succeeded": true,
+    "normal_uvx_help_exit": 0,
+    "receipt_identical": true
+  },
+  "broken_detector": {
+    "utc": "2026-11-20T16:18:37.019127+00:00",
+    "exit": 1,
+    "stdout_bytes": 0,
+    "stderr_bytes": 598,
+    "state": {
+      "checked_at": "2026-11-20T16:18:37.001980+00:00",
+      "successful_connection_at": null,
+      "failure_events_since_previous": 1,
+      "semantic_result_count": 0
+    }
+  },
+  "broken_failure": {
+    "event": "claude_mem_semantic_probe_failed",
+    "reason": "Chroma MCP connection closed or in backoff (HTTP 500); worker health alone did not detect it; No successful Chroma MCP connection marker in the current daemon lifetime; 1 new connection failure events since the previous probe",
+    "action": "Inspect local worker/vector-backend logs and plugin configuration, then restart normally. For the MCP/Pydantic compatibility failure, check uvx --python 3.13 chroma-mcp --help and restore the isolated tool using chroma-mcp.requirements.txt. For missing log evidence, check CLAUDE_MEM_LOG_LEVEL=INFO."
+  },
+  "restored_detector": {
+    "utc": "2026-11-20T16:18:38.697412+00:00",
+    "exit": 0,
+    "stdout_bytes": 0,
+    "stderr_bytes": 0,
+    "state": {
+      "checked_at": "2026-11-20T16:18:38.685621+00:00",
+      "successful_connection_at": "2026-11-20T16:18:38.296000+00:00",
+      "failure_events_since_previous": 0,
+      "semantic_result_count": 1
+    }
+  },
+  "production_after": {
+    "utc": "2026-11-20T16:20:35.569392+00:00",
+    "exit": 0,
+    "stdout_bytes": 0,
+    "stderr_bytes": 0,
+    "state": {
+      "checked_at": "2026-11-20T16:20:35.556942+00:00",
+      "successful_connection_at": "2026-11-20T15:49:02.019000+00:00",
+      "failure_events_since_previous": 0,
+      "semantic_result_count": 1
+    }
+  },
+  "isolation": {
+    "unchanged": true,
+    "production_http_healthy": true,
+    "process_count": 3,
+    "samples": 6,
+    "hash_algorithm": "SHA-256 of UTF-8 json.dumps(identities,separators=(',',':')) with no trailing newline from private isolation-proof.json",
+    "before_utc": "2026-11-20T16:18:32.336443+00:00",
+    "after_utc": "2026-11-20T16:18:38.725625+00:00",
+    "identities_before_sha256": "e47af1eab55a22ceecf7036c3971ea6dc7a283967312548a01d00294b2be0128",
+    "identities_after_sha256": "e47af1eab55a22ceecf7036c3971ea6dc7a283967312548a01d00294b2be0128"
+  },
+  "bounds": {
+    "fault_started_at": "2026-11-20T16:18:35.718066+00:00",
+    "isolated_broken_window_seconds": 2.9794644119683653,
+    "production_broken_window_seconds": 0,
+    "command_timeout_seconds": 60,
+    "canary_start_timeout_seconds": 30,
+    "canary_stop_grace_seconds": 15
+  },
+  "initial_fault_window": {
+    "fault_started_at": "2026-11-20T15:58:42.225436+00:00",
+    "isolated_broken_window_seconds": 3.1420581850688905,
+    "production_broken_window_seconds": 0,
+    "command_timeout_seconds": 60,
+    "canary_start_timeout_seconds": 30,
+    "canary_stop_grace_seconds": 15
+  },
+  "canary_clone": {
+    "original_sha256": "ac3ac20d9da9c1f2c5f8ba48a2dcb82ba552b83ed4db9bb5c5a4d6492e35c4b5",
+    "clone_sha256": "870fba06f792ee3d9a75218674e24421c4be99133dc203c35a64b37f969d4915",
+    "patch": "Global aggressive startup reaper and global orphan-CLI reaper return immediately; no semantic/search/database code changed",
+    "inserted_bytes": 16
+  },
+  "coverage": {
+    "covered_lines": 106,
+    "num_statements": 123,
+    "percent_covered": 86.17886178861788,
+    "percent_covered_display": "86",
+    "missing_lines": 17,
+    "excluded_lines": 0
+  },
+  "timer": {
+    "active": true,
+    "calendar": "daily 04:10 local, with at most 300 seconds jitter",
+    "actual_service_result": "success",
+    "actual_service_exit": 0
+  },
+  "caveats": [
+    "The production restart CLI exited by signal 9; a changed daemon, healthy HTTP, tool interpreter and actual connection/query prove readiness independently.",
+    "The isolated private clone disabled global process reapers only, preserving the real HTTP/search/SQLite/Chroma paths; it is not deployed.",
+    "The first canary precondition probe ran before backfill and correctly failed on empty results; no fault was injected until the backfill-complete known-good run passed.",
+    "The detector checks availability and connection evidence for any cause, not Pydantic versions or retrieval relevance.",
+    "The original retention footprint snapshot predates this follow-up software installation and test artifacts."
+  ],
+  "private_evidence": [
+    {
+      "path": "<HOME>/.local/state/claude-mem-retention/20261120-durability/durable-restart.json",
+      "sha256": "b0425ad3d5d1d223b130bc0a5020721647dfb230a8caba4a84567550d168df06",
+      "bytes": 194
+    },
+    {
+      "path": "<HOME>/.local/state/claude-mem-retention/20261120-durability/durable-healthy.json",
+      "sha256": "1306bade41ae632ebc569738445009c1eee3e4bec4fb86e733a604813b673f2a",
+      "bytes": 314
+    },
+    {
+      "path": "<HOME>/.local/state/claude-mem-retention/20261120-durability/production-processes.json",
+      "sha256": "736ac55fbc400b2fe6deca84ec5662f058f897f547e334e9a6aeb0dc85831813",
+      "bytes": 573
+    },
+    {
+      "path": "<HOME>/.local/state/claude-mem-retention/20261120-durability/production-after-test.json",
+      "sha256": "815ea0120df3c427252b1b924ade752dd223717e65307118fac5c3af33a62416",
+      "bytes": 314
+    },
+    {
+      "path": "<HOME>/.local/state/claude-mem-retention/20261120-durability/canary-code.json",
+      "sha256": "a0c9f83fd2eed399fa55a78e40d187a479ceb9df553ca5bf6408279413ff3034",
+      "bytes": 339
+    },
+    {
+      "path": "<HOME>/.local/state/claude-mem-retention/20261120-durability/canary-query-baseline.json",
+      "sha256": "f00a61c10f234b5bdcc91716655a919c90314f3861b6b2ec6f2962942863cf92",
+      "bytes": 145
+    },
+    {
+      "path": "<HOME>/.local/state/claude-mem-retention/20261120-durability/canary-known-good-detector.json",
+      "sha256": "de5c54e9c564f97333a61b234cddfc9f22ad31cc4b8b6c377c151686f0b13bb0",
+      "bytes": 314
+    },
+    {
+      "path": "<HOME>/.local/state/claude-mem-retention/20261120-durability/tool-restore-rehearsal.json",
+      "sha256": "6a3395bf778ab782d29d5b1340e37d0a779e5cf6b131302820a3e043c91dddea",
+      "bytes": 143
+    },
+    {
+      "path": "<HOME>/.local/state/claude-mem-retention/20261120-durability/working-tool-receipt.toml",
+      "sha256": "cc5e56f5246803ee0c6c80ef74bd21a2caff48bcca746b8e27d51692a28bf905",
+      "bytes": 324
+    },
+    {
+      "path": "<HOME>/.local/state/claude-mem-retention/20261120-durability/canary-broken-help.stderr",
+      "sha256": "2a91fec4ea454bf92091b22a80cd19ef5ad5f91a606431e217c090dae9b99b55",
+      "bytes": 2504
+    },
+    {
+      "path": "<HOME>/.local/state/claude-mem-retention/20261120-durability/canary-broken-detector.json",
+      "sha256": "719a2afd72cb71263f32b3b1970b0bf4cd4ddfa3f4a0334d3a1b6c32c02b5f5f",
+      "bytes": 286
+    },
+    {
+      "path": "<HOME>/.local/state/claude-mem-retention/20261120-durability/canary-broken-detector.stderr",
+      "sha256": "e3af236a91862b11482f62d23651b491327954da663964139b3dbc90e1cc3fb0",
+      "bytes": 598
+    },
+    {
+      "path": "<HOME>/.local/state/claude-mem-retention/20261120-durability/canary-restored-detector.json",
+      "sha256": "a88bbe799c49c1c45a149791fc11e0b3cf53416068a95d33e4902988a6a9ef4e",
+      "bytes": 314
+    },
+    {
+      "path": "<HOME>/.local/state/claude-mem-retention/20261120-durability/fault-window.json",
+      "sha256": "a11cd70632a25c99d9e7384974e41f6d1c27bc67418c4657bad024c9bb482cfa",
+      "bytes": 264
+    },
+    {
+      "path": "<HOME>/.local/state/claude-mem-retention/20261120-durability/isolation-proof.json",
+      "sha256": "ed0da767cb8f3f395b4cd23c85ae2f0582f3b86196426c2c7f7391008c62d033",
+      "bytes": 628
+    },
+    {
+      "path": "<HOME>/.local/state/claude-mem-retention/20261120-durability/production-health-trace.json",
+      "sha256": "ac7a50b4f6999bfae5d34f039c28d57dc432e860b0394e5703d14499011356e0",
+      "bytes": 1858
+    },
+    {
+      "path": "<HOME>/.local/state/claude-mem-retention/20261120-durability/restore_canary_tool.py",
+      "sha256": "70710a5a92f3dc37370abd038fad483992adcbd0615e1326f106f29a1fa850b3",
+      "bytes": 239
+    },
+    {
+      "path": "<HOME>/.local/state/claude-mem-retention/20261120-durability/isolated_proof.py",
+      "sha256": "c063e097e9f1afd0feb769eee53c2f75f9e0a1f2f0e642aaa887a8a4cc8cfa18",
+      "bytes": 11563
+    },
+    {
+      "path": "<HOME>/.local/state/claude-mem-retention/20261120-durability/proof.py",
+      "sha256": "ad216a74bbc25df0bdd952e5979d306c70845f2dc54f7f3f385739292e7a42b9",
+      "bytes": 4396
+    },
+    {
+      "path": "<HOME>/.local/state/claude-mem-retention/20261120-durability/report.py",
+      "sha256": "4eac1db10fc34b914318cae26fb05c0eefc391cfe3bffe8fb1fe88aacb0ec6e8",
+      "bytes": 15051
+    },
+    {
+      "path": "<HOME>/.local/state/claude-mem-retention/20261120-durability/commands.jsonl",
+      "sha256": "f13de11c81d1f06124c4980b3f86679dc3df9ab41144f263b1a5169fb1c819ab",
+      "bytes": 6781
+    },
+    {
+      "path": "<HOME>/.local/state/claude-mem-retention/20261120-durability/monitor-unit.log",
+      "sha256": "c0836143ffeebf33c87eb567b6de4a31ec30b36b9b0af06f07c0dc70118840be",
+      "bytes": 107
+    },
+    {
+      "path": "<HOME>/.local/state/claude-mem-retention/20261120-durability/coverage.json",
+      "sha256": "9f0c86af3b0d46058e3ae415a1f775f56f0ebf9d1058fcd845366649a47a43ef",
+      "bytes": 4385
+    }
+  ],
+  "full_suite": {
+    "command": "bash .agents/skills/build/scripts/cached-suite.sh -- bash tests/run.sh",
+    "exit_code": 0,
+    "test_files": 102,
+    "assertions_passed": 8645,
+    "failed": 0,
+    "skipped": 0,
+    "result": "RESULT: all 102 test files passed",
+    "log": "<HOME>/.local/state/claude-mem-retention/20261120-durability/full-suite-final.log",
+    "sha256": "74a189c190ce135224fc473c0efdea2b5ea03bcee351f4a03062b217311f4684"
+  },
+  "detector_unit_tests": 9
+}
