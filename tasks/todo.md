@@ -3002,3 +3002,48 @@ Step ledger (routine `simplify`):
     `pi-subagents`.
   - The code-graph timing bounds in `test-session-start.sh` fail on a loaded
     Windows host.
+
+## Plan: slice-three-outcomes
+> Spec: specs/slice-three-outcomes.md
+> Issue: #441
+
+### Slice 1/2 — Slice outcome at Slice Close
+- [x] Slice outcome at Slice Close — slice_outcome.py derives the three outcomes from the orchestrator's own run; Slice Close closes only on SUCCEEDED and writes > Outcome:
+
+> Handover: landed 887e959..8eab3ec — `.agents/skills/build/scripts/slice_outcome.py` derives agent_result / verification_result / slice_result; `/build` § Slice Close runs it, closes only on exit 0 and writes `> Outcome:`; Phase 6 lists one outcome per slice; the PR Handovers section carries `> Outcome:`.
+> Do not re-derive: the outcome line's `key=value` names (`agent_result`, `verification_result`, `slice_result`) and labels (`SUCCEEDED`, `VERIFICATION_FAILED`, `AGENT_FAILED`, `NOT_VERIFIED`, `AGENT_UNKNOWN`) are the contract #442/#445 read; exit 3 means Unknown; `build/SKILL.md` is at its 600-line cap.
+> Outcome: agent_result=True verification_result=True slice_result=True SUCCEEDED
+> Surface: undeclared specs/slice-three-outcomes.md, specs/slice-three-outcomes.plan.html, tasks/todo.md — plan artifacts committed with the slice (`slice.py check --slice 1 --base 887e959`).
+
+### Slice 2/2 — Not checked is never clean
+- [x] Not checked is never clean — the receipt requires a reason on a lost review and prints not checked; /verify-evidence and /quality-gate state the wording rule
+
+> Handover: landed 8eab3ec..51ad7ae — `receipt.py write` refuses `lost` without a non-empty `reason`; `write` and `check` print `receipt: not checked phase <n> <lens> — <reason>` per lost entry; `/verify-evidence` and `/quality-gate` state the `not checked: <check> — <reason>` rule.
+> Do not re-derive: the verdict rule is unchanged (`lost` is disclosed, not weighed — #429 owns receipt soundness); a stored receipt with a reason-less `lost` still verifies and reads `no reason recorded`; editing `receipt.py` changes the policy hash, so earlier receipts go `stale policy-changed`.
+> Outcome: agent_result=True verification_result=True slice_result=True SUCCEEDED
+> Surface: none (`slice.py check --slice 2 --base 8eab3ec` exit 0).
+
+## Session Summary — [2026-11-18] [887e959..42e41a1]
+
+- Completed:
+  - #441 slices 1 and 2: three outcomes at Slice Close; a lost review carries a
+    reason and prints `not checked`.
+  - Plugin version 1.8.20.
+- Pending: none in this PR.
+- Carry-forward:
+  - #439: the gate-integrity check joins `verification_result` as a second
+    input when it lands (spec D3).
+  - #442 / #445 read the `> Outcome:` `key=value` fields named in
+    `specs/slice-three-outcomes.md` § Outputs.
+
+## Session Summary — [2026-11-18] [7da69f9..ddd3676] — closure repair 1
+
+- Completed: PR #448 independent-review fixes — a delta receipt discloses lost reviews inherited from its parent chain (MUST-FIX); the slice outcome starts a fresh line and the last `slice-outcome: agent_result=` line is authoritative; undecodable stderr no longer loses the outcome.
+- Pending: none in this PR.
+- Carry-forward: field names and labels unchanged for the stacked #442 PR.
+
+## Session Summary — [2026-11-19] [875778f..875778f] — closure repair 2
+
+- Completed: PR #448's residual output-boundary fixes; the diagnostic precedes the final summary, and an explicit newline follows both raw replayed streams.
+- Verification: six new assertions fail before the fix; all 46 slice-outcome assertions pass after it. Affected/full-suite results and the refreshed receipt are recorded in PR #448's Review fixes section.
+- Carry-forward: field names and labels remain unchanged for stacked #442; the fix is included in this wrap-up commit, with no earlier implementation commit in this session.

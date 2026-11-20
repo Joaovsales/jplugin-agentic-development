@@ -33,6 +33,10 @@ Before making any completion claim, execute every step in sequence:
 
 Skip any step = lying, not verifying.
 
+**Not checked is never clean.** A check that did not run — no command to run, a held
+suite lock, a missing tool, a review that could not be dispatched — is reported as
+`not checked: <check> — <reason>`: never as a pass, never omitted. A skip carries its reason.
+
 ### Common Failures
 
 | Claim | Requires | Not Sufficient |

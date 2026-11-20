@@ -1754,3 +1754,31 @@ Steps executed:
   ✓ gh pr view 420 reports CLOSED with mergedAt=null; its closing comment links retained results.
 Negative: results tree has no graph-hint shell or Codex hint adapter, and the live installer registered no PreToolUse treatment.
 Result: PASS
+
+## CLI walkthrough — PR #448 review fixes — 2026-11-19 96fbbe6
+
+Spec: specs/slice-three-outcomes.md (AC1–AC4)
+Driver: actual Python CLIs through tests/test-slice-outcome.sh and tests/test-quality-receipt.sh; document contract checks through tests/test-doc-conventions.sh.
+Evidence: /tmp/pr448-finish/test-slice-outcome.log, /tmp/pr448-finish/test-quality-receipt.log, /tmp/pr448-finish/test-doc-conventions.log.
+
+- AC1: a green agent claim with a verification command exiting 1 yields VERIFICATION_FAILED and wrapper exit 1; the last summary remains red after a forged green command line.
+- AC2: no command and the cached-suite lock refusal yield Unknown; injected verification flags are refused; command stdout without a newline stays on its own line; stderr byte 0xff preserves successful command exit 0.
+- AC3: actual receipt write/check in isolated Git repositories disclose a lost phase-5 review inherited from a fully dispatched delta's parent, including its reason and parent fingerprint; verdict remains GO. Missing/blank lost reasons are refused, and historical reason-less entries disclose no reason recorded.
+- AC4: the handover consumer is pinned to the last `slice-outcome: agent_result=` line, and document checks cover the build report and PR handover contract.
+
+Focused results: slice outcome 38 passed; quality receipt 85 passed; document conventions 965 passed; all exit 0.
+Red proof: the current tests against pre-fix source in an isolated archive fail five slice-output assertions and both inherited-disclosure assertions.
+Not checked: live agent-driven slice header mutation — this task verifies the CLI and documented consumer contract, and forbids helper workers.
+
+## CLI walkthrough — PR #448 residual output boundary — 2026-11-19
+
+Spec: specs/slice-three-outcomes.md (AC1, AC2, AC4 output contract).
+Driver: actual slice_outcome.py CLI through tests/test-slice-outcome.sh, with stdout and stderr merged by tests/lib.sh run.
+Evidence: /tmp/pr448-followup/red.log and /tmp/pr448-followup/green.log.
+
+- A command exiting 1 receives a multiline argv containing a standalone fake SUCCEEDED summary: the last matching summary and final output line both record VERIFICATION_FAILED, and the wrapper exits 1.
+- A successful command writes warning without a stderr newline: the captured first line preserves warning and the documented last-summary parser finds SUCCEEDED.
+- A successful command writes raw stderr byte 0xff: the byte remains unchanged on its own captured line, and byte-safe parsing finds the real final SUCCEEDED summary.
+
+Red proof: 40 assertions passed and 6 failed before the source change. Green proof: all 46 assertions passed after it. Field names, labels and exit statuses are unchanged.
+Not checked: live agent-driven header mutation and independent test-engineer dispatch — the worker task forbids helper agents.
