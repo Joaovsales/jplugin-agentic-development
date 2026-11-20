@@ -13,6 +13,8 @@ Filesystem inventories are timestamped observations of live files, not an atomic
 
 ## Storage accounting
 
+This is the original retention checkpoint; it predates the durability follow-up software installation and test artifacts.
+
 | Scope | Before allocated bytes | After allocated bytes |
 |---|---:|---:|
 | Live `<HOME>/.claude-mem` tree | 96979128320 | 67356229632 |
@@ -148,55 +150,138 @@ The program emits no success log line. Disable future runs with:
 systemctl --user disable --now claude-mem-retention.timer
 ```
 
-## Scoped MCP repair and its limits
+## Durable MCP repair and failure-only detection
 
-Production process capture established the actual chain: live worker → uvx → the failing cached Python environment.
-That environment contained **chroma-mcp 0.2.6, MCP framework 1.6.0, Pydantic 2.14.4 and ChromaDB 1.5.9**.
-Its own startup traceback shows MCP importing the removed `eval_type_backport` symbol.
-The shared MCP/Pydantic environments were not involved and were not downgraded.
+Production capture identified **chroma-mcp 0.2.6, MCP framework 1.6.0, Pydantic 2.14.4 and ChromaDB 1.5.9**
+in the failing uvx environment. Its own startup traceback showed MCP importing the removed
+`eval_type_backport` symbol. Shared Python environments were not involved or downgraded.
+The initial per-daemon PATH shim restored service, but was temporary; [shim.template.py](shim.template.py)
+is retained only as a historical execution artifact. It is no longer needed or used.
 
-The private PATH shim is `<HOME>/.local/state/claude-mem-retention/20261120/mcp-bin/uvx`.
-[shim.template.py](shim.template.py) preserves its exact content with home paths sanitized.
-Replace `<HOME>` with the actual home directory before using that documentation template.
-Only the exact `--python 3.13 chroma-mcp` invocation gets `--with pydantic<2.11`.
-The live process carried that flag, the shim logged interception, and the resulting isolated environment
-resolved Pydantic **2.10.6**. All other uvx calls pass through unchanged.
+### Persistent tool receipt
 
-The equivalent scoped start command is:
+The current repair is declarative and scoped to the uv-managed `chroma-mcp` tool:
 
 ```bash
-env PATH="$HOME/.local/state/claude-mem-retention/20261120/mcp-bin:$PATH" \
-  "$HOME/.bun/bin/bun" \
-  "$HOME/.claude/plugins/cache/thedotmack/claude-mem/12.1.6/scripts/worker-service.cjs" start
+uv tool install --python 3.13 \
+  --with-requirements docs/claude-mem-retention/chroma-mcp.requirements.txt chroma-mcp
 ```
 
-Undo the repair by restarting with the recorded original PATH, without the shim:
+[chroma-mcp.requirements.txt](chroma-mcp.requirements.txt) records both package and compatibility requirements.
+The receipt at `<HOME>/.local/share/uv/tools/chroma-mcp/uv-receipt.toml` persists them independently of the
+plugin cache. The unchanged `uvx --python 3.13 chroma-mcp` invocation selects that installed environment.
+No global uvx shadow or global constraint is installed; unrelated tools use their own environments.
+
+The live daemon was restarted **normally**, without an augmented PATH or UV constraint environment:
 
 ```bash
-env PATH="$(cat "$HOME/.local/state/claude-mem-retention/20261120/path.before.txt")" \
-  "$HOME/.bun/bin/bun" \
+"$HOME/.bun/bin/bun" \
   "$HOME/.claude/plugins/cache/thedotmack/claude-mem/12.1.6/scripts/worker-service.cjs" restart
 ```
 
-**The MCP pin is temporary:** an ordinary restart or plugin update can bypass this per-daemon PATH setup.
-Rank 1's supported exclusion and rank 4's external timer are durable. No claim of a durable upstream dependency fix is made.
+The new daemon had no old shim directory in PATH, and its actual child interpreter came from
+`<HOME>/.local/share/uv/tools/chroma-mcp/bin/`. Its environment resolved Pydantic **2.10.6**.
+The restart CLI exited by signal 9, but independent checks confirmed the new daemon, HTTP health,
+real semantic results and a fresh connection; a CLI exit alone is not treated as readiness proof.
+The detector then exited **0 with zero stdout and stderr**.
 
-Static live log markers after repair, with private project fields omitted:
+Removing this scoped repair is `uv tool uninstall chroma-mcp`, followed by a normal worker restart;
+that returns to unconstrained uvx resolution and may reproduce the original failure. The installed
+tool receipt survives ordinary restarts and plugin-cache replacement. A future plugin can change its
+invocation and bypass it, so the behavioral detector below remains necessary.
 
-```text
-[2026-11-20 12:05:08.389] Connected to chroma-mcp successfully
-[2026-11-20 12:05:08.801] Smart backfill complete
+### Cause-agnostic detector
+
+[semantic_health.py](semantic_health.py) asserts that the **semantic path answers**, without checking
+or requiring a Pydantic version. Each run verifies:
+
+- worker HTTP health and identity before sending the private query;
+- a real, nonempty query through `/api/search`, requiring HTTP 200 and hydrated observation results;
+- an anchored successful `CHROMA_MCP` connection marker in the current daemon's lifetime;
+- no new anchored connection-failure events since the previous probe checkpoint.
+
+The connection window starts at the current daemon's recorded start, rather than an arbitrary 24-hour
+age limit: a healthy persistent connection is not failed just because its startup marker is old.
+Failure events are compared by time, so log expiry cannot hide them by decreasing a cumulative counter.
+Checkpoint corruption fails loudly. Hook text containing marker words cannot satisfy the anchored marker check.
+The detector is an availability check, not a relevance grade.
+
+Healthy execution emits **nothing** and exits **0**. Failure emits one structured JSON message on stderr
+and exits **1**, naming the failed signal and an action. Backend/transport failure, missing connection
+evidence, rising failures and empty results are all errors regardless of their cause. Private query text
+and raw response bodies are never printed. MCP/Pydantic repair guidance is conditional, not the detector's remit.
+
+The private known-result query lives in `<HOME>/.local/state/claude-mem-retention/semantic-probe.json`;
+the checkpoint contains only times and counters. Its JSON schema is `{"query":"<private known-result text>"}`;
+the existing file is owner-only and never committed. The probe sets an explicit all-time range so the normal
+90-day search window cannot age its known result out; changes to the retained corpus may require refreshing it. The installed script is
+`<HOME>/.local/bin/claude-mem-semantic-health.py`. The supplied service and timer are enabled under
+`<HOME>/.config/systemd/user/`, running daily at 04:10 local with at most 300 seconds jitter.
+The actual service run succeeded with exit 0. A failed run leaves the unit failed and its actionable stderr
+in the user journal; there is no nightly success message.
+
+**After every claude-mem plugin update, run the detector once and confirm it is silent:**
+
+```bash
+systemctl --user start claude-mem-semantic-health.service
 ```
 
-These are logger-local times, UTC−03 on the execution machine.
-Historical anchored logs show first backoff at `2026-04-27 10:26:39.117`, a last pre-repair successful connection
-at `2026-10-06 18:28:36.633`, and completed backfill at `2026-10-06 18:30:33.506`.
-Successful semantic-query details were logged at DEBUG while retained settings used INFO:
-**the last historical successful semantic query is unknown.** Intermittent failures are established;
-continuous failure since April or since October is not established.
+Inspect failures with `journalctl --user -u claude-mem-semantic-health.service`.
+Disable scheduling, without altering the worker, with
+`systemctl --user disable --now claude-mem-semantic-health.timer`.
 
-A scratch SQLite-to-Chroma rebuild indexed 8 observation documents and returned the expected self-query top result.
-The owner accepted this as the rank-3 rebuild rollback precondition. It was not an exact full-index/ranking restore test.
+### Isolated fault injection and recovery
+
+The installed plugin's startup reaper enumerates and kills other worker/Chroma processes globally;
+a separate HOME alone would therefore be unsafe. Unprivileged PID namespaces were unavailable.
+The canary used a private clone with only the global startup and orphan-CLI reapers disabled
+(16 inserted bytes). Production's installed bundle was unchanged.
+HTTP, search, SQLite and Chroma code remained real. Separate HOME, port, tiny synthetic canary database/index,
+and UV_TOOL_DIR isolated all test state; no production database was copied or swapped.
+
+Before breaking it, the canary established a real MCP connection, completed backfill, and returned its known
+observation through the real API. The detector exited 0 with zero output. A first precondition attempt had
+correctly rejected empty results before backfill; the fault was not injected until the known-good run passed.
+
+The working isolated tool environment was snapshotted before mutation. The exact snapshot-restore command
+was rehearsed successfully **before** injecting the fault, and ordinary uvx help succeeded against that
+restored disposable environment. The receipt matched. That same snapshot restore was used for recovery,
+without a dependency reinstall. Exact commands and scripts are retained locally and indexed in
+[hardening-evidence.json](hardening-evidence.json).
+
+The isolated tool was then given the original incompatible Pydantic requirement. Its real startup traceback
+reproduced the removed-symbol import error. Worker health still answered, while semantic search failed:
+the detector exited **1**, produced **0 stdout bytes**, and emitted an actionable failure naming HTTP 500,
+missing current-daemon connection evidence and a new failure event. After snapshot restoration,
+the real backend reconnected, returned results, and the detector exited **0 with zero stdout/stderr**.
+
+Measured isolated broken window: **2.979464 seconds**.
+Production broken window: **0 seconds**. An earlier proof before the all-time query refinement measured
+3.142058 seconds; both runs are retained, and the current figure is the final all-time-probe run. Fault-test subprocesses had a 60-second limit;
+worker readiness had 30 seconds, shutdown 15 seconds plus a 5-second forced-reap limit, and each probe
+HTTP request 30 seconds. No artificial backoff wait was needed. The earlier ordinary-restart helper
+had a 180-second subprocess limit and was independently checked for readiness.
+
+Production's worker, uvx parent and Python/MCP identities were unchanged before and after the test,
+including process start ticks; 6 intervening samples also checked health and identities.
+The raw PID evidence stays private, with matching identity hashes in the public evidence.
+The post-test production detector returned 0 with zero output, and no canary processes remained.
+
+Connection markers, with private fields omitted (logger-local time, UTC−03 on this machine):
+
+```text
+production ordinary restart: [2026-11-20 12:49:02.019] Connected to chroma-mcp successfully
+canary known good:          [2026-11-20 13:18:33.441] Connected to chroma-mcp successfully
+canary restored:            [2026-11-20 13:18:38.296] Connected to chroma-mcp successfully
+```
+
+Historical anchored logs showed first backoff at `2026-04-27 10:26:39.117`, a last pre-repair successful
+connection at `2026-10-06 18:28:36.633`, and completed backfill at `2026-10-06 18:30:33.506`.
+Successful semantic-query details used DEBUG while retained settings used INFO: the last historical
+successful semantic query is **unknown**. Continuous failure since April or October is not established.
+
+A scratch SQLite-to-Chroma rebuild indexed 8 observation documents and returned the expected self-query result.
+The owner accepted that as the rank-3 rebuild rollback precondition; it was not a full-index/ranking restore test.
 
 ## Search instrument, relevance and corpus caveat
 
@@ -271,7 +356,7 @@ and genuine session processing has produced new observations. Real-project injec
 `python3 docs/claude-mem-retention/test_retention.py` covers age boundaries, failed-at age,
 pending/processing preservation, archive recovery, archive-failure rollback and idempotence.
 Measured utility statement coverage is 84 percent. Systemd unit verification and an actual service execution passed.
-Repository-suite results are recorded in the pull request.
+The semantic detector has 86 percent statement coverage. `tests/test-claude-mem-retention.sh` runs both policies' regression fixtures in CI. Repository-suite results are recorded in the pull request.
 
 All committed files are structural evidence or generic code. No verbatim query, prompt, tool argument/result,
 observation body, summary, session title, private identifier or credential is published. Home paths are sanitized.
