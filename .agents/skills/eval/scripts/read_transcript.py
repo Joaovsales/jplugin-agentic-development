@@ -259,6 +259,7 @@ class Transcript:
     malformed: int
     compactions: int
     final_context: Optional[int]
+    first_context: Optional[int]   # the first own turn's context: what the session paid before any work
     first_timestamp: Optional[str]
     last_timestamp: Optional[str]
     total_tokens: int          # the usage of this file's own turns summed, one count per API message
@@ -543,6 +544,7 @@ class _TranscriptBuilder:
     malformed: int = 0
     compactions: int = 0
     final_context: Optional[int] = None
+    first_context: Optional[int] = None
     first_timestamp: Optional[str] = None
     last_timestamp: Optional[str] = None
     total_tokens: int = 0
@@ -565,7 +567,7 @@ class _TranscriptBuilder:
                 largest = (result.bytes, use.subject)
         return Transcript(
             self.path, session_id(self.path), self.is_subagent, self.tool_uses, self.results,
-            self.malformed, self.compactions, self.final_context, self.first_timestamp,
+            self.malformed, self.compactions, self.final_context, self.first_context, self.first_timestamp,
             self.last_timestamp, self.total_tokens,
             _reads=tuple(self.calls[u.id] for u in self.tool_uses if u.name == "Read"),
             _shell_reads=tuple(c for c in own_calls if isinstance(c, ShellRead)),
@@ -652,6 +654,8 @@ def _absorb(b: _TranscriptBuilder, rec: dict, line_no: int) -> None:
         size = _context_size(usage)
         if size is not None:
             b.final_context = size
+            if b.first_context is None:
+                b.first_context = size
         # One API message is logged as several assistant records, one per content
         # block, each carrying the whole message's usage: count a message id once.
         message_id = message.get("id")

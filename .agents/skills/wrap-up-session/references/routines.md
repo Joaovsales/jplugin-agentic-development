@@ -43,6 +43,7 @@ PR because human review *is* the gate.
 | `janitor` | — (producer; **files** `bug`) | ready, docs-only PR carrying the session record | `Refs #N` per filed issue | active |
 | `architect` | — (producer; **files** `task` + `tech-debt`, or `design-decision`) | ready, docs-only PR carrying the session record | `Refs #N` per filed issue | active |
 | `tidy` | — (producer; **files** `documentation`, or `task` + `tech-debt`; commits Tier 0 repairs) | ready PR carrying the session record and the Tier 0 repair commits | `Refs #N` per filed issue | active |
+| `workflow` | — (producer; **files** `bug`, `task` + `tech-debt`, or `design-decision`) | ready, docs-only PR carrying the session record | `Refs #N` per filed issue | active — manual first, scheduled only after a reviewed manual run |
 
 Every row is a **lane** — one file under `.agents/skills/task-registry/lanes/`
 whose frontmatter carries the selector, the producer flag and the deferral, and
@@ -52,8 +53,8 @@ live one. The same files are what the interactive front door (the `go` skill)
 matches a goal against, so a labelled issue and a typed goal that name the same
 work run the same steps.
 
-`plan`, `fix`, `improve`, `simplify` and `build` are consumers. `janitor`, `architect` and
-`tidy` are producers — see *Producers* below. Consumers run on the **Builder** tier,
+`plan`, `fix`, `improve`, `simplify` and `build` are consumers. `janitor`, `architect`,
+`tidy` and `workflow` are producers — see *Producers* below. Consumers run on the **Builder** tier,
 producers on the **Planner** tier; cadence is the operator's call, typically
 daily for consumers and weekly for producers.
 
@@ -344,7 +345,7 @@ tracks.
 
 Producers never edit product code. `janitor` may carry verification-map
 corrections its full pass proved, `tidy` carries its Tier 0 repairs to the
-harness surfaces (specs/tidy-skill.md), and all three carry the session record
+harness surfaces (specs/tidy-skill.md), and every producer carries the session record
 under `tasks/sweeps/`; nothing else reaches the diff. Its output is issues — one
 `task-registry upsert --apply` per verified finding, ID derived from the
 finding's file and title so a later run **updates** the same task rather than
@@ -353,7 +354,7 @@ every issue in the record's *Filed* section. Never `Closes`: nothing was fixed.
 
 The branch number is a **run stamp** (`YYYYMMDD`), not an issue. The formatter
 and parser treat it as any other positive integer; `/wrap-up-session` does not
-look it up. `CONTRACT_ROUTINES` in `routine_branch.py` carries both names so the
+look it up. `CONTRACT_ROUTINES` in `routine_branch.py` carries every producer's name so the
 branch formats, and the registry reads them as `routine: producer` lanes from the
 lane catalogue, so `task-registry select` and `task-registry claim` refuse a
 producer with exit 2 — it files issues, it does not select them — and a
@@ -415,6 +416,25 @@ Step 3 is the lane file `tidy.md` in `.agents/skills/task-registry/lanes/`: its 
 routine's step list, its chain is derived from them, and `task-registry lanes
 tidy` prints it. The rows are not restated here (specs/lane-catalogue.md).
 
+### `workflow` — steps
+
+Lens: agent workflow efficiency and reliability. Engine:
+`workflow-incidence.py` (`.agents/skills/eval/scripts/`) over completed
+sessions after a cursor — the existing transcript parser and read-incidence
+row, never a second collector — bounded to 50 sessions, 20 minutes and a
+configured token budget, reporting what it left unexamined; the cursor
+advances only after the session record is written
+(`.agents/skills/sweep/references/lens-workflow.md`, specs/claude-mem-retention.md
+§ *Proposed routine: workflow producer*). Files a reproduced reliability defect
+as `bug`, proven waste as `task` + `tech-debt`, and a tradeoff needing an owner
+as `design-decision`. Terminal artifact: as `janitor`. The first run is manual;
+an operator schedules it only after reviewing that run's finding quality — the
+repository ships no scheduler binding.
+
+Step 3 is the lane file `workflow.md` in `.agents/skills/task-registry/lanes/`: its numbered steps are this
+routine's step list, its chain is derived from them, and `task-registry lanes
+workflow` prints it. The rows are not restated here (specs/lane-catalogue.md).
+
 ## Wrap-up on a routine branch
 
 Everything the wrap-up skill does only on a `routine/` branch or for an
@@ -474,6 +494,7 @@ no `Closes #N` and no `--draft`.
 | `routine/plan/<n>-<slug>` | `--draft` | conventional | `Refs #N` |
 | `routine/janitor/<YYYYMMDD>-sweep` | none | `chore(sweep): janitor <YYYY-MM-DD>` (`— clean` suffix when nothing was filed) | step ledger, the record path `tasks/sweeps/<YYYY-MM-DD>-janitor.md`, and `Refs #N` for **every** issue in the record's *Filed* section — never `Closes` |
 | `routine/architect/<YYYYMMDD>-sweep` | none | `chore(sweep): architect <YYYY-MM-DD>`, same suffix rule | as `janitor`, with the record at `tasks/sweeps/<YYYY-MM-DD>-architect.md` |
+| `routine/workflow/<YYYYMMDD>-sweep` | none | `chore(sweep): workflow <YYYY-MM-DD>`, same suffix rule as `janitor` | as `janitor`, with the record at `tasks/sweeps/<YYYY-MM-DD>-workflow.md`, the sessions examined and left unexamined, and the cursor position |
 | `routine/tidy/<YYYYMMDD>-sweep` | none | `chore(tidy): <YYYY-MM-DD>` (`— clean` suffix only when nothing was filed **and** no Tier 0 repair was committed) | as `janitor`, with the record at `tasks/sweeps/<YYYY-MM-DD>-tidy.md` and the Tier 0 repair commits listed by check name |
 | `routine/simplify/<n>-<slug>` | none | conventional | `Closes #N`, the before- and after-proof, `Behavior changes:` and `Simplified:` |
 | `routine/simplify/<YYYYMMDD>-record` | none | `chore(simplify): record <YYYY-MM-DD>` | docs-only: the `tasks/todo.md` index rows, and `Refs #N` per filed issue — never `Closes` |

@@ -119,7 +119,7 @@ assert_contains "$spine" "non-skippable" "Contract: the spine marks its non-skip
 wrapup_rows="$(grep -cE '^\| [0-9a-c]+ \| .?/wrap-up-session' "$CANON" || true)"
 assert_eq "2" "$wrapup_rows" \
   "Contract: /wrap-up-session appears as exactly two step rows, one per spine"
-for routine in plan fix improve simplify janitor architect tidy; do
+for routine in plan fix improve simplify janitor architect tidy workflow; do
   section="$(awk -v r="$routine" 'index($0, "### `" r "` — steps") == 1 {found=1; next} found && /^### / {exit} found {print}' "$CANON")"
   assert_not_contains "$section" "/wrap-up-session" \
     "Contract: $routine's own section does not restate /wrap-up-session"
@@ -170,7 +170,7 @@ assert_file_not_matches ".agents/skills/wrap-up-session/references/routine-promp
   "AC2: the improve routine prompt no longer says to confirm the plan yourself"
 
 # --- producers: the second spine ---------------------------------------------
-for routine in janitor architect tidy; do
+for routine in janitor architect tidy workflow; do
   assert_file_matches "$CANON" "^\| \`$routine\` \|" \
     "Contract: producer \`$routine\` has a row in the routine table"
   assert_file_matches "$CANON" "^### .$routine. — steps" \
@@ -197,7 +197,7 @@ done
 # AC6): each routine's section names its lane file and restates no row, so the
 # gates below are read from the lane file and the section is pinned row-free.
 LANES=".agents/skills/task-registry/lanes"
-for routine in plan fix improve simplify janitor architect tidy; do
+for routine in plan fix improve simplify janitor architect tidy workflow; do
   section="$(awk -v r="$routine" 'index($0, "### `" r "` — steps") == 1 {found=1; next} found && /^### / {exit} found {print}' "$CANON")"
   assert_contains "$section" "$routine.md" \
     "Contract: $routine's section names its lane file"
