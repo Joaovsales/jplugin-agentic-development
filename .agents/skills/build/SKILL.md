@@ -204,12 +204,12 @@ the next batch.
    for no added signal and is a known way to lose a whole fleet to autocompact
    thrashing. Isolate the *edits*, centralise the *verification*.
 
-In every session, every slice dispatches to a sub-agent: `/build`
-implements nothing itself. A lone ready slice, and each slice of a serialized
-pair (an intersecting pair with no blocker between them), runs one at a time
-in table order through Steps 1–3 below, in the main tree. Verification stays
-central. Where the harness has no sub-agents, `/build` runs inline and says so
-in one line.
+In every session, every slice dispatches to a sub-agent: `/build` implements nothing itself. A lone ready slice, and each
+slice of a serialized pair (an intersecting pair with no blocker between them), runs one at a time in table order through
+Steps 1–3 below, in the main tree. Verification stays central. Where the harness has no sub-agents, `/build` runs inline
+and says so in one line. A slice whose heading carries `> Candidates: <N>` runs N Builders through `candidates.py` —
+`open`, one Step 1 dispatch per worktree, then `rank`, which applies the winner; `discard` if the build stops between
+them: `.agents/skills/build/references/candidates.md`.
 
 ### Step 1 — Implement the Slice
 
