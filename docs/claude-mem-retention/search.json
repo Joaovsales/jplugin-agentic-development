@@ -1,0 +1,338 @@
+{
+  "fixed_at": "2026-11-20T14:39:04.958036+00:00",
+  "original_query_file_sha256": "844e3b6da9716898bf015b644a6113578be07f03afe52a2a65d719defe0a9e9a",
+  "original_query_file": "<HOME>/.local/state/claude-mem-retention/20261120/queries.json",
+  "algorithm": "SHA-256 over every byte of the file",
+  "original_limit": 3,
+  "supplemental_limit": 10,
+  "valid_filter_controls": 1,
+  "invalid_filter_controls": 1,
+  "corpus_caveat": "The successful ON arm is post-cleanup and post-repair, not a historical pre-cleanup working-ON arm. All original observations were preserved; new genuine observations were added after restart. The supplemental SQL observation fingerprint was stable during its run. Chroma was not independently frozen.",
+  "supplemental_corpus_stable": true,
+  "judgement_method": "Self-assessed direct/related/irrelevant rubric fixed before the supplemental run; title/narrative review, full-field discriminating-concept check for zero-direct queries; duplicate records count separately. Private content is withheld.",
+  "queries": [
+    {
+      "label": "Q01",
+      "kind": "semantic",
+      "query_sha256": "8b1b8a5274950ff779aebfdbc05a0cbc392160eb3cab0f13af2357ce940a6633",
+      "query_characters": 71,
+      "params_sha256": "ba25e816d027c7b118ae8d4c26314d5ef6bf4b5cba95870380fd7298c5143238",
+      "initial_broken_on": {
+        "status": 500,
+        "elapsed_ms": 1706.6132969921455,
+        "result_count": null,
+        "response_sha256": "eb229e55f2f982043853d5249019536bfe813683c28a07eec24d281d5d08b132"
+      },
+      "repaired_on_limit3": {
+        "status": 200,
+        "elapsed_ms": 2789.67324399855,
+        "result_count": 3,
+        "response_sha256": "8913f52ed47eb1e22a1c981df1148acc24e265a9fe5fadcb131b824c1d7709cc"
+      },
+      "supplemental_on_limit10": {
+        "status": 200,
+        "elapsed_ms": 510.36539603956044,
+        "result_count": 10,
+        "response_sha256": "9747c2e3af18ad96620504db4d1988925f1e307c0b03a8b769783d2f4f09aa79"
+      },
+      "relevance": {
+        "source_hit": true,
+        "source_rank": 1,
+        "direct": 3,
+        "related": 7,
+        "irrelevant": 0,
+        "first_direct": true
+      }
+    },
+    {
+      "label": "Q02",
+      "kind": "semantic",
+      "query_sha256": "f6c572b3b86a0d1dc1abb72f0e9e85d81f85d30cd5d4961d05ceb2aa28c689a3",
+      "query_characters": 45,
+      "params_sha256": "8bd71fb80c5d455d4aa6da7ffb6887c8c1e197c250b795cb992274ba29dfe643",
+      "initial_broken_on": {
+        "status": 500,
+        "elapsed_ms": 1.6340509755536914,
+        "result_count": null,
+        "response_sha256": "8a58d8bfbde446b099801adb2896c96f190cc9571c16a89daf194857df120469"
+      },
+      "repaired_on_limit3": {
+        "status": 200,
+        "elapsed_ms": 4718.987571075559,
+        "result_count": 3,
+        "response_sha256": "d8bde3925fdcba71e70b8c03b37adbb473cd81be220741b9c529c3b894ab1245"
+      },
+      "supplemental_on_limit10": {
+        "status": 200,
+        "elapsed_ms": 262.92143703904003,
+        "result_count": 10,
+        "response_sha256": "990e01db0da93494917261098914a039ed5501a4a58bd45a9def096d9653fa5c"
+      },
+      "relevance": {
+        "source_hit": true,
+        "source_rank": 3,
+        "direct": 2,
+        "related": 7,
+        "irrelevant": 1,
+        "first_direct": false
+      }
+    },
+    {
+      "label": "Q03",
+      "kind": "semantic",
+      "query_sha256": "17cc782db35ab0f3daf381286175a5abc5c0660dbbfa1a1b5458f2e99640fe87",
+      "query_characters": 100,
+      "params_sha256": "3f06a011b6edc37b5375ee3bef791e702123a3bb6d3b826bc15d8f3b42a1267f",
+      "initial_broken_on": {
+        "status": 500,
+        "elapsed_ms": 1.2268709251657128,
+        "result_count": null,
+        "response_sha256": "8a58d8bfbde446b099801adb2896c96f190cc9571c16a89daf194857df120469"
+      },
+      "repaired_on_limit3": {
+        "status": 200,
+        "elapsed_ms": 5175.261046970263,
+        "result_count": 3,
+        "response_sha256": "822beb3d87e36b528ca7d91dad53b422896d699ceefe228a256ceb349d6b286a"
+      },
+      "supplemental_on_limit10": {
+        "status": 200,
+        "elapsed_ms": 240.91040901839733,
+        "result_count": 10,
+        "response_sha256": "07b9f2a97f95655017c7029cef458334a1d96d971871cac4676fcc5c3b54c74b"
+      },
+      "relevance": {
+        "source_hit": false,
+        "source_rank": null,
+        "direct": 0,
+        "related": 0,
+        "irrelevant": 10,
+        "first_direct": false
+      }
+    },
+    {
+      "label": "Q04",
+      "kind": "semantic",
+      "query_sha256": "a3a2529e0f687a856ac4a17cde8008ef581a7d171695ce2ebf0d0b4abf2eae65",
+      "query_characters": 69,
+      "params_sha256": "6b235a67017904b11f010ae33d6db3d6423bfc54747f61b644b6f84f9d3304dc",
+      "initial_broken_on": {
+        "status": 500,
+        "elapsed_ms": 1.1108799371868372,
+        "result_count": null,
+        "response_sha256": "8a58d8bfbde446b099801adb2896c96f190cc9571c16a89daf194857df120469"
+      },
+      "repaired_on_limit3": {
+        "status": 200,
+        "elapsed_ms": 13586.44883998204,
+        "result_count": 3,
+        "response_sha256": "a266a5533678793bd2c4d24b9956597f536f4d030488fafdcc7c0dc2afce27ea"
+      },
+      "supplemental_on_limit10": {
+        "status": 200,
+        "elapsed_ms": 373.7639329629019,
+        "result_count": 10,
+        "response_sha256": "b414093e3f043584f0269f36f52ad2df42328b7a61cfed9c993d6a8ccb7f505a"
+      },
+      "relevance": {
+        "source_hit": true,
+        "source_rank": 2,
+        "direct": 3,
+        "related": 7,
+        "irrelevant": 0,
+        "first_direct": true
+      }
+    },
+    {
+      "label": "Q05",
+      "kind": "semantic",
+      "query_sha256": "f84d8cdf2163d28910316e642632269df07b165dfafe86eb73face5d83b11287",
+      "query_characters": 62,
+      "params_sha256": "a764468adf1be7597b3bab8e57777cf4db83a0852456d9f316037e4229f13ff0",
+      "initial_broken_on": {
+        "status": 500,
+        "elapsed_ms": 1.0267029283568263,
+        "result_count": null,
+        "response_sha256": "8a58d8bfbde446b099801adb2896c96f190cc9571c16a89daf194857df120469"
+      },
+      "repaired_on_limit3": {
+        "status": 200,
+        "elapsed_ms": 528.1600420130417,
+        "result_count": 3,
+        "response_sha256": "675dc3bdcc43cb33506759a649f0f67445787a53140007a0ea1f9c077e631cba"
+      },
+      "supplemental_on_limit10": {
+        "status": 200,
+        "elapsed_ms": 244.0423669759184,
+        "result_count": 10,
+        "response_sha256": "de997d1b04346d44144dfea1ea374217ec9b98e8f996128438e5ba2b9bade262"
+      },
+      "relevance": {
+        "source_hit": true,
+        "source_rank": 6,
+        "direct": 1,
+        "related": 6,
+        "irrelevant": 3,
+        "first_direct": false
+      }
+    },
+    {
+      "label": "Q06",
+      "kind": "semantic",
+      "query_sha256": "637ad003fdd4a91bd6a82dc29b44d888af601617e4a85ffd1d2e105265024d0e",
+      "query_characters": 55,
+      "params_sha256": "bd4c9aaa2a4b36dd3113695751d81325332ae6cb0a937f146aade3f22357fe87",
+      "initial_broken_on": {
+        "status": 500,
+        "elapsed_ms": 1.133729936555028,
+        "result_count": null,
+        "response_sha256": "8a58d8bfbde446b099801adb2896c96f190cc9571c16a89daf194857df120469"
+      },
+      "repaired_on_limit3": {
+        "status": 200,
+        "elapsed_ms": 6994.514708057977,
+        "result_count": 3,
+        "response_sha256": "33105efa034c50e2aebb56691c5f5c87b48c3e4e7fdc3e8f8ed0875da3613840"
+      },
+      "supplemental_on_limit10": {
+        "status": 200,
+        "elapsed_ms": 222.97106706537306,
+        "result_count": 10,
+        "response_sha256": "37e8c25664def3223d1842d0e9053c09efbeafa2f14bfa2bcfc8a15e62153203"
+      },
+      "relevance": {
+        "source_hit": true,
+        "source_rank": 8,
+        "direct": 2,
+        "related": 6,
+        "irrelevant": 2,
+        "first_direct": false
+      }
+    },
+    {
+      "label": "Q07",
+      "kind": "semantic",
+      "query_sha256": "001fb645cdc25575eec22805daa7d747eb98ec2151f5290606f348b21854359a",
+      "query_characters": 90,
+      "params_sha256": "a8be361592c993ee0b66a69ff072eef4fa36fd0042b717f5738681af0898f029",
+      "initial_broken_on": {
+        "status": 500,
+        "elapsed_ms": 1.1468169977888465,
+        "result_count": null,
+        "response_sha256": "8a58d8bfbde446b099801adb2896c96f190cc9571c16a89daf194857df120469"
+      },
+      "repaired_on_limit3": {
+        "status": 200,
+        "elapsed_ms": 3921.7932649189606,
+        "result_count": 3,
+        "response_sha256": "1b1920aca667124df61970cb5f4e5d2db16e145f88e9ffa813d93dfcd7f474e4"
+      },
+      "supplemental_on_limit10": {
+        "status": 200,
+        "elapsed_ms": 191.64617999922484,
+        "result_count": 10,
+        "response_sha256": "a915f26018efa0891f2e7956027e36a8763a9c85a43da0ccb0de830f2a0f624d"
+      },
+      "relevance": {
+        "source_hit": false,
+        "source_rank": null,
+        "direct": 0,
+        "related": 1,
+        "irrelevant": 9,
+        "first_direct": false
+      }
+    },
+    {
+      "label": "Q08",
+      "kind": "semantic",
+      "query_sha256": "38da4d5740b0b18418699963d1ae271f47129deb329be718145d182925a3c48e",
+      "query_characters": 58,
+      "params_sha256": "6492a1c1ede051bf7dfcde0d57f2918a9b17969ceb11f2643ff62fe0c14deabe",
+      "initial_broken_on": {
+        "status": 500,
+        "elapsed_ms": 1.6017029993236065,
+        "result_count": null,
+        "response_sha256": "8a58d8bfbde446b099801adb2896c96f190cc9571c16a89daf194857df120469"
+      },
+      "repaired_on_limit3": {
+        "status": 200,
+        "elapsed_ms": 611.6508190752938,
+        "result_count": 3,
+        "response_sha256": "7f49ff3164898294473a1401e0a52724d15a8290c39cba8ecef94f7f675a6f5f"
+      },
+      "supplemental_on_limit10": {
+        "status": 200,
+        "elapsed_ms": 278.47257093526423,
+        "result_count": 10,
+        "response_sha256": "3e2083f672f91331301b099b821e19006481171ab4823edbe8f6ca0a7bd7c77a"
+      },
+      "relevance": {
+        "source_hit": false,
+        "source_rank": null,
+        "direct": 0,
+        "related": 0,
+        "irrelevant": 10,
+        "first_direct": false
+      }
+    },
+    {
+      "label": "Q09",
+      "kind": "filter-control",
+      "query_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "query_characters": 0,
+      "params_sha256": "fd629ce87dac4120c74dfad0f1dcdb36884975c80c3aaa4d27e768c578861b5f",
+      "initial_broken_on": {
+        "status": 400,
+        "elapsed_ms": 1.5498530119657516,
+        "result_count": null,
+        "response_sha256": "0dddc69f9a14fee4da737f5f2f62e54137289a832d20ee0568c010cf709024f6"
+      },
+      "repaired_on_limit3": {
+        "status": 400,
+        "elapsed_ms": 1.215861993841827,
+        "result_count": null,
+        "response_sha256": "0dddc69f9a14fee4da737f5f2f62e54137289a832d20ee0568c010cf709024f6"
+      },
+      "supplemental_on_limit10": {
+        "status": 400,
+        "elapsed_ms": 1.906084013171494,
+        "result_count": null,
+        "response_sha256": "0dddc69f9a14fee4da737f5f2f62e54137289a832d20ee0568c010cf709024f6"
+      }
+    },
+    {
+      "label": "Q10",
+      "kind": "filter-control",
+      "query_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "query_characters": 0,
+      "params_sha256": "3872e651bf2594eeeaba3cac0861ff06c800117c3445514c25ed02802cb54452",
+      "initial_broken_on": {
+        "status": 200,
+        "elapsed_ms": 89.33366497512907,
+        "result_count": 3,
+        "response_sha256": "e37e284682fa1d0798d660d5e79f57e8b1212ab8e7fa44da306b913dd88afd4c"
+      },
+      "repaired_on_limit3": {
+        "status": 200,
+        "elapsed_ms": 10.080387932248414,
+        "result_count": 3,
+        "response_sha256": "e37e284682fa1d0798d660d5e79f57e8b1212ab8e7fa44da306b913dd88afd4c"
+      },
+      "supplemental_on_limit10": {
+        "status": 200,
+        "elapsed_ms": 8.633680990897119,
+        "result_count": 10,
+        "response_sha256": "c3ebfc64599e417ecedb61039a33c9ad013023fba3da26a08e4224a08ae3dc55"
+      }
+    }
+  ],
+  "totals": {
+    "returned_semantic_records": 80,
+    "direct": 11,
+    "related": 34,
+    "irrelevant": 35,
+    "known_source_hits": 5,
+    "first_returned_direct": 2,
+    "semantic_queries": 8
+  }
+}

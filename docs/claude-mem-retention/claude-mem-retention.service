@@ -1,0 +1,7 @@
+[Unit]
+Description=Archive expired claude-mem raw payloads and logs
+
+[Service]
+Type=oneshot
+UMask=0077
+ExecStart=/usr/bin/python3 %h/.local/bin/claude-mem-retention.py --report %h/.local/state/claude-mem-retention/last-run.json
