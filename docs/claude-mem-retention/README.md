@@ -275,6 +275,7 @@ Repository-suite results are recorded in the pull request.
 
 All committed files are structural evidence or generic code. No verbatim query, prompt, tool argument/result,
 observation body, summary, session title, private identifier or credential is published. Home paths are sanitized.
-Everything changed in this repository is under `docs/`; the manifest's payload paths are
+The runbook and executable policy artifacts live under `docs/`; session bookkeeping lives under `tasks/`.
+The manifest's payload paths are
 `.agents/skills`, `.agents/hooks`, `.agents/references` and `hooks`.
 The plugin version guard therefore requires **no version bump**.
