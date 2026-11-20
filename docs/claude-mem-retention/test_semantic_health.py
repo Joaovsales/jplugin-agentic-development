@@ -111,6 +111,76 @@ class SemanticHealthTest(unittest.TestCase):
         with self.assertRaisesRegex(health.ProbeFailure, 'No successful Chroma MCP connection'):
             self.check()
 
+    def test_rotation_keeps_attestation_for_same_worker_only(self):
+        self.check()
+        self.log.unlink()
+        self.check()
+        worker = json.loads((self.root / 'worker.pid').read_text())
+        worker['startedAt'] = datetime.datetime.now(datetime.timezone.utc).isoformat()
+        (self.root / 'worker.pid').write_text(json.dumps(worker))
+        with self.assertRaisesRegex(health.ProbeFailure, 'No successful Chroma MCP connection'):
+            self.check()
+
+    def test_failure_arriving_after_log_scan_is_not_lost(self):
+        self.check()
+        original = health.connection_events
+        def scan_then_append(logs):
+            events = original(logs)
+            self.append('CHROMA_MCP', 'Connection failed, killing subprocess to prevent zombie')
+            return events
+        with mock.patch.object(health, 'connection_events', scan_then_append):
+            self.check()
+        with self.assertRaisesRegex(health.ProbeFailure, 'new connection failure'):
+            self.check()
+        self.check()
+
+    def test_restart_transient_is_retried_without_output(self):
+        attempts = [health.ProbeFailure('Restart in progress', retryable=True), None]
+        with mock.patch.object(health, 'check', side_effect=attempts) as probe, mock.patch.object(health.time, 'sleep') as sleep:
+            health.check_with_retry(self.root, self.probe, self.state)
+        self.assertEqual(probe.call_count, 2)
+        sleep.assert_called_once_with(2)
+
+    def test_retry_exhaustion_is_bounded(self):
+        with mock.patch.object(health, 'check', side_effect=health.ProbeFailure('Unavailable', retryable=True)) as probe, mock.patch.object(health.time, 'sleep') as sleep:
+            with self.assertRaises(health.ProbeFailure):
+                health.check_with_retry(self.root, self.probe, self.state)
+        self.assertEqual(probe.call_count, 3)
+        self.assertEqual(sleep.call_count, 2)
+
+    def test_restart_http_gap_recovers_silently(self):
+        original = health.request
+        calls = 0
+        def starting(port, path, params=None):
+            nonlocal calls
+            calls += 1
+            if calls == 1:
+                return 503, {}
+            return original(port, path, params)
+        with mock.patch.object(health, 'request', side_effect=starting), mock.patch.object(health.time, 'sleep'):
+            health.check_with_retry(self.root, self.probe, self.state)
+        self.assertEqual(calls, 3)
+
+    def test_missing_log_directory_and_clock_step_fail_explicitly(self):
+        self.check()
+        self.log.unlink()
+        self.logs.rmdir()
+        with self.assertRaisesRegex(health.ProbeFailure, 'log directory is missing'):
+            self.check()
+        self.logs.mkdir()
+        saved = json.loads(self.state.read_text())
+        saved['checked_at'] = (datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=1)).isoformat()
+        self.state.write_text(json.dumps(saved))
+        with self.assertRaisesRegex(health.ProbeFailure, 'system clock'):
+            self.check()
+
+    def test_recorded_failure_is_never_retried_away(self):
+        with mock.patch.object(health, 'check', side_effect=health.ProbeFailure('new connection failure')) as probe, mock.patch.object(health.time, 'sleep') as sleep:
+            with self.assertRaises(health.ProbeFailure):
+                health.check_with_retry(self.root, self.probe, self.state)
+        self.assertEqual(probe.call_count, 1)
+        sleep.assert_not_called()
+
     def test_prompt_text_is_not_a_connection_marker(self):
         self.log.write_text('')
         self.append('HOOK', 'Bash(Connected to chroma-mcp successfully)')

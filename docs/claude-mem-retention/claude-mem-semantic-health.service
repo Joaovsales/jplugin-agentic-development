@@ -3,5 +3,6 @@ Description=Assert claude-mem semantic search and MCP connection health
 
 [Service]
 Type=oneshot
+TimeoutStartSec=240s
 UMask=0077
 ExecStart=/usr/bin/python3 %h/.local/bin/claude-mem-semantic-health.py

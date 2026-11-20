@@ -60,7 +60,9 @@ The authoritative command ledger is local, outside the repository:
 It preserves commands in invocation order, including failures and superseded attempts.
 `tool-calls.json` retains the enclosing calls; `events.jsonl` records SQL, subprocesses and state transitions.
 Executable source for the operation is retained under that directory's `pipeline/`.
-[private-evidence.json](private-evidence.json) supplies file digests and paths.
+[evidence-manifest.json](evidence-manifest.json) supplies artifact names, byte sizes and digests,
+The `files` group is under the private evidence root above; `pipeline` is under its `pipeline/`
+subdirectory. The manifest contains only basenames, byte sizes and digests, with no source content or paths.
 Verbatim evidence is withheld: it contains private session content.
 
 1. Read the existing audit, inventory the store and physical volumes, and inspect the running producer.
@@ -137,7 +139,8 @@ no session, observation or summary was deleted by rank 2.
 It exports and verifies expired fields before mutation: failed payloads after 7 days,
 initial session/raw prompt text after 90 days, and log files after 30 days.
 Failed-at time takes precedence over creation time; pending/processing never match the failed predicate.
-Both log filename date and last-write age must exceed the log window, protecting long-running dated logs.
+Both log filename date and last-write age must exceed the log window; the Layer-2 caveat below
+documents the remaining concurrent-append race.
 Session IDs and durable observations/summaries are retained. Archive failure rolls back the DB transaction.
 Exports are private and retained; the policy does not silently expire backups.
 
@@ -149,6 +152,24 @@ The program emits no success log line. Disable future runs with:
 ```bash
 systemctl --user disable --now claude-mem-retention.timer
 ```
+
+## Layer-2 retention caveats
+
+The CLI has **no dry-run**. Exercise it on an independent disposable database/log copy first.
+Only `status='failed'` queue rows older than seven days have four raw payload fields nulled;
+`pending` and `processing` never match. Raw prompts expire after 90 days, logs after 30.
+No statement deletes observations, summaries, session metadata or queue rows. Verified JSONL gzip exports
+precede database mutations in one `BEGIN IMMEDIATE` transaction; a database-export error rolls it back.
+Log archival happens after that transaction commits; a later log error does not undo completed database expiry.
+Deleted prompt rows and nulled fields are recoverable from those private per-run exports, but no granular
+restore CLI/conflict policy is supplied. The original full rollback predates later writes and is not a
+substitute for future exports; preserve current data and reconcile IDs before restoring exported fields.
+
+**Unresolved MUST-FIX (owner: human):** log expiry checks the final stat and then unlinks the source.
+A live worker can append between those operations, losing bytes absent from the verified archive.
+A synthetic interleaving reproduced this. Both age checks reduce exposure but do not close the race.
+A safe policy needs writer coordination or retaining the raw inode; another stat is insufficient.
+The Layer-2 gate remains STOP pending that decision; this review did not change the live timer or store.
 
 ## Durable MCP repair and failure-only detection
 
@@ -203,8 +224,21 @@ or requiring a Pydantic version. Each run verifies:
 The connection window starts at the current daemon's recorded start, rather than an arbitrary 24-hour
 age limit: a healthy persistent connection is not failed just because its startup marker is old.
 Failure events are compared by time, so log expiry cannot hide them by decreasing a cumulative counter.
+The checkpoint overlaps scan-start timestamps by one millisecond and retains hashes of overlapping failure events,
+so an event appended during a scan is checked on the next run without reporting the same event twice.
 Checkpoint corruption fails loudly. Hook text containing marker words cannot satisfy the anchored marker check.
 The detector is an availability check, not a relevance grade.
+
+A previously observed connection marker is cached against the worker PID, start timestamp and port.
+Rotation/removal of that startup log does not alarm for the same daemon if the fresh query still works;
+a restarted daemon must supply its own marker. A missing log directory remains a failure because new
+connection failures cannot be inspected. Readiness/transport failures get at most three attempts, two seconds
+apart; newly observed connection-failure events are reported immediately and never retried away.
+This debounces short restart gaps without requiring consecutive daily failures. A restart taking longer
+than those attempts can still alarm. Idle sessions do not expire connection evidence or the all-time query.
+A backward clock step still fails closed before querying when it precedes the checkpoint; this is an
+unresolved false-positive risk pending a clock-reset/event-history policy, not a semantic failure diagnosis.
+Do not silently delete the checkpoint to clear it, because that can discard failure history.
 
 Healthy execution emits **nothing** and exits **0**. Failure emits one structured JSON message on stderr
 and exits **1**, naming the failed signal and an action. Backend/transport failure, missing connection
@@ -212,13 +246,21 @@ evidence, rising failures and empty results are all errors regardless of their c
 and raw response bodies are never printed. MCP/Pydantic repair guidance is conditional, not the detector's remit.
 
 The private known-result query lives in `<HOME>/.local/state/claude-mem-retention/semantic-probe.json`;
-the checkpoint contains only times and counters. Its JSON schema is `{"query":"<private known-result text>"}`;
+the checkpoint contains only times, counters, local worker identity and failure-event hashes. Its JSON schema is `{"query":"<private known-result text>"}`;
 the existing file is owner-only and never committed. The probe sets an explicit all-time range so the normal
 90-day search window cannot age its known result out; changes to the retained corpus may require refreshing it. The installed script is
 `<HOME>/.local/bin/claude-mem-semantic-health.py`. The supplied service and timer are enabled under
 `<HOME>/.config/systemd/user/`, running daily at 04:10 local with at most 300 seconds jitter.
 The actual service run succeeded with exit 0. A failed run leaves the unit failed and its actionable stderr
-in the user journal; there is no nightly success message.
+in the user journal; there is no nightly success message. The supplied user service has
+`TimeoutStartSec=240s`: three attempts have at most six 30-second HTTP operations plus four seconds
+of retry delay, with the unit timeout also bounding log scanning. Systemd prevents the same unit from
+overlapping itself. The retention unit has `TimeoutStartSec=15min`; terminating an uncommitted SQLite
+transaction rolls it back, and incomplete archives never authorize deletion. Both units use absolute
+`/usr/bin/python3`; the detector calls HTTP through the standard library and needs no uv/PATH lookup.
+Enabled `Persistent=true` user timers resume after reboot when the user manager starts; this machine has
+`Linger=yes`, so it does not depend on an interactive login. Reinstall edited scripts/units and run
+`systemctl --user daemon-reload` to adopt repository changes in an existing installation.
 
 **After every claude-mem plugin update, run the detector once and confirm it is silent:**
 

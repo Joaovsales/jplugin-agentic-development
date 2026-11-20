@@ -1,0 +1,188 @@
+{
+  "privacy": "Verbatim evidence is withheld: contains private session content. All retained files are outside the repository.",
+  "files": [
+    {
+      "bytes": 3142,
+      "sha256": "844e3b6da9716898bf015b644a6113578be07f03afe52a2a65d719defe0a9e9a",
+      "artifact": "queries.json"
+    },
+    {
+      "bytes": 568,
+      "sha256": "b0e18381ad0e3605a8cdd8c5eab63c1971a49df196ba8c07c7bba3060d3de1b1",
+      "artifact": "protocol.json"
+    },
+    {
+      "bytes": 12872,
+      "sha256": "f75c281cfc3b5cb30c690ed97608fc87eda7894d7913566e4944bd1cac026ea8",
+      "artifact": "baseline-on.json"
+    },
+    {
+      "bytes": 77922,
+      "sha256": "9fe85cdc467693819a4e12a190ba68cb9339d86dbe23c33fa71a8b4eb178ad52",
+      "artifact": "final-on.json"
+    },
+    {
+      "bytes": 3152,
+      "sha256": "5ab80fc410fadbb66b87b33e381b4776ce88a39707cbca2f7cb7e263b460182c",
+      "artifact": "supplemental-queries.json"
+    },
+    {
+      "bytes": 896,
+      "sha256": "02f433836605a717c43eecdc769db006e1d1378f26c4dc4400ed3b688a48c6f3",
+      "artifact": "relevance-protocol.json"
+    },
+    {
+      "bytes": 230208,
+      "sha256": "e61636a77ae38a6dd8b0f3e7ae44e8dc2d0e40b0216931b9e89662e956ff33df",
+      "artifact": "supplemental-on.json"
+    },
+    {
+      "bytes": 7351,
+      "sha256": "1e3af07d6935b0e149e3442de412cdac1254348a63747748713b255dba40f5a3",
+      "artifact": "relevance-judgments-private.json"
+    },
+    {
+      "bytes": 923,
+      "sha256": "deb7ee90ba597d4c1f21a8bc36eebd069d23f0720baae56719a55aeff303a007",
+      "artifact": "restore-rehearsal.json"
+    },
+    {
+      "bytes": 329,
+      "sha256": "6bd66894bc2008a30e23f8a7bcaf436a2249489e9f84403bbff4b8492049e294",
+      "artifact": "backup-validation.json"
+    },
+    {
+      "bytes": 1214,
+      "sha256": "4030c92401981165e73db97e101106da5046017eb6a3e58dca3fd2d38b7ed9e5",
+      "artifact": "consolidation.json"
+    },
+    {
+      "bytes": 18824,
+      "sha256": "a07b27644e5a10efc041d1a0bdbc8a8a2b9af9fd11376efe531504283db1bfb0",
+      "artifact": "events.jsonl"
+    },
+    {
+      "bytes": 63009,
+      "sha256": "cbfe8ea7da3d8428669c5f318b5cde9760be1ed61f9fd0b37a77df1ec00f1be5",
+      "artifact": "commands.json"
+    },
+    {
+      "bytes": 145245,
+      "sha256": "0b8e6ddb9356709d9ba8a4208ff19a65b555910ce496a2edb9bb32a26938a65f",
+      "artifact": "tool-calls.json"
+    },
+    {
+      "bytes": 7905788,
+      "sha256": "ab2c34d615791bef1809bebbcbc9c3700729e74d7f8ea900ed2fd5fb02f46367",
+      "artifact": "timeline-private.json"
+    },
+    {
+      "bytes": 6511,
+      "sha256": "8dcf8d410c687900dfe80fc0e7f130cdb1353eb9511d2cf27c86c8808cbc74a6",
+      "artifact": "timeline-signatures-private.json"
+    },
+    {
+      "bytes": 2141,
+      "sha256": "9cdad0d12df78c071ef79d8ad659e216a44995149cb9fd4ef328e7cb3af41c69",
+      "artifact": "mcp-help.log"
+    },
+    {
+      "bytes": 1351,
+      "sha256": "2bb11794c74cfd5a97e01fedcb39ddd64062ab9938840fbe03dd5fb419181f4b",
+      "artifact": "mcp-pinned-help.log"
+    },
+    {
+      "bytes": 1180,
+      "sha256": "45ab5a84f3826ba145f28f09d454605055fe1b770db098a3719f576e03f6cf20",
+      "artifact": "initial-live-mcp-provenance.txt"
+    },
+    {
+      "bytes": 963,
+      "sha256": "20059ed66572ea426e9ff885a0d4af9cebe76b0a12eb27f9ac9ad7d7317fb700",
+      "artifact": "actual-live-mcp-processes.json"
+    },
+    {
+      "bytes": 321,
+      "sha256": "197469cde33d60e6b83982c3eb6f02cbe21dfc3d02103293fbc210e5f1f37a53",
+      "artifact": "rank1.json"
+    },
+    {
+      "bytes": 1358,
+      "sha256": "c270063c20ab36c03e11acb5c93feef31b69d1a9821ce1f904b555ef41f4de1b",
+      "artifact": "rank2-copy.json"
+    },
+    {
+      "bytes": 784,
+      "sha256": "1b5937404cdf46a371d8df3c3960d88003ef12b483ab9365deb81d9f44f793c8",
+      "artifact": "rank4.json"
+    },
+    {
+      "bytes": 850,
+      "sha256": "ddc8cf007fba0f1cffd50254ff33c35f6b19ecf148f7303126360a504fa8648b",
+      "artifact": "rank4-validation.json"
+    },
+    {
+      "bytes": 504,
+      "sha256": "5827e42f10909ee283cf0c1075f760d4ad162da18237c3ae2d34d91d93a88a20",
+      "artifact": "live-proof.json"
+    }
+  ],
+  "pipeline": [
+    {
+      "sha256": "50857f5893738688e55a6a96efdbd0563a93c5d24e341deb69ddbd260483a987",
+      "artifact": "capture-live-mcp.py"
+    },
+    {
+      "sha256": "229f74e15560cfe6aaf5cae8d47652ddb4063cd0ef8d5ad988192de840ec6120",
+      "artifact": "clean-copy.py"
+    },
+    {
+      "sha256": "d6fb42522a18a92cd12bba7788576b71ec425e75a3355eb1a812cf5279eb7bd1",
+      "artifact": "compress-backup.py"
+    },
+    {
+      "sha256": "7167ed92af12fddd7be0e905da96208e81d6555d068cb512651a02431fd0a38a",
+      "artifact": "consolidate.py"
+    },
+    {
+      "sha256": "4288f06f1f0d53fe882c69e665cd9239883b776134d0a1cc48484fa1ff2eca5f",
+      "artifact": "generate-report.py"
+    },
+    {
+      "sha256": "45e284b01b428546c6083c7402402cdd6b774bf67591c8e82503fe0f593f919e",
+      "artifact": "live-proof.py"
+    },
+    {
+      "sha256": "a8a9e28255e856bde19c0b8c2b9aaef372a9645f1a97c09455989aeeff6e70fb",
+      "artifact": "maintenance.py"
+    },
+    {
+      "sha256": "4007604e30cf560259ecaf0250af8877cfc924fae2b5e67f97189c5c0a0c744c",
+      "artifact": "operation.py"
+    },
+    {
+      "sha256": "bd7f0a93f8bb6df14264b95363ec0fe5a65f2f883baf5fed22d9529c5db8c564",
+      "artifact": "rebuild-proof.py"
+    },
+    {
+      "sha256": "47c1dbeec8090740ee3443fb4c6d7380abd46db978a8ea488d883e2dddcca3a5",
+      "artifact": "relevance.py"
+    },
+    {
+      "sha256": "81c64b32fe29da75b7ff702ebe8915ed2ca482d2ef0ae427b900dcd3b4297abb",
+      "artifact": "retention.py"
+    },
+    {
+      "sha256": "c7f4cad60e75a6c7ef2653ed221f9672b022dcfb09e4ff933a78c5dc85aa9c39",
+      "artifact": "test-retention.py"
+    },
+    {
+      "sha256": "cf332e1a98cf5dabb75cb40c9b1fea72f4839584a4fb3e0d7a980b36a36c9adb",
+      "artifact": "timeline.py"
+    },
+    {
+      "sha256": "ffd9a507eebac6ff8dc760c8d5bda6dff61a1508bda1ce0ab9f52ff958663a4e",
+      "artifact": "verify-restored.py"
+    }
+  ]
+}
