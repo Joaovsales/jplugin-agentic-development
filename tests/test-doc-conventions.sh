@@ -1237,6 +1237,23 @@ for token in 'an `> Outcome:` with `slice_result=True`' \
              'an `[x]` whose `> Outcome:` is not `slice_result=True`'; do
   assert_contains "$PHASE6" "$token" "three outcomes: Phase 6 contains '$token'"
 done
+# --- run ledger: every run records itself (specs/run-ledger.md AC5) ---
+# Phase 6 records the build run; /receive-review decides the parent
+# changes_requested and records the rework with --parent; the reference names
+# every caller, the merger's decide included.
+for token in 'run_ledger.py record' 'references/run-ledger.md'; do
+  assert_contains "$PHASE6" "$token" "run ledger: Phase 6 contains '$token'"
+done
+for token in 'run_ledger.py last --branch' \
+             'run_ledger.py decide --run-id "$parent" --result changes_requested' \
+             '--parent "$parent"'; do
+  assert_file_contains .agents/skills/receive-review/SKILL.md "$token" "run ledger: /receive-review contains '$token'"
+done
+for token in 'run_ledger.py record --branch' '--slice "<n> attempts=<k> <Outcome line>"' \
+             '--result merged' '--result closed' 'routine/fix/' \
+             'a final human decision is never overwritten' 'never 0' 'run_ledger.py stats'; do
+  assert_file_contains .agents/skills/build/references/run-ledger.md "$token" "run ledger: the reference contains '$token'"
+done
 assert_prose_contains .agents/skills/wrap-up-session/references/closure-actions.md \
   '`> Do not re-derive:`, `> Outcome:`, `> Surface:`' \
   "three outcomes: the PR body's Handovers section carries > Outcome:"

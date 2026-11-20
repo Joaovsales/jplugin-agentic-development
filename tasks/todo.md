@@ -3047,3 +3047,42 @@ Step ledger (routine `simplify`):
 - Completed: PR #448's residual output-boundary fixes; the diagnostic precedes the final summary, and an explicit newline follows both raw replayed streams.
 - Verification: six new assertions fail before the fix; all 46 slice-outcome assertions pass after it. Affected/full-suite results and the refreshed receipt are recorded in PR #448's Review fixes section.
 - Carry-forward: field names and labels remain unchanged for stacked #442; the fix is included in this wrap-up commit, with no earlier implementation commit in this session.
+
+## Plan: run-ledger
+> Spec: specs/run-ledger.md
+> Issue: #442
+
+### Slice 1/2 — Run ledger script
+- [x] Run ledger script — run_ledger.py records runs, decides human results, finds a branch's last run and prints the derived totals
+- [x] TDD: tests/test-run-ledger.sh § stats — first_pass_rate, attempts_per_merged_pr and cost_per_merged_pr come from the records; removing one changes the report -> run_ledger.py stats (AC1)
+- [x] TDD: tests/test-run-ledger.sh § idempotent — the same record call twice leaves the file byte-identical and every count unchanged -> run_ledger.py record (AC2)
+- [x] TDD: tests/test-run-ledger.sh § human decision — merged/closed are final; a later record keeps them; record has no human option -> run_ledger.py decide (AC3)
+- [x] TDD: tests/test-run-ledger.sh § unknown — missing tokens and cost store "unknown" and stats prints unknown with a count -> run_ledger.py (AC4)
+
+> Handover: landed 7da69f9..49f0a1f — `.agents/skills/build/scripts/run_ledger.py` (`record`, `decide`, `last`, `stats`) writes `tasks/runs/<run-id>.json` under schema `run-ledger/1`; `tests/test-run-ledger.sh` pins AC1–AC4.
+> Do not re-derive: the default run id is `<branch slug>-<base[:12]>`; `--slice` takes `<id> attempts=<n>` plus the `> Outcome:` line verbatim and checks it against `slice_outcome.derive`; `record` has no human-result option; `stats` lines start `run-ledger:`.
+> Outcome: agent_result=True verification_result=True slice_result=True SUCCEEDED
+> Surface: undeclared specs/run-ledger.md, specs/run-ledger.plan.html, tasks/todo.md — plan artifacts committed with the slice (`slice.py check --slice 1 --base 7da69f9`).
+
+### Slice 2/2 — Runs record themselves
+- [x] Runs record themselves — /build Phase 6 records the run; /receive-review records a rework with its parent; the reference names every caller
+- [x] TDD: tests/test-doc-conventions.sh § run ledger — Phase 6 calls run_ledger.py record; /receive-review decides changes_requested and records --parent; the reference names the merger's decide -> wiring (AC5)
+
+> Handover: landed 49f0a1f..63f1ed4 — `/build` Phase 6 step 5 records the run; `/receive-review` § *Record the rework run* decides the parent `changes_requested` and records `--parent`; `.agents/skills/build/references/run-ledger.md` names every caller, the merger's `decide` included; `tests/test-doc-conventions.sh` § run ledger pins AC5.
+> Do not re-derive: a skill naming another skill's reference uses the full `.agents/skills/<skill>/references/…` path (test-skill-references RefInt); merged #448 fixes at 875778f change no field or label `run_ledger.py` reads.
+> Outcome: agent_result=True verification_result=True slice_result=True SUCCEEDED
+> Surface: undeclared tasks/todo.md (the plan block) plus the eight #448 files the merge a049285 brought in (`slice.py check --slice 2 --base 49f0a1f`); no slice-2 edit outside its Surface.
+
+## Session Summary — [2026-11-19] [7da69f9..81fb364]
+
+- Completed: #442 run ledger — `run_ledger.py` (`record`, `decide`, `last`, `stats`) writes one `tasks/runs/<run-id>.json` per run; `/build` Phase 6, `/receive-review` and `references/run-ledger.md` name every caller; quality-gate fix for a crashed write's temp file; plugin 1.8.21.
+- Pending: none in this PR.
+- Carry-forward: nobody records `merged` automatically yet (spec D7, R1); `stats` shows undecided PRs as `open`. Stacked on #448 — merge #448 first.
+- [ ] Record merged/closed in the run ledger automatically when a PR is merged or closed <!-- task-id: run-ledger-merge-decision.specs-run-ledger-md --> — From #442 (PR #456), spec Decision D7 and Risk R1: run_ledger.py decide is the only writer of a run's human result, and… ([#457](https://github.com/Joaovsales/jplugin-agentic-development/issues/457))
+
+## Session Summary — [2026-11-19] [8b6b806..8b6b806]
+
+- Completed: PR #456 review fixes — serialized ledger transactions, validated persisted decisions and telemetry, and made receive-review distinguish absence from ledger failures; deterministic two-process and executable caller regressions pass.
+- Verification: affected tests — all 58 files, 5807 assertions; full suite — all 101 files, 8641 assertions, 0 failures; quality receipt `4a792b03` is GO (independent test review unavailable under this dispatch).
+- Pending: none in this review round.
+- Carry-forward: the spec's timestamp tie-break and automatic merge/close observation (#457) remain unchanged; Windows runtime and live agent wiring were not checked in this worker task.

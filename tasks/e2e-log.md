@@ -1782,3 +1782,32 @@ Evidence: /tmp/pr448-followup/red.log and /tmp/pr448-followup/green.log.
 
 Red proof: 40 assertions passed and 6 failed before the source change. Green proof: all 46 assertions passed after it. Field names, labels and exit statuses are unchanged.
 Not checked: live agent-driven header mutation and independent test-engineer dispatch — the worker task forbids helper agents.
+
+## CLI walkthrough — #442 run ledger — 2026-11-19 — 81fb364
+
+Spec: specs/run-ledger.md (AC1–AC5).
+Driver: the actual `run_ledger.py` CLI against a scratch ledger directory, following the flow in `.agents/skills/build/references/run-ledger.md`.
+
+- `/build` Phase 6's `record` with `--slice "1 attempts=1 <Outcome line>"`, tokens and cost → `record: recorded feat-demo-0123456789ab` (the default run id).
+- `/receive-review`'s flow: `last --branch feat/demo` printed the parent; `decide … --result changes_requested` recorded it; the rework `record … --parent` recorded `feat-demo-fedcba987654`.
+- The merger's `decide … --result merged` was recorded; a later `decide … --result closed` was refused, exit 1, with `a final human decision is never overwritten`.
+- `stats` over three runs: `runs=3 prs=2 merged=1 closed=0 open=1`, `first_pass_rate=0/1 (0%)`, `attempts_per_merged_pr=2.00`, `cost_per_merged_pr=0.60`, `tokens_per_merged_pr=1200`. These are the two-run chain's sums, derived from the files.
+
+Not checked: a live `/build` or `/receive-review` session invoking these calls. The wiring is pinned by `tests/test-doc-conventions.sh` § run ledger.
+
+## CLI walkthrough — PR #456 ledger review fixes — 2026-11-19 — 8b6b806
+
+Spec: specs/run-ledger.md (AC2, AC3, AC5; persisted-record invariants).
+Driver: real Python CLI subprocesses and the actual receive-review Bash blocks extracted from SKILL.md by `tests/run-ledger-regressions.py`.
+Evidence: `/tmp/pr456-review-red.log`, `/tmp/pr456-extra-red.log`, `/tmp/pr456-caller-red.log`, `/tmp/pr456-regressions.log`.
+
+- Pause a record writer after its real read, observe a merger's contended OS-lock attempt, release the record writer: both succeed and the final JSON retains `merged`, its history and the updated cost.
+- Pause a merger after its real read and concurrently request `closed`: the second writer waits, rereads `merged`, and refuses with `already merged` (exit 1).
+- Keep a writer paused: a contender reaches its bounded timeout and names the lock file; kill the owner and retry `merged`: it succeeds without removing the lock file, and stats still reads the ledger.
+- Change decision/history, cost/tokens or consumed metadata to malformed values: stats, last, decide and record refuse with the file path and no traceback. A ledger path that is a regular file is an error, never absence.
+- Execute receive-review's actual shell: exact no-run diagnostic skips bookkeeping; a valid parent is marked `changes_requested`; malformed records and final-decision refusals stop before the continuation marker; a malformed rework record also stops the post-commit block.
+
+Results: all seven regression methods pass. The original code fails both process races and payload validation; the original caller continues after a malformed rework record, reproduced in `/tmp/pr456-caller-red.log`.
+Not checked: Windows `msvcrt` branch on a Windows host, a live agent-driven receive-review session, and independent test-engineer dispatch (the task forbids helper workers).
+
+Resumed-worker verification: `tests/test-run-ledger.sh` — 54 passed, 0 failed; cached affected suite — all 58 files, 5807 assertions; required cached full suite — `RESULT: all 101 test files passed`, 8641 assertions, 0 failures. Logs: `/tmp/pr456-resumed-focused.log`, `/tmp/pr456-resumed-affected.log`, `/tmp/pr456-resumed-full.log`; receipt `4a792b03` is GO and discloses the unavailable independent test review.
