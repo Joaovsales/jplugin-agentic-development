@@ -10,7 +10,7 @@ implementation_paths:
 **Repository base:** origin/master `887e95930fab2edf68197e6386d49fef8df2cf71`.
 **Refs:** [read-shunt research](read-shunt.md), [baseline contract](read-shunt-baseline.md).
 **Authority:** owner requested this one spec and one PR, no registry issues, no changes
-under `/home/joaosouto/.claude-mem`, no stopped processes, no helper agents.
+under `<HOME>/.claude-mem`, no stopped processes, no helper agents.
 
 ## Behaviour
 
@@ -29,12 +29,15 @@ a file-context gate; it is not this repository's proposed shunt.
 
 The requested `.agents/skills/build/references/subagent-resilience.md` is absent
 at this origin/master revision. The installed copy at
-`/home/joaosouto/.agents/skills/build/references/subagent-resilience.md` was read.
+`<HOME>/.agents/skills/build/references/subagent-resilience.md` was read.
 It documents retrieval-placeholder loops and correctly advises narrow reads.
 The installed evidence identifies **Headroom**, rather than claude-mem's Chroma,
 as the hash-based recovery path in those incidents.
 
 ### A. Consumption: registration, execution and measured use
+
+Paths and command literals below use `<HOME>`; expand it to your home directory
+before running any example.
 
 Paths in this section use:
 
@@ -476,14 +479,14 @@ block below. Paths are this machine's verified paths; the owner chooses
 set -euo pipefail
 : "${CLAUDE_MEM_ARCHIVE_ROOT:?Set an existing backup directory on a separate volume}"
 test -d "$CLAUDE_MEM_ARCHIVE_ROOT"
-cp -p /home/joaosouto/.claude-mem/settings.json "$CLAUDE_MEM_ARCHIVE_ROOT/settings.before.json"
+cp -p <HOME>/.claude-mem/settings.json "$CLAUDE_MEM_ARCHIVE_ROOT/settings.before.json"
 python3 - <<'PY'
 import json
 from pathlib import Path
-p = Path('/home/joaosouto/.claude-mem/settings.json')
+p = Path('<HOME>/.claude-mem/settings.json')
 d = json.loads(p.read_text())
 patterns = [x.strip() for x in d.get('CLAUDE_MEM_EXCLUDED_PROJECTS', '').split(',') if x.strip()]
-observer = '/home/joaosouto/.claude-mem/observer-sessions'
+observer = '<HOME>/.claude-mem/observer-sessions'
 if observer not in patterns:
     patterns.append(observer)
 d['CLAUDE_MEM_EXCLUDED_PROJECTS'] = ','.join(patterns)
@@ -491,8 +494,8 @@ d['CLAUDE_MEM_CHROMA_ENABLED'] = 'false'
 d['CLAUDE_MEM_TRANSCRIPTS_ENABLED'] = 'false'  # temporary maintenance pause
 p.write_text(json.dumps(d, indent=2) + '\n')
 PY
-/home/joaosouto/.bun/bin/bun /home/joaosouto/.claude/plugins/cache/thedotmack/claude-mem/12.1.6/scripts/worker-service.cjs stop
-lsof -nP /home/joaosouto/.claude-mem/claude-mem.db /home/joaosouto/.claude-mem/claude-mem.db-wal
+<HOME>/.bun/bin/bun <HOME>/.claude/plugins/cache/thedotmack/claude-mem/12.1.6/scripts/worker-service.cjs stop
+lsof -nP <HOME>/.claude-mem/claude-mem.db <HOME>/.claude-mem/claude-mem.db-wal
 ```
 
 The installed stop command exists, but its success message is not sufficient:
@@ -506,8 +509,8 @@ must not interfere with the maintenance window. No service is stopped by this sp
 ```bash
 set -euo pipefail
 test ! -e "$CLAUDE_MEM_ARCHIVE_ROOT/store"
-cp -a /home/joaosouto/.claude-mem "$CLAUDE_MEM_ARCHIVE_ROOT/store"
-diff -qr /home/joaosouto/.claude-mem "$CLAUDE_MEM_ARCHIVE_ROOT/store"
+cp -a <HOME>/.claude-mem "$CLAUDE_MEM_ARCHIVE_ROOT/store"
+diff -qr <HOME>/.claude-mem "$CLAUDE_MEM_ARCHIVE_ROOT/store"
 ```
 
 Build the working copy with SQLite backup API so committed WAL frames are
@@ -516,7 +519,7 @@ included. Never remove a WAL to force a main-file-only copy to appear current:
 ```python
 import os, sqlite3
 from pathlib import Path
-source = sqlite3.connect('file:/home/joaosouto/.claude-mem/claude-mem.db?mode=ro', uri=True)
+source = sqlite3.connect('file:<HOME>/.claude-mem/claude-mem.db?mode=ro', uri=True)
 work_path = Path(os.environ['CLAUDE_MEM_ARCHIVE_ROOT']) / 'work.db'
 assert not work_path.exists()
 target = sqlite3.connect(work_path)
@@ -569,7 +572,7 @@ drift. Keep the original archive and do not reuse an old working-copy filename.
 
 ```python
 import sqlite3
-c = sqlite3.connect('/home/joaosouto/.claude-mem/claude-mem.db', timeout=5)
+c = sqlite3.connect('<HOME>/.claude-mem/claude-mem.db', timeout=5)
 c.execute('PRAGMA busy_timeout=5000')
 result = c.execute('PRAGMA wal_checkpoint(TRUNCATE)').fetchone()
 c.close()
@@ -584,12 +587,12 @@ if result[0] != 0:
 
 ```bash
 set -euo pipefail
-test ! -e /home/joaosouto/.claude-mem/claude-mem.db-wal
-test ! -e /home/joaosouto/.claude-mem/claude-mem.db-shm
-cp -p "$CLAUDE_MEM_ARCHIVE_ROOT/compact.db" /home/joaosouto/.claude-mem/claude-mem.db.new
-mv /home/joaosouto/.claude-mem/claude-mem.db.new /home/joaosouto/.claude-mem/claude-mem.db
-diff -qr /home/joaosouto/.claude-mem/chroma "$CLAUDE_MEM_ARCHIVE_ROOT/store/chroma"
-rm -r -- /home/joaosouto/.claude-mem/chroma
+test ! -e <HOME>/.claude-mem/claude-mem.db-wal
+test ! -e <HOME>/.claude-mem/claude-mem.db-shm
+cp -p "$CLAUDE_MEM_ARCHIVE_ROOT/compact.db" <HOME>/.claude-mem/claude-mem.db.new
+mv <HOME>/.claude-mem/claude-mem.db.new <HOME>/.claude-mem/claude-mem.db
+diff -qr <HOME>/.claude-mem/chroma "$CLAUDE_MEM_ARCHIVE_ROOT/store/chroma"
+rm -r -- <HOME>/.claude-mem/chroma
 ```
 
 If WAL/SHM sidecars remain after shutdown, use the bounded checkpoint in step 4
@@ -612,7 +615,7 @@ only logs older than 30 calendar days; it does not touch the active daily file:
 ```python
 import datetime, hashlib, os
 from pathlib import Path
-live = Path('/home/joaosouto/.claude-mem/logs')
+live = Path('<HOME>/.claude-mem/logs')
 archive = Path(os.environ['CLAUDE_MEM_ARCHIVE_ROOT']) / 'store/logs'
 cutoff = datetime.date.today() - datetime.timedelta(days=30)
 for path in sorted(live.glob('claude-mem-????-??-??.log')):
@@ -841,21 +844,21 @@ because the owner required this investigation to be performed by this worker.
 
 ### Exact inspection commands
 
-Commands are retained verbatim, including path-probe failures and repeated
-reads. Initial skill reads ran in the dispatched worktree; repository investigation
+Commands retain the original structure with home prefixes replaced by `<HOME>`,
+including path-probe failures and repeated reads; run them with `<HOME>` expanded. Initial skill reads ran in the dispatched worktree; repository investigation
 commands used the new audit worktree. Some commands write **only audit artifacts**
 under /tmp; none writes the store. Large results were consumed in bounded views.
 The git fetch and Orca worktree creation changed only checkout metadata:
 
 ```bash
-git -C /home/joaosouto/jplugin-agentic-development fetch origin master
+git -C <HOME>/jplugin-agentic-development fetch origin master
 orca worktree create --name claude-mem-retention-audit --no-parent --base-branch origin/master --json
 ```
 
 <details><summary>Inspection 1</summary>
 
 ```bash
-cat /home/joaosouto/.agents/skills/orchestration/SKILL.md
+cat <HOME>/.agents/skills/orchestration/SKILL.md
 ```
 
 </details>
@@ -863,7 +866,7 @@ cat /home/joaosouto/.agents/skills/orchestration/SKILL.md
 <details><summary>Inspection 2</summary>
 
 ```bash
-cat /home/joaosouto/.agents/skills/orca-cli/SKILL.md
+cat <HOME>/.agents/skills/orca-cli/SKILL.md
 ```
 
 </details>
@@ -879,7 +882,7 @@ cat .agents/skills/memory-maintain/SKILL.md; cat tasks/todo.md
 <details><summary>Inspection 4</summary>
 
 ```bash
-head -80 /home/joaosouto/.agents/skills/orchestration/SKILL.md
+head -80 <HOME>/.agents/skills/orchestration/SKILL.md
 ```
 
 </details>
@@ -887,7 +890,7 @@ head -80 /home/joaosouto/.agents/skills/orchestration/SKILL.md
 <details><summary>Inspection 5</summary>
 
 ```bash
-head -75 /home/joaosouto/.agents/skills/orca-cli/SKILL.md; printenv ORCA_CLI_COMMAND ORCA_DEV_REPO_ROOT; command -v orca; head -100 .agents/skills/memory-maintain/SKILL.md
+head -75 <HOME>/.agents/skills/orca-cli/SKILL.md; printenv ORCA_CLI_COMMAND ORCA_DEV_REPO_ROOT; command -v orca; head -100 .agents/skills/memory-maintain/SKILL.md
 ```
 
 </details>
@@ -911,7 +914,7 @@ orca skills get orca-cli
 <details><summary>Inspection 8</summary>
 
 ```bash
-git -C /home/joaosouto/jplugin-agentic-development status --short; git -C /home/joaosouto/jplugin-agentic-development remote -v
+git -C <HOME>/jplugin-agentic-development status --short; git -C <HOME>/jplugin-agentic-development remote -v
 ```
 
 </details>
@@ -975,7 +978,7 @@ rg -n 'claude-mem|read.shunt' README.md; rg -n '^(problem_type|module|tags):.*(s
 <details><summary>Inspection 16</summary>
 
 ```bash
-rg --files /home/joaosouto/jplugin-agentic-development /home/joaosouto/.agents /home/joaosouto/.claude/plugins | rg '(subagent-resilience|claude-mem.*/(hooks.json|plugin.json|settings.json|package.json)|claude-mem.*/.*(context|search|retention|chroma|Database))' | head -90
+rg --files <HOME>/jplugin-agentic-development <HOME>/.agents <HOME>/.claude/plugins | rg '(subagent-resilience|claude-mem.*/(hooks.json|plugin.json|settings.json|package.json)|claude-mem.*/.*(context|search|retention|chroma|Database))' | head -90
 ```
 
 </details>
@@ -985,11 +988,11 @@ rg --files /home/joaosouto/jplugin-agentic-development /home/joaosouto/.agents /
 ```bash
 python3 - <<'PY'
 import pathlib,json,os,datetime
-p=pathlib.Path('/home/joaosouto/.claude-mem')
+p=pathlib.Path('<HOME>/.claude-mem')
 def listing():
  return [{'path':str(x.relative_to(p)),'bytes':s.st_size,'blocks_bytes':s.st_blocks*512,'mtime_ns':s.st_mtime_ns,'inode':s.st_ino} for x in sorted(p.rglob('*')) if (s:=x.lstat())]
 r=listing();pathlib.Path('/tmp/claude-mem-audit-20261118/before.json').write_text(json.dumps(r,indent=2));print('UTC',datetime.datetime.now(datetime.timezone.utc).isoformat());print('entries',len(r));print('top',[(x['path'],x['bytes']) for x in r if '/' not in x['path']]);print('allocated',sum(x['blocks_bytes'] for x in r))
-s=json.loads(pathlib.Path('/home/joaosouto/.claude/settings.json').read_text());print('enabledPlugins',s.get('enabledPlugins'));print('mem hooks',json.dumps({k:v for k,v in s.get('hooks',{}).items() if 'mem' in json.dumps(v)},indent=2));print('mcp names',s.get('mcpServers',{}).keys())
+s=json.loads(pathlib.Path('<HOME>/.claude/settings.json').read_text());print('enabledPlugins',s.get('enabledPlugins'));print('mem hooks',json.dumps({k:v for k,v in s.get('hooks',{}).items() if 'mem' in json.dumps(v)},indent=2));print('mcp names',s.get('mcpServers',{}).keys())
 PY
 ```
 
@@ -998,7 +1001,7 @@ PY
 <details><summary>Inspection 18</summary>
 
 ```bash
-du -B1 --max-depth=2 /home/joaosouto/.claude-mem; lsof /home/joaosouto/.claude-mem/claude-mem.db /home/joaosouto/.claude-mem/claude-mem.db-wal; df -B1 /tmp; git rev-parse HEAD
+du -B1 --max-depth=2 <HOME>/.claude-mem; lsof <HOME>/.claude-mem/claude-mem.db <HOME>/.claude-mem/claude-mem.db-wal; df -B1 /tmp; git rev-parse HEAD
 ```
 
 </details>
@@ -1006,7 +1009,7 @@ du -B1 --max-depth=2 /home/joaosouto/.claude-mem; lsof /home/joaosouto/.claude-m
 <details><summary>Inspection 19</summary>
 
 ```bash
-cat /home/joaosouto/.agents/skills/build/references/subagent-resilience.md
+cat <HOME>/.agents/skills/build/references/subagent-resilience.md
 ```
 
 </details>
@@ -1030,7 +1033,7 @@ sed -n '1,210p' .agents/skills/wrap-up-session/references/routines.md
 <details><summary>Inspection 22</summary>
 
 ```bash
-cat /home/joaosouto/.claude-mem/settings.json /home/joaosouto/.claude-mem/transcript-watch.json; cat /home/joaosouto/.claude/plugins/cache/thedotmack/claude-mem/12.1.6/hooks/hooks.json; ls -la /home/joaosouto/.claude/plugins/cache/thedotmack/claude-mem/12.1.6; df -B1 /tmp
+cat <HOME>/.claude-mem/settings.json <HOME>/.claude-mem/transcript-watch.json; cat <HOME>/.claude/plugins/cache/thedotmack/claude-mem/12.1.6/hooks/hooks.json; ls -la <HOME>/.claude/plugins/cache/thedotmack/claude-mem/12.1.6; df -B1 /tmp
 ```
 
 </details>
@@ -1040,7 +1043,7 @@ cat /home/joaosouto/.claude-mem/settings.json /home/joaosouto/.claude-mem/transc
 ```bash
 python3 - <<'PY'
 import pathlib,json,sqlite3,collections
-p=pathlib.Path('/home/joaosouto/.claude-mem');a=collections.defaultdict(lambda:[0,0,0]);big=[]
+p=pathlib.Path('<HOME>/.claude-mem');a=collections.defaultdict(lambda:[0,0,0]);big=[]
 for x in p.rglob('*'):
  s=x.lstat();k=x.relative_to(p).parts[0];a[k][0]+=s.st_size;a[k][1]+=s.st_blocks*512;a[k][2]+=1
  if x.is_file():big.append((s.st_size,str(x.relative_to(p))))
@@ -1058,7 +1061,7 @@ PY
 ```bash
 python3 - <<'PY'
 import json,pathlib
-p=pathlib.Path('/home/joaosouto/.claude/plugins/cache/thedotmack/claude-mem/12.1.6')
+p=pathlib.Path('<HOME>/.claude/plugins/cache/thedotmack/claude-mem/12.1.6')
 print((p/'.mcp.json').read_text());print((p/'.claude-plugin/plugin.json').read_text());h=json.loads((p/'hooks/hooks.json').read_text());
 for event,groups in h['hooks'].items():
  for g in groups:
@@ -1084,7 +1087,7 @@ python3 - <<'PY'
 import sqlite3,pathlib,json,time
 out={}
 for rel in ['claude-mem.db','chroma/chroma.sqlite3']:
- p=pathlib.Path('/home/joaosouto/.claude-mem')/rel;c=sqlite3.connect(p.as_uri()+'?mode=ro&immutable=1');t=time.time()
+ p=pathlib.Path('<HOME>/.claude-mem')/rel;c=sqlite3.connect(p.as_uri()+'?mode=ro&immutable=1');t=time.time()
  rows=c.execute('select name,count(*),sum(pgsize),sum(payload),sum(unused) from dbstat group by name order by sum(pgsize) desc').fetchall();r={'objects':rows,'page_count':c.execute('pragma page_count').fetchone()[0],'freelist':c.execute('pragma freelist_count').fetchone()[0],'page_size':4096};out[rel]=r
  print(rel,json.dumps(r), 'seconds',time.time()-t,flush=True)
 pathlib.Path('/tmp/claude-mem-audit-20261118/dbstat.json').write_text(json.dumps(out,indent=2))
@@ -1098,7 +1101,7 @@ PY
 ```bash
 python3 - <<'PY'
 import pathlib,re
-p=pathlib.Path('/home/joaosouto/.claude/plugins/cache/thedotmack/claude-mem/12.1.6/scripts')
+p=pathlib.Path('<HOME>/.claude/plugins/cache/thedotmack/claude-mem/12.1.6/scripts')
 for fn,patterns in {'worker-service.cjs':['/api/context/inject','SessionStart','wal_autocheckpoint','journal_mode','wal_checkpoint','VACUUM','DELETE FROM pending_messages','CLAUDE_MEM_CONTEXT_OBSERVATIONS','CLAUDE_MEM_SEMANTIC_INJECT','relevance_count','embeddings_queue','purge','retention','prune'],'mcp-server.cjs':['name:','/api/search','/api/timeline','get_observations']}.items():
  s=(p/fn).read_text();print('FILE',fn)
  for pat in patterns:
@@ -1112,7 +1115,7 @@ PY
 <details><summary>Inspection 28</summary>
 
 ```bash
-cat /home/joaosouto/.claude/plugins/cache/thedotmack/claude-mem/12.1.6/skills/mem-search/SKILL.md; sed -n '1,180p' /home/joaosouto/.claude-mem/watchdog.py; ls -l /home/joaosouto/.claude-mem/chroma
+cat <HOME>/.claude/plugins/cache/thedotmack/claude-mem/12.1.6/skills/mem-search/SKILL.md; sed -n '1,180p' <HOME>/.claude-mem/watchdog.py; ls -l <HOME>/.claude-mem/chroma
 ```
 
 </details>
@@ -1122,11 +1125,11 @@ cat /home/joaosouto/.claude/plugins/cache/thedotmack/claude-mem/12.1.6/skills/me
 ```bash
 python3 - <<'PY'
 import pathlib,re,json,collections
-p=pathlib.Path('/home/joaosouto/.claude/plugins/cache/thedotmack/claude-mem/12.1.6/scripts');s=(p/'worker-service.cjs').read_text()
+p=pathlib.Path('<HOME>/.claude/plugins/cache/thedotmack/claude-mem/12.1.6/scripts');s=(p/'worker-service.cjs').read_text()
 for pat in ['async execute(t){if(!await or())','totalObservationCount','fullObservationCount','file-context','Chroma','chroma-mcp','markSessionComplete','clearFailed','/api/pending-queue','get_observations','/api/observations/batch','semantic']:
  m=list(re.finditer(re.escape(pat),s));print('TERM',pat,'occurrences',len(m))
  for a in m[:2]:print('offset',a.start(),s[max(0,a.start()-100):a.end()+900].replace('\n',' ')[:1100])
-logs=pathlib.Path('/home/joaosouto/.claude-mem/logs');print('recentlogs',[(x.name,x.stat().st_size) for x in sorted(logs.glob('*'))[-8:]])
+logs=pathlib.Path('<HOME>/.claude-mem/logs');print('recentlogs',[(x.name,x.stat().st_size) for x in sorted(logs.glob('*'))[-8:]])
 PY
 ```
 
@@ -1137,7 +1140,7 @@ PY
 ```bash
 python3 - <<'PY'
 import pathlib,collections,re,json
-root=pathlib.Path('/home/joaosouto/.claude-mem/logs');counts=collections.Counter(); examples={};routes=collections.Counter();dates={};
+root=pathlib.Path('<HOME>/.claude-mem/logs');counts=collections.Counter(); examples={};routes=collections.Counter();dates={};
 for p in sorted(root.glob('*.log')):
  day=collections.Counter()
  for l in p.open(errors='replace'):
@@ -1157,7 +1160,7 @@ PY
 python3 - <<'PY'
 import pathlib,sqlite3,json
 for f in ['claude-mem.db','chroma/chroma.sqlite3']:
- c=sqlite3.connect('file:/home/joaosouto/.claude-mem/'+f+'?mode=ro&immutable=1');print('FILE',f)
+ c=sqlite3.connect('file:<HOME>/.claude-mem/'+f+'?mode=ro&immutable=1');print('FILE',f)
  qs=(['select status,count(*) from pending_messages group by status','select status,count(*) from sdk_sessions group by status','select platform_source,count(*) from sdk_sessions group by platform_source','select count(*),min(created_at),max(created_at),sum(relevance_count),max(relevance_count) from observations','select count(*),min(created_at),max(created_at) from session_summaries'] if f=='claude-mem.db' else ['select id,name,dimension from collections','select * from segments','select count(*) from embeddings','select count(*) from embeddings_queue','select * from embeddings_queue_config','select * from maintenance_log','select * from max_seq_id'])
  for q in qs:
   try:print(q,c.execute(q).fetchall(),flush=True)
@@ -1173,7 +1176,7 @@ PY
 python3 - <<'PY'
 import sqlite3,json
 for f in ['claude-mem.db','chroma/chroma.sqlite3']:
- c=sqlite3.connect('file:/home/joaosouto/.claude-mem/'+f+'?mode=ro&immutable=1');print('FILE',f)
+ c=sqlite3.connect('file:<HOME>/.claude-mem/'+f+'?mode=ro&immutable=1');print('FILE',f)
  qs=(['select status,count(*) from pending_messages group by status','select status,count(*) from sdk_sessions group by status','select platform_source,count(*) from sdk_sessions group by platform_source','select count(*),min(created_at),max(created_at),sum(relevance_count),max(relevance_count) from observations','select count(*),min(created_at),max(created_at) from session_summaries'] if f=='claude-mem.db' else ['select id,name,dimension from collections','select * from segments','select count(*) from embeddings','select count(*) from embeddings_queue','select * from embeddings_queue_config','select * from maintenance_log','select * from max_seq_id'])
  for q in qs:
   try:print(q,c.execute(q).fetchall())
@@ -1188,7 +1191,7 @@ PY
 ```bash
 python3 - <<'PY'
 import pathlib,re
-s=pathlib.Path('/home/joaosouto/.claude/plugins/cache/thedotmack/claude-mem/12.1.6/scripts/worker-service.cjs').read_text()
+s=pathlib.Path('<HOME>/.claude/plugins/cache/thedotmack/claude-mem/12.1.6/scripts/worker-service.cjs').read_text()
 for pat in ['totalObservationCount','fullObservationCount','file-context','chroma-mcp','clearFailed','/api/pending-queue','/api/observations/batch']:
  a=s.find(pat);print('TERM',pat,'offset',a,s[max(0,a-70):a+900].replace('\n',' '))
 PY
@@ -1201,7 +1204,7 @@ PY
 ```bash
 python3 - <<'PY'
 import pathlib,re,collections,json
-p=pathlib.Path('/home/joaosouto/.claude-mem/logs');tags=collections.Counter();cm=collections.Counter();examples={}
+p=pathlib.Path('<HOME>/.claude-mem/logs');tags=collections.Counter();cm=collections.Counter();examples={}
 for f in p.glob('*.log'):
  for l in f.open(errors='replace'):
   m=re.match(r'^\[([^]]+)\] \[([^]]+)\] \[([^]]+)\] (.*)',l)
@@ -1221,10 +1224,10 @@ PY
 ```bash
 python3 - <<'PY'
 import pathlib,re,json
-p=pathlib.Path('/home/joaosouto/.claude/plugins/cache/thedotmack/claude-mem/12.1.6/scripts/worker-service.cjs');s=p.read_text()
+p=pathlib.Path('<HOME>/.claude/plugins/cache/thedotmack/claude-mem/12.1.6/scripts/worker-service.cjs');s=p.read_text()
 for pat,n in [('async execute(t){if(!await or())',1500),('lR=',1700),('async generateContext',1200),('totalObservationCount)',1000),('totalObservationCount,',900),('handleClearFailedQueue=',700),('handleSearch=',800)]:
  a=s.find(pat);print('TERM',pat,'offset',a,s[max(0,a-50):a+n].replace('\n',' '))
-for f in ['/home/joaosouto/.claude.json','/home/joaosouto/.pi/agent/settings.json','/home/joaosouto/.codex/config.toml']:
+for f in ['<HOME>/.claude.json','<HOME>/.pi/agent/settings.json','<HOME>/.codex/config.toml']:
  p=pathlib.Path(f)
  if not p.exists():continue
  txt=p.read_text();print('CONFIG',f)
@@ -1243,7 +1246,7 @@ PY
 ```bash
 python3 - <<'PY'
 import pathlib,re,collections
-root=pathlib.Path('/home/joaosouto/.claude-mem/logs');c=collections.Counter();samples={}
+root=pathlib.Path('<HOME>/.claude-mem/logs');c=collections.Counter();samples={}
 for p in root.glob('*.log'):
  for l in p.open(errors='replace'):
   if re.match(r'^\[[^]]+\] \[[^]]+\] \[HTTP\s*\]',l):
@@ -1260,7 +1263,7 @@ PY
 <details><summary>Inspection 37</summary>
 
 ```bash
-rg -l 'mcp__.*(mcp-search|claude.mem).*(__search|__timeline|__get_observations)|<claude-mem-context>|Claude-Mem Context Loaded' /home/joaosouto/.claude/projects --glob '*.jsonl' | head -30; rg -n 'ccr|headroom|compress' /home/joaosouto/.claude/settings.json /home/joaosouto/.codex/config.toml | cut -c 1-220; ls -lh /tmp/claude-mem-audit-20261118; ps -eo pid,etime,pcpu,comm | rg 'python3|bun' | head -15
+rg -l 'mcp__.*(mcp-search|claude.mem).*(__search|__timeline|__get_observations)|<claude-mem-context>|Claude-Mem Context Loaded' <HOME>/.claude/projects --glob '*.jsonl' | head -30; rg -n 'ccr|headroom|compress' <HOME>/.claude/settings.json <HOME>/.codex/config.toml | cut -c 1-220; ls -lh /tmp/claude-mem-audit-20261118; ps -eo pid,etime,pcpu,comm | rg 'python3|bun' | head -15
 ```
 
 </details>
@@ -1270,7 +1273,7 @@ rg -l 'mcp__.*(mcp-search|claude.mem).*(__search|__timeline|__get_observations)|
 ```bash
 python3 - <<'PY'
 import pathlib,re,collections,json
-p=pathlib.Path('/home/joaosouto/.claude/projects');files=list(p.rglob('*.jsonl'));print('transcripts',len(files),'bytes',sum(f.stat().st_size for f in files));
+p=pathlib.Path('<HOME>/.claude/projects');files=list(p.rglob('*.jsonl'));print('transcripts',len(files),'bytes',sum(f.stat().st_size for f in files));
 for f in sorted(files,key=lambda p:p.stat().st_mtime,reverse=True)[:8]:
  n=0
  for l in f.open(errors='replace'):
@@ -1287,7 +1290,7 @@ PY
 ```bash
 python3 - <<'PY'
 import pathlib,re,collections
-s=pathlib.Path('/home/joaosouto/.claude/plugins/cache/thedotmack/claude-mem/12.1.6/scripts/worker-service.cjs').read_text()
+s=pathlib.Path('<HOME>/.claude/plugins/cache/thedotmack/claude-mem/12.1.6/scripts/worker-service.cjs').read_text()
 for a,b in [(1063850,1065150),(1075500,1077400),(1093150,1094050)]:print('BYTES',a,b,s[a:b].replace('\n',' '))
 for pat in ['contextInjected:','context/inject",','chroma_query_documents','chroma_delete_documents','CLAUDE_MEM_CHROMA_ENABLED','deleteObservations','deleteSession','readFileSync(t.transcript','transcript_path']:
  m=list(re.finditer(re.escape(pat),s));print('TERM',pat,'count',len(m))
@@ -1302,7 +1305,7 @@ PY
 ```bash
 python3 - <<'PY'
 import pathlib,json,collections,re,hashlib
-root=pathlib.Path('/home/joaosouto/.claude/projects');tools=collections.Counter();sessions=collections.defaultdict(set);inject=[];types=collections.Counter();examples=[];malformed=0;total=0
+root=pathlib.Path('<HOME>/.claude/projects');tools=collections.Counter();sessions=collections.defaultdict(set);inject=[];types=collections.Counter();examples=[];malformed=0;total=0
 for f in root.rglob('*.jsonl'):
  for line in f.open(errors='replace'):
   total+=1
@@ -1344,7 +1347,7 @@ for f,queries in {'claude-mem.db':[
 "select count(*),sum(length(cast(c0 as blob))),max(length(cast(c0 as blob))) from embedding_fulltext_search_content",
 "select count(*),sum(length(vector)),sum(length(cast(metadata as blob))) from embeddings_queue"
 ]}.items():
- c=sqlite3.connect('file:/home/joaosouto/.claude-mem/'+f+'?mode=ro&immutable=1');out[f]={}
+ c=sqlite3.connect('file:<HOME>/.claude-mem/'+f+'?mode=ro&immutable=1');out[f]={}
  for q in queries:
   try:r=c.execute(q).fetchall();out[f][q]=r;print(f,q,json.dumps(r),flush=True)
   except Exception as e:print(type(e).__name__,str(e),flush=True)
@@ -1359,7 +1362,7 @@ PY
 ```bash
 python3 - <<'PY'
 import pathlib,json,collections,math,statistics,importlib.util
-root=pathlib.Path('/home/joaosouto/.claude/projects');events=[];counts=collections.Counter();sessions=set();bad=0
+root=pathlib.Path('<HOME>/.claude/projects');events=[];counts=collections.Counter();sessions=set();bad=0
 for f in root.rglob('*.jsonl'):
  for l in f.open(errors='replace'):
   if 'SessionStart' not in l or 'claude-mem' not in l:continue
@@ -1382,12 +1385,12 @@ PY
 ```bash
 python3 - <<'PY'
 import pathlib,re
-for f in [pathlib.Path('/home/joaosouto/.claude/plugins/cache/thedotmack/claude-mem/12.1.6/scripts/worker-service.cjs'),pathlib.Path('/home/joaosouto/.claude/plugins/cache/thedotmack/claude-mem/12.1.6/scripts/mcp-server.cjs')]:
+for f in [pathlib.Path('<HOME>/.claude/plugins/cache/thedotmack/claude-mem/12.1.6/scripts/worker-service.cjs'),pathlib.Path('<HOME>/.claude/plugins/cache/thedotmack/claude-mem/12.1.6/scripts/mcp-server.cjs')]:
  s=f.read_text();print('FILE',f.name,'sha256',__import__('hashlib').sha256(f.read_bytes()).hexdigest())
  for pat in ['smart_outline','smart_unfold','smart_search','handleContextInject=','CLAUDE_MEM_CHROMA_ENABLED===','chromaEnabled','getChromaEnabled']:
   a=s.find(pat)
   if a>=0:print('OFFSET',a,s[max(0,a-90):a+650].replace('\n',' '))
-print('headroom script',pathlib.Path('/home/joaosouto/venv/bin/headroom').read_text()[:600])
+print('headroom script',pathlib.Path('<HOME>/venv/bin/headroom').read_text()[:600])
 PY
 ```
 
@@ -1396,7 +1399,7 @@ PY
 <details><summary>Inspection 44</summary>
 
 ```bash
-rg --files /home/joaosouto/.claude/plugins/marketplaces/thedotmack | rg '(Context|context|SessionStore|PendingMessage|ChromaSync|retention|prune|cleanup)' | head -55; rg -n 'headroom_retrieve|def retrieve|Content not found|storage_dir|cache_dir|sqlite|CCR' /home/joaosouto/venv/lib/python3.12/site-packages/headroom/mcp* /home/joaosouto/venv/lib/python3.13/site-packages/headroom/mcp* /home/joaosouto/venv/lib/python3.14/site-packages/headroom/mcp* 2>/dev/null | head -35
+rg --files <HOME>/.claude/plugins/marketplaces/thedotmack | rg '(Context|context|SessionStore|PendingMessage|ChromaSync|retention|prune|cleanup)' | head -55; rg -n 'headroom_retrieve|def retrieve|Content not found|storage_dir|cache_dir|sqlite|CCR' <HOME>/venv/lib/python3.12/site-packages/headroom/mcp* <HOME>/venv/lib/python3.13/site-packages/headroom/mcp* <HOME>/venv/lib/python3.14/site-packages/headroom/mcp* 2>/dev/null | head -35
 ```
 
 </details>
@@ -1406,10 +1409,10 @@ rg --files /home/joaosouto/.claude/plugins/marketplaces/thedotmack | rg '(Contex
 ```bash
 python3 - <<'PY'
 import pathlib,struct,json,os
-p=pathlib.Path('/home/joaosouto/.claude-mem/claude-mem.db-wal');s=p.stat()
+p=pathlib.Path('<HOME>/.claude-mem/claude-mem.db-wal');s=p.stat()
 with p.open('rb') as f:h=f.read(32)
 print('WAL size',s.st_size,'header',struct.unpack('>8I',h),'frames',(s.st_size-32)//(4096+24),'mtime',s.st_mtime_ns)
-p=pathlib.Path('/home/joaosouto/.claude-mem/claude-mem.db-shm')
+p=pathlib.Path('<HOME>/.claude-mem/claude-mem.db-shm')
 with p.open('rb') as f:h=f.read(136)
 print('SHM wal-index first header native',struct.unpack('=12I',h[:48]));print('checkpoint nBackfill native',struct.unpack('=I',h[96:100])[0]);print('readmarks',struct.unpack('=5I',h[100:120]))
 for q in pathlib.Path('/proc').glob('[0-9]*/fd'):
@@ -1417,7 +1420,7 @@ for q in pathlib.Path('/proc').glob('[0-9]*/fd'):
   for fd in q.iterdir():
    try:t=os.readlink(fd)
    except OSError:continue
-   if t in ['/home/joaosouto/.claude-mem/claude-mem.db','/home/joaosouto/.claude-mem/claude-mem.db-wal']:
+   if t in ['<HOME>/.claude-mem/claude-mem.db','<HOME>/.claude-mem/claude-mem.db-wal']:
     pid=q.parent.name;print('holder',pid,pathlib.Path('/proc',pid,'cmdline').read_bytes().replace(b'\0',b' ').decode()[:230],t)
  except (FileNotFoundError,PermissionError):continue
 PY
@@ -1428,7 +1431,7 @@ PY
 <details><summary>Inspection 46</summary>
 
 ```bash
-git -C /home/joaosouto/.claude/plugins/marketplaces/thedotmack rev-parse HEAD; rg -n 'retention|VACUUM|wal_checkpoint|auto_vacuum|deleteOlder|prun|DELETE FROM|clearFailed|CLAUDE_MEM_CHROMA_ENABLED|observer|skip.*session|exclude' /home/joaosouto/.claude/plugins/marketplaces/thedotmack/src/services/sqlite/PendingMessageStore.ts /home/joaosouto/.claude/plugins/marketplaces/thedotmack/src/services/sqlite/SessionStore.ts /home/joaosouto/.claude/plugins/marketplaces/thedotmack/src/services/sync/ChromaSync.ts /home/joaosouto/.claude/plugins/marketplaces/thedotmack/src/services/transcripts* /home/joaosouto/.claude/plugins/marketplaces/thedotmack/src/cli/handlers/context.ts | head -90; rg -n 'headroom_retrieve|Content not found|def retrieve|storage_dir|cache_dir|sqlite' /home/joaosouto/venv/lib/python3.12/site-packages/headroom/mcp -g '*.py' | head -40
+git -C <HOME>/.claude/plugins/marketplaces/thedotmack rev-parse HEAD; rg -n 'retention|VACUUM|wal_checkpoint|auto_vacuum|deleteOlder|prun|DELETE FROM|clearFailed|CLAUDE_MEM_CHROMA_ENABLED|observer|skip.*session|exclude' <HOME>/.claude/plugins/marketplaces/thedotmack/src/services/sqlite/PendingMessageStore.ts <HOME>/.claude/plugins/marketplaces/thedotmack/src/services/sqlite/SessionStore.ts <HOME>/.claude/plugins/marketplaces/thedotmack/src/services/sync/ChromaSync.ts <HOME>/.claude/plugins/marketplaces/thedotmack/src/services/transcripts* <HOME>/.claude/plugins/marketplaces/thedotmack/src/cli/handlers/context.ts | head -90; rg -n 'headroom_retrieve|Content not found|def retrieve|storage_dir|cache_dir|sqlite' <HOME>/venv/lib/python3.12/site-packages/headroom/mcp -g '*.py' | head -40
 ```
 
 </details>
@@ -1436,7 +1439,7 @@ git -C /home/joaosouto/.claude/plugins/marketplaces/thedotmack rev-parse HEAD; r
 <details><summary>Inspection 47</summary>
 
 ```bash
-sed -n '1,150p' /home/joaosouto/.claude/plugins/marketplaces/thedotmack/src/cli/handlers/context.ts; sed -n '1,170p' /home/joaosouto/.claude/plugins/marketplaces/thedotmack/src/services/context/ContextBuilder.ts; rg -n 'watch|observer|exclude|AGENTS|context|skip' /home/joaosouto/.claude/plugins/marketplaces/thedotmack/src/services/transcripts -g '*.ts' | head -60
+sed -n '1,150p' <HOME>/.claude/plugins/marketplaces/thedotmack/src/cli/handlers/context.ts; sed -n '1,170p' <HOME>/.claude/plugins/marketplaces/thedotmack/src/services/context/ContextBuilder.ts; rg -n 'watch|observer|exclude|AGENTS|context|skip' <HOME>/.claude/plugins/marketplaces/thedotmack/src/services/transcripts -g '*.ts' | head -60
 ```
 
 </details>
@@ -1444,7 +1447,7 @@ sed -n '1,150p' /home/joaosouto/.claude/plugins/marketplaces/thedotmack/src/cli/
 <details><summary>Inspection 48</summary>
 
 ```bash
-rg --files /home/joaosouto/venv/lib/python3.12/site-packages/headroom | rg '(mcp|store|cache|ccr|retriev)' | head -45; sed -n '333,375p' /home/joaosouto/.claude/plugins/marketplaces/thedotmack/src/services/transcripts/processor.ts; sed -n '1,110p' /home/joaosouto/.claude/plugins/marketplaces/thedotmack/src/services/context/ObservationCompiler.ts; sed -n '455,488p' /home/joaosouto/.claude/plugins/marketplaces/thedotmack/src/services/sqlite/PendingMessageStore.ts
+rg --files <HOME>/venv/lib/python3.12/site-packages/headroom | rg '(mcp|store|cache|ccr|retriev)' | head -45; sed -n '333,375p' <HOME>/.claude/plugins/marketplaces/thedotmack/src/services/transcripts/processor.ts; sed -n '1,110p' <HOME>/.claude/plugins/marketplaces/thedotmack/src/services/context/ObservationCompiler.ts; sed -n '455,488p' <HOME>/.claude/plugins/marketplaces/thedotmack/src/services/sqlite/PendingMessageStore.ts
 ```
 
 </details>
@@ -1454,7 +1457,7 @@ rg --files /home/joaosouto/venv/lib/python3.12/site-packages/headroom | rg '(mcp
 ```bash
 python3 - <<'PY'
 import pathlib,collections,re,json
-p=pathlib.Path('/home/joaosouto/.claude-mem/logs');byday=collections.defaultdict(collections.Counter);errors=collections.Counter();samples=[]
+p=pathlib.Path('<HOME>/.claude-mem/logs');byday=collections.defaultdict(collections.Counter);errors=collections.Counter();samples=[]
 for f in sorted(p.glob('*.log')):
  for l in f.open(errors='replace'):
   m=re.match(r'^\[([^]]+)\] \[([^]]+)\] \[HOOK\s*\] → PostToolUse: (mcp__[^\s(]+)',l)
@@ -1471,7 +1474,7 @@ PY
 <details><summary>Inspection 50</summary>
 
 ```bash
-rg -n -m 3 'You are a Claude-Mem|CLAUDE_MEM.*DISABLE|DISABLE.*HOOK|observer.*session|internal.*session|settingSources|settings.*hooks|CLAUDE_MEM_EXCLUDED_PROJECTS' /home/joaosouto/.claude/plugins/marketplaces/thedotmack/src/services/worker /home/joaosouto/.claude/plugins/marketplaces/thedotmack/src/cli/handlers /home/joaosouto/.claude/plugins/marketplaces/thedotmack/src/sdk -g '*.ts' | head -65; rg -n 'headroom_retrieve|Content not found|def retrieve' /home/joaosouto/venv/lib/python3.12/site-packages/headroom -g '*.py' | head -40
+rg -n -m 3 'You are a Claude-Mem|CLAUDE_MEM.*DISABLE|DISABLE.*HOOK|observer.*session|internal.*session|settingSources|settings.*hooks|CLAUDE_MEM_EXCLUDED_PROJECTS' <HOME>/.claude/plugins/marketplaces/thedotmack/src/services/worker <HOME>/.claude/plugins/marketplaces/thedotmack/src/cli/handlers <HOME>/.claude/plugins/marketplaces/thedotmack/src/sdk -g '*.ts' | head -65; rg -n 'headroom_retrieve|Content not found|def retrieve' <HOME>/venv/lib/python3.12/site-packages/headroom -g '*.py' | head -40
 ```
 
 </details>
@@ -1483,7 +1486,7 @@ python3 - <<'PY'
 import pathlib,json,collections,statistics,math
 import tiktoken
 enc=tiktoken.get_encoding('cl100k_base');results=[]
-for f in pathlib.Path('/home/joaosouto/.claude/projects').rglob('*.jsonl'):
+for f in pathlib.Path('<HOME>/.claude/projects').rglob('*.jsonl'):
  for l in f.open(errors='replace'):
   if 'SessionStart' not in l or 'claude-mem' not in l:continue
   d=json.loads(l);a=d.get('attachment',{})
@@ -1500,7 +1503,7 @@ PY
 <details><summary>Inspection 52</summary>
 
 ```bash
-sed -n '90,180p' /home/joaosouto/.claude/plugins/marketplaces/thedotmack/src/services/worker/SDKAgent.ts; rg -n 'function isProjectExcluded|CLAUDE_MEM_CHROMA_ENABLED|settingSources|disable.*hook' /home/joaosouto/.claude/plugins/marketplaces/thedotmack/src -g '*.ts' | head -40; sed -n '1,100p' /home/joaosouto/.claude/plugins/marketplaces/thedotmack/src/utils/project-exclusion.ts; rg -n 'Content not found|def.*retrieve|store|SQLite|sqlite|TTL' /home/joaosouto/venv/lib/python3.12/site-packages/headroom/ccr/mcp_server.py | head -40; rg -n 'claude-mem' /home/joaosouto/venv/lib/python3.12/site-packages/headroom/ccr -g '*.py'
+sed -n '90,180p' <HOME>/.claude/plugins/marketplaces/thedotmack/src/services/worker/SDKAgent.ts; rg -n 'function isProjectExcluded|CLAUDE_MEM_CHROMA_ENABLED|settingSources|disable.*hook' <HOME>/.claude/plugins/marketplaces/thedotmack/src -g '*.ts' | head -40; sed -n '1,100p' <HOME>/.claude/plugins/marketplaces/thedotmack/src/utils/project-exclusion.ts; rg -n 'Content not found|def.*retrieve|store|SQLite|sqlite|TTL' <HOME>/venv/lib/python3.12/site-packages/headroom/ccr/mcp_server.py | head -40; rg -n 'claude-mem' <HOME>/venv/lib/python3.12/site-packages/headroom/ccr -g '*.py'
 ```
 
 </details>
@@ -1516,7 +1519,7 @@ sed -n '1,60p' AGENTS.md; sed -n '1,90p' .agents/skills/verify-evidence/SKILL.md
 <details><summary>Inspection 54</summary>
 
 ```bash
-cat /home/joaosouto/.claude/plugins/marketplaces/thedotmack/src/utils/project-filter.ts; sed -n '1,100p' /home/joaosouto/.claude/plugins/marketplaces/thedotmack/src/services/worker/DatabaseManager.ts; sed -n '380,410p' /home/joaosouto/venv/lib/python3.12/site-packages/headroom/ccr/mcp_server.py; sed -n '460,485p' /home/joaosouto/venv/lib/python3.12/site-packages/headroom/ccr/mcp_server.py; rg -n 'sqlite|persist|storage|path|TTL|default_ttl|ttl=' /home/joaosouto/venv/lib/python3.12/site-packages/headroom/cache/compression_store.py | head -35
+cat <HOME>/.claude/plugins/marketplaces/thedotmack/src/utils/project-filter.ts; sed -n '1,100p' <HOME>/.claude/plugins/marketplaces/thedotmack/src/services/worker/DatabaseManager.ts; sed -n '380,410p' <HOME>/venv/lib/python3.12/site-packages/headroom/ccr/mcp_server.py; sed -n '460,485p' <HOME>/venv/lib/python3.12/site-packages/headroom/ccr/mcp_server.py; rg -n 'sqlite|persist|storage|path|TTL|default_ttl|ttl=' <HOME>/venv/lib/python3.12/site-packages/headroom/cache/compression_store.py | head -35
 ```
 
 </details>
@@ -1526,12 +1529,12 @@ cat /home/joaosouto/.claude/plugins/marketplaces/thedotmack/src/utils/project-fi
 ```bash
 python3 - <<'PY'
 import pathlib,re
-s=pathlib.Path('/home/joaosouto/.claude/plugins/cache/thedotmack/claude-mem/12.1.6/scripts/worker-service.cjs').read_text()
+s=pathlib.Path('<HOME>/.claude/plugins/cache/thedotmack/claude-mem/12.1.6/scripts/worker-service.cjs').read_text()
 for pat in ['CLAUDE_MEM_CHROMA_ENABLED!=="false"','OBSERVER_SESSIONS_DIR','observer-sessions','case"stop"','case"restart"','async stop','handleContextInject=']:
  a=s.find(pat);print('TERM',pat,'OFFSET',a)
  if a>=0:print(s[max(0,a-120):a+600].replace('\n',' '))
 print('AGENTS context files');
-for p in [pathlib.Path('/home/joaosouto/jplugin-agentic-development/AGENTS.md'),pathlib.Path('AGENTS.md')]:
+for p in [pathlib.Path('<HOME>/jplugin-agentic-development/AGENTS.md'),pathlib.Path('AGENTS.md')]:
  s=p.read_text();print(str(p),'claude-mem-context' in s,'claude-mem' in s)
 PY
 ```
@@ -1556,7 +1559,7 @@ PY
 <details><summary>Inspection 57</summary>
 
 ```bash
-rg -n 'observer-sessions|You are a Claude-Mem|systemPrompt|user_prompt|prompt_text' /home/joaosouto/.claude/plugins/marketplaces/thedotmack/src/services/worker/SDKAgent.ts /home/joaosouto/.claude/plugins/marketplaces/thedotmack/src/cli/handlers/session-init.ts /home/joaosouto/.claude/plugins/marketplaces/thedotmack/src/services/sqlite/sessions/*.ts | head -45; rg -n 'under_test|specs/|markdown|frontmatter' tests/test-doc-conventions.sh | head -25; cat .agents/references/finding-model.md | head -65; git config --get core.hooksPath
+rg -n 'observer-sessions|You are a Claude-Mem|systemPrompt|user_prompt|prompt_text' <HOME>/.claude/plugins/marketplaces/thedotmack/src/services/worker/SDKAgent.ts <HOME>/.claude/plugins/marketplaces/thedotmack/src/cli/handlers/session-init.ts <HOME>/.claude/plugins/marketplaces/thedotmack/src/services/sqlite/sessions/*.ts | head -45; rg -n 'under_test|specs/|markdown|frontmatter' tests/test-doc-conventions.sh | head -25; cat .agents/references/finding-model.md | head -65; git config --get core.hooksPath
 ```
 
 </details>
@@ -1580,7 +1583,7 @@ PY
 ```bash
 python3 - <<'PY'
 import sqlite3
-c=sqlite3.connect('file:/home/joaosouto/.claude-mem/claude-mem.db?mode=ro&immutable=1')
+c=sqlite3.connect('file:<HOME>/.claude-mem/claude-mem.db?mode=ro&immutable=1')
 for q in ["select project,count(*) from sdk_sessions group by project order by count(*) desc limit 8","select name,sql from sqlite_master where type='trigger'","select count(*) from observations where memory_session_id in (select memory_session_id from sdk_sessions where project='observer-sessions')","select count(*) from session_summaries where memory_session_id in (select memory_session_id from sdk_sessions where project='observer-sessions')"]:
  print(q,c.execute(q).fetchall())
 PY
@@ -1591,7 +1594,7 @@ PY
 <details><summary>Inspection 60</summary>
 
 ```bash
-sed -n '1,130p' /home/joaosouto/.claude/plugins/marketplaces/thedotmack/src/services/sqlite/sessions/create.ts; rg -n 'syncUserPrompt|prompt_text|document:|collectionName|syncObservation' /home/joaosouto/.claude/plugins/marketplaces/thedotmack/src/services/sync/ChromaSync.ts | head -45; rg -n 'chromaSync|searchObservations|fallback|SQLite' /home/joaosouto/.claude/plugins/marketplaces/thedotmack/src/services/worker/search/*.ts /home/joaosouto/.claude/plugins/marketplaces/thedotmack/src/services/worker/SearchManager.ts | head -35
+sed -n '1,130p' <HOME>/.claude/plugins/marketplaces/thedotmack/src/services/sqlite/sessions/create.ts; rg -n 'syncUserPrompt|prompt_text|document:|collectionName|syncObservation' <HOME>/.claude/plugins/marketplaces/thedotmack/src/services/sync/ChromaSync.ts | head -45; rg -n 'chromaSync|searchObservations|fallback|SQLite' <HOME>/.claude/plugins/marketplaces/thedotmack/src/services/worker/search/*.ts <HOME>/.claude/plugins/marketplaces/thedotmack/src/services/worker/SearchManager.ts | head -35
 ```
 
 </details>
@@ -1599,7 +1602,7 @@ sed -n '1,130p' /home/joaosouto/.claude/plugins/marketplaces/thedotmack/src/serv
 <details><summary>Inspection 61</summary>
 
 ```bash
-sed -n '245,275p' /home/joaosouto/.claude/plugins/marketplaces/thedotmack/src/services/worker/SearchManager.ts; rg -n 'Chroma disabled|SQLite-only|chromaSync' /home/joaosouto/.claude/plugins/marketplaces/thedotmack/src/services/worker/search/SearchOrchestrator.ts | head -20; sed -n '150,200p' /home/joaosouto/.claude/plugins/marketplaces/thedotmack/src/services/context/ContextBuilder.ts; sed -n '405,435p' /home/joaosouto/.claude/plugins/marketplaces/thedotmack/src/services/sync/ChromaSync.ts; rg -n 'retention|unlink|rotate|max.*file|log.*day' /home/joaosouto/.claude/plugins/marketplaces/thedotmack/src/utils/logger.ts; rg -n '^(##|###).*Producer|janitor.*architect|Read the backlog' .agents/skills/wrap-up-session/references/routines.md
+sed -n '245,275p' <HOME>/.claude/plugins/marketplaces/thedotmack/src/services/worker/SearchManager.ts; rg -n 'Chroma disabled|SQLite-only|chromaSync' <HOME>/.claude/plugins/marketplaces/thedotmack/src/services/worker/search/SearchOrchestrator.ts | head -20; sed -n '150,200p' <HOME>/.claude/plugins/marketplaces/thedotmack/src/services/context/ContextBuilder.ts; sed -n '405,435p' <HOME>/.claude/plugins/marketplaces/thedotmack/src/services/sync/ChromaSync.ts; rg -n 'retention|unlink|rotate|max.*file|log.*day' <HOME>/.claude/plugins/marketplaces/thedotmack/src/utils/logger.ts; rg -n '^(##|###).*Producer|janitor.*architect|Read the backlog' .agents/skills/wrap-up-session/references/routines.md
 ```
 
 </details>
@@ -1607,7 +1610,7 @@ sed -n '245,275p' /home/joaosouto/.claude/plugins/marketplaces/thedotmack/src/se
 <details><summary>Inspection 62</summary>
 
 ```bash
-crontab -l 2>/dev/null | rg -n 'claude-mem|watchdog|vacuum|checkpoint'; rg -n 'claude-mem|watchdog|VACUUM|wal_checkpoint' /home/joaosouto/.config/systemd/user --glob '*.service' --glob '*.timer' --glob '*.conf' 2>/dev/null | head -40; sed -n '343,409p' .agents/skills/wrap-up-session/references/routines.md; head -65 /home/joaosouto/.claude/plugins/marketplaces/thedotmack/src/utils/logger.ts
+crontab -l 2>/dev/null | rg -n 'claude-mem|watchdog|vacuum|checkpoint'; rg -n 'claude-mem|watchdog|VACUUM|wal_checkpoint' <HOME>/.config/systemd/user --glob '*.service' --glob '*.timer' --glob '*.conf' 2>/dev/null | head -40; sed -n '343,409p' .agents/skills/wrap-up-session/references/routines.md; head -65 <HOME>/.claude/plugins/marketplaces/thedotmack/src/utils/logger.ts
 ```
 
 </details>
@@ -1629,7 +1632,7 @@ PY
 ```bash
 python3 - <<'PY'
 import pathlib,json,hashlib,collections,datetime
-p=pathlib.Path('/home/joaosouto/.claude-mem');r=[{'path':str(x.relative_to(p)),'bytes':s.st_size,'blocks_bytes':s.st_blocks*512,'mtime_ns':s.st_mtime_ns,'inode':s.st_ino} for x in sorted(p.rglob('*')) if (s:=x.lstat())];dest=pathlib.Path('/tmp/claude-mem-audit-20261118');raw=json.dumps(r,indent=2);(dest/'after.json').write_text(raw);before=json.loads((dest/'before.json').read_text());a={x['path']:x for x in before};b={x['path']:x for x in r};changes=[{'path':k,'before':a.get(k),'after':b.get(k)} for k in sorted(a.keys()|b.keys()) if a.get(k)!=b.get(k)];out={'utc':datetime.datetime.now(datetime.timezone.utc).isoformat(),'before_entries':len(before),'after_entries':len(r),'before_manifest_sha256':hashlib.sha256((dest/'before.json').read_bytes()).hexdigest(),'after_manifest_sha256':hashlib.sha256(raw.encode()).hexdigest(),'changes':changes};(dest/'safety.json').write_text(json.dumps(out,indent=2));print(json.dumps(out,indent=2));print('dbstat-reconcile');d=json.loads((dest/'dbstat.json').read_text());
+p=pathlib.Path('<HOME>/.claude-mem');r=[{'path':str(x.relative_to(p)),'bytes':s.st_size,'blocks_bytes':s.st_blocks*512,'mtime_ns':s.st_mtime_ns,'inode':s.st_ino} for x in sorted(p.rglob('*')) if (s:=x.lstat())];dest=pathlib.Path('/tmp/claude-mem-audit-20261118');raw=json.dumps(r,indent=2);(dest/'after.json').write_text(raw);before=json.loads((dest/'before.json').read_text());a={x['path']:x for x in before};b={x['path']:x for x in r};changes=[{'path':k,'before':a.get(k),'after':b.get(k)} for k in sorted(a.keys()|b.keys()) if a.get(k)!=b.get(k)];out={'utc':datetime.datetime.now(datetime.timezone.utc).isoformat(),'before_entries':len(before),'after_entries':len(r),'before_manifest_sha256':hashlib.sha256((dest/'before.json').read_bytes()).hexdigest(),'after_manifest_sha256':hashlib.sha256(raw.encode()).hexdigest(),'changes':changes};(dest/'safety.json').write_text(json.dumps(out,indent=2));print(json.dumps(out,indent=2));print('dbstat-reconcile');d=json.loads((dest/'dbstat.json').read_text());
 for k,v in d.items():print(k,'object bytes',sum(x[2] for x in v['objects']),'free bytes',v['freelist']*4096,'file bytes',v['page_count']*4096,'accounted',sum(x[2] for x in v['objects'])+v['freelist']*4096)
 logs=[x for x in before if x['path'].startswith('logs/') and x['path'].split('/')[-1]<'claude-mem-2026-10-19.log'];print('logs-older-30days',len(logs),sum(x['bytes'] for x in logs))
 PY
