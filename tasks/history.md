@@ -1236,3 +1236,9 @@ back vacuous and was repaired.
 - Completed: verified live claude-mem ranks 1, 2 and 4, restored the worker and semantic search, and recorded the sanitized runbook, measurements and private-evidence pointers in `docs/claude-mem-retention/`. The full suite passed 101 test files and 8641 assertions; policy coverage was 84 percent.
 - Pending: rank 3 was not attempted because the owner required Chroma to remain enabled; a controlled future A/B is proposed in the runbook.
 - Carry-forward: the single full-database rollback archive was restored and verified before redundant snapshots were pruned; the MCP dependency pin is scoped and temporary, while observer exclusion and the retention timer are durable. Independent review was not checked because this dispatch prohibited helpers.
+
+## Session Summary — [2026-11-20] [d025401..6189fea]
+
+- Completed: replaced the temporary claude-mem PATH shim with a persistent scoped uv tool receipt and proved an ordinary restart; installed a cause-agnostic, failure-only semantic detector and timer. The isolated known-good/broken/restored canary returned detector statuses 0/1/0 with unchanged production process identities and zero production fault-injection downtime. The final suite passed 102 files and 8645 assertions; nine detector tests passed with 86 percent statement coverage.
+- Pending: no implementation work remains for this follow-up; Chroma stays enabled and the proposed relevance A/B remains an owner decision.
+- Carry-forward: run the detector after every plugin update because a changed invocation can bypass a tool receipt; the original verified data rollback remains untouched. Independent helper review was not checked because the dispatch prohibited helpers. Evidence and the reproducible repair are in `docs/claude-mem-retention/`.
