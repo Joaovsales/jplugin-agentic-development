@@ -161,18 +161,146 @@ class SemanticHealthTest(unittest.TestCase):
             health.check_with_retry(self.root, self.probe, self.state)
         self.assertEqual(calls, 3)
 
-    def test_missing_log_directory_and_clock_step_fail_explicitly(self):
+    def test_missing_log_directory_fails_explicitly(self):
         self.check()
         self.log.unlink()
         self.logs.rmdir()
         with self.assertRaisesRegex(health.ProbeFailure, 'log directory is missing'):
             self.check()
-        self.logs.mkdir()
-        saved = json.loads(self.state.read_text())
-        saved['checked_at'] = (datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=1)).isoformat()
-        self.state.write_text(json.dumps(saved))
-        with self.assertRaisesRegex(health.ProbeFailure, 'system clock'):
+
+    def test_clock_moves_back_without_alarm_or_missing_new_failure(self):
+        self.check()
+        real_datetime = datetime.datetime
+        shifted = real_datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=2)
+        class BackwardClock(real_datetime):
+            @classmethod
+            def now(cls, tz=None):
+                return shifted.astimezone(tz)
+        with mock.patch.object(health.datetime, 'datetime', BackwardClock):
             self.check()
+            self.append('CHROMA_MCP', 'Connection failed, killing subprocess to prevent zombie', shifted)
+            with self.assertRaisesRegex(health.ProbeFailure, 'new connection failure'):
+                self.check()
+            self.check()
+        self.check()
+
+    def test_restart_marker_after_clock_step_uses_identity_not_time(self):
+        self.check()
+        worker = json.loads((self.root / 'worker.pid').read_text())
+        now = datetime.datetime.now(datetime.timezone.utc)
+        worker['startedAt'] = now.isoformat()
+        (self.root / 'worker.pid').write_text(json.dumps(worker))
+        self.append('CHROMA_MCP', 'Connected to chroma-mcp successfully', now - datetime.timedelta(hours=2))
+        self.check()
+
+    def test_rotation_after_scan_retains_and_reports_late_events(self):
+        self.check()
+        original = health.connection_events
+        retained = self.logs / 'retained' / 'synthetic'
+        retained.mkdir(parents=True)
+        def scan_then_rotate(logs):
+            events = original(logs)
+            self.log.rename(retained / self.log.name)
+            self.log = retained / self.log.name
+            self.append('CHROMA_MCP', 'Connection failed, killing subprocess to prevent zombie')
+            return events
+        with mock.patch.object(health, 'connection_events', scan_then_rotate):
+            self.check()
+        with self.assertRaisesRegex(health.ProbeFailure, 'new connection failure'):
+            self.check()
+        self.check()
+
+    def test_rotation_between_inventory_and_open_retries_without_checkpoint(self):
+        self.check()
+        previous = self.state.read_bytes()
+        original = health.log_inventory
+        retained = self.logs / 'retained' / 'synthetic'
+        retained.mkdir(parents=True)
+        def rotated(logs):
+            inventory = original(logs)
+            if self.log.parent == self.logs:
+                target = retained / self.log.name
+                self.log.rename(target)
+                self.log = target
+            return inventory
+        with mock.patch.object(health, 'log_inventory', rotated):
+            with self.assertRaisesRegex(health.ProbeFailure, 'rotated') as raised:
+                self.check()
+            self.assertTrue(raised.exception.retryable)
+        self.assertEqual(self.state.read_bytes(), previous)
+        self.check()
+
+    def test_identical_failure_lines_at_different_offsets_are_new_events(self):
+        self.check()
+        when = datetime.datetime.now(datetime.timezone.utc)
+        for _ in range(2):
+            self.append('CHROMA_MCP', 'Connection failed, killing subprocess to prevent zombie', when)
+            with self.assertRaisesRegex(health.ProbeFailure, '1 new connection failure'):
+                self.check()
+        self.check()
+
+    def test_partial_final_line_is_counted_only_when_complete(self):
+        self.check()
+        when = datetime.datetime.now(datetime.timezone.utc).astimezone().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
+        with self.log.open('a') as stream:
+            stream.write(f'[{when}] [ERROR] [CHROMA_MCP] Connection failed, killing subprocess')
+        self.check()
+        with self.log.open('a') as stream:
+            stream.write(' to prevent zombie\n')
+        with self.assertRaisesRegex(health.ProbeFailure, '1 new connection failure'):
+            self.check()
+        self.check()
+
+    def test_append_while_reading_waits_for_next_snapshot_without_alarm(self):
+        self.check()
+        original = Path.open
+        appended = False
+        @contextlib.contextmanager
+        def opening(path, *args, **kwargs):
+            nonlocal appended
+            with original(path, *args, **kwargs) as stream:
+                if path == self.log and args == ('rb',):
+                    reader = mock.Mock(wraps=stream)
+                    def readline(limit):
+                        nonlocal appended
+                        line = stream.readline(limit)
+                        if not appended:
+                            appended = True
+                            self.append('CHROMA_MCP', 'Connection failed, killing subprocess to prevent zombie')
+                        return line
+                    reader.readline.side_effect = readline
+                    yield reader
+                else:
+                    yield stream
+        with mock.patch.object(Path, 'open', opening):
+            self.check()
+        with self.assertRaisesRegex(health.ProbeFailure, '1 new connection failure'):
+            self.check()
+        self.check()
+
+    def test_truncation_during_read_is_loud_and_does_not_advance_checkpoint(self):
+        self.check()
+        previous = self.state.read_bytes()
+        original = Path.open
+        @contextlib.contextmanager
+        def opening(path, *args, **kwargs):
+            with original(path, *args, **kwargs) as stream:
+                if path == self.log and args == ('rb',):
+                    reader = mock.Mock(wraps=stream)
+                    def readline(limit):
+                        self.log.write_bytes(b'')
+                        return stream.readline(limit)
+                    reader.readline.side_effect = readline
+                    yield reader
+                else:
+                    yield stream
+        with mock.patch.object(Path, 'open', opening):
+            with self.assertRaisesRegex(health.ProbeFailure, 'truncated') as raised:
+                self.check()
+            self.assertTrue(raised.exception.retryable)
+        self.assertEqual(self.state.read_bytes(), previous)
+        self.append('CHROMA_MCP', 'Connected to chroma-mcp successfully', self.started + datetime.timedelta(seconds=1))
+        self.check()
 
     def test_recorded_failure_is_never_retried_away(self):
         with mock.patch.object(health, 'check', side_effect=health.ProbeFailure('new connection failure')) as probe, mock.patch.object(health.time, 'sleep') as sleep:

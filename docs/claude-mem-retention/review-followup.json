@@ -1,0 +1,44 @@
+{
+  "observed_at": "2026-11-20T17:11:43.300153+00:00",
+  "scope": "Repository corrections only; no live installation performed",
+  "installation": {
+    "claude-mem-retention.service": {
+      "live_timeout": "infinity",
+      "live_sha256": "aad3d7d2cc0432ec9a6a2ca9a8c9fc8a25c21d98b28dfd283563b7a078a0bad5",
+      "repository_sha256": "4e742fb2e8b3cd1513c605c991aecda83e3277a0dc95becee121adff19eca11c"
+    },
+    "claude-mem-semantic-health.service": {
+      "live_timeout": "infinity",
+      "live_sha256": "4c780aa3a23b5df241bddd2bf4f44f4be60ec42bb413eea82ad011c36d96532f",
+      "repository_sha256": "36f177edd21cc5e96e0b6fee13e5cbd2196ef51950154bd42257b03e1128413e"
+    }
+  },
+  "regressions": {
+    "f5_retention_before_exit": 1,
+    "f5_retention_before": "AssertionError: F5: final concurrent append was lost from both source and retained raw logs",
+    "f5_detector_before": "AssertionError: ProbeFailure not raised after scan/rotation/append",
+    "f6_before": "ProbeFailure: Monitor checkpoint is invalid; inspect its backup and the system clock",
+    "after_detector_tests": 24,
+    "after_retention_exit": 0,
+    "after_detector_exit": 0
+  },
+  "policy": {
+    "f5": "Verified gzip snapshot plus atomically retained raw inode; zero future log bytes reclaimed",
+    "f6": "Device/inode/offset/raw-line event identities; wall clock does not determine novelty or cached-connection expiry",
+    "legacy": "Seed historical event identities before first real probe; cannot recover the legacy monitor unrecorded history"
+  },
+  "live_data_changed": false,
+  "rollback_changed": false,
+  "chroma_disabled": false,
+  "scripts": {
+    "retention.py": {
+      "installed_sha256": "81c64b32fe29da75b7ff702ebe8915ed2ca482d2ef0ae427b900dcd3b4297abb",
+      "repository_sha256": "e4121b96aca2f11f35f57ed43918f36074f32d71000da8902ae23edbc74c0524"
+    },
+    "semantic_health.py": {
+      "installed_sha256": "93c15d4c18aeca9c8e940a0cc7ee84a8cf11d6c6e42840f49036540da9c7b085",
+      "repository_sha256": "a3f056faf6836307cc91e7fc53daf455f9e60b40fdc358cc0d7fddf3e55606ff"
+    }
+  },
+  "timers": "Both enabled and active at read-only inspection"
+}

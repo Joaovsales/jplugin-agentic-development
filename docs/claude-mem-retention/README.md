@@ -139,8 +139,8 @@ no session, observation or summary was deleted by rank 2.
 It exports and verifies expired fields before mutation: failed payloads after 7 days,
 initial session/raw prompt text after 90 days, and log files after 30 days.
 Failed-at time takes precedence over creation time; pending/processing never match the failed predicate.
-Both log filename date and last-write age must exceed the log window; the Layer-2 caveat below
-documents the remaining concurrent-append race.
+Both log filename date and last-write age must exceed the log window; the safety section below
+explains how recurring rotation now retains raw inodes instead of deleting them.
 Session IDs and durable observations/summaries are retained. Archive failure rolls back the DB transaction.
 Exports are private and retained; the policy does not silently expire backups.
 
@@ -153,11 +153,11 @@ The program emits no success log line. Disable future runs with:
 systemctl --user disable --now claude-mem-retention.timer
 ```
 
-## Layer-2 retention caveats
+## Retention safety and recovery
 
 The CLI has **no dry-run**. Exercise it on an independent disposable database/log copy first.
 Only `status='failed'` queue rows older than seven days have four raw payload fields nulled;
-`pending` and `processing` never match. Raw prompts expire after 90 days, logs after 30.
+`pending` and `processing` never match. Raw prompts expire after 90 days; logs rotate after 30 days, with raw inodes retained as described below.
 No statement deletes observations, summaries, session metadata or queue rows. Verified JSONL gzip exports
 precede database mutations in one `BEGIN IMMEDIATE` transaction; a database-export error rolls it back.
 Log archival happens after that transaction commits; a later log error does not undo completed database expiry.
@@ -165,11 +165,20 @@ Deleted prompt rows and nulled fields are recoverable from those private per-run
 restore CLI/conflict policy is supplied. The original full rollback predates later writes and is not a
 substitute for future exports; preserve current data and reconcile IDs before restoring exported fields.
 
-**Unresolved MUST-FIX (owner: human):** log expiry checks the final stat and then unlinks the source.
-A live worker can append between those operations, losing bytes absent from the verified archive.
-A synthetic interleaving reproduced this. Both age checks reduce exposure but do not close the race.
-A safe policy needs writer coordination or retaining the raw inode; another stat is insufficient.
-The Layer-2 gate remains STOP pending that decision; this review did not change the live timer or store.
+**F5 resolved in the repository:** after verifying the gzip snapshot, rotation atomically renames the
+source into a unique private directory under `logs/retained/`; it never unlinks that raw inode.
+A writer already holding the file open can still append there, and a later open can recreate the active
+basename. The detector scans both active and retained logs. The gzip is a verified snapshot, while the
+retained raw file also preserves any append after that snapshot. Directory entries are fsynced.
+The deterministic regression appended after the final stat: the old code lost the line, and the corrected
+code preserved it. A second append through an open writer after rename also survived.
+
+This safety choice deliberately gives **zero bytes reclaimed by future log rotation**; the recurring report
+sets `log_bytes_reclaimed=0`, while `log_bytes` describes archived snapshot bytes. Raw retained logs are
+not automatically purged. Do not unlink them or prune them as redundant gzip copies: late writes may exist
+only in the raw inode. Future deletion requires coordinating writers and the detector's consumption.
+The earlier rank-4 space measurement is a historical stopped-writer execution, not this revised recurring
+policy. Neither the live policy nor its timer was changed during these code-review follow-ups.
 
 ## Durable MCP repair and failure-only detection
 
@@ -221,12 +230,23 @@ or requiring a Pydantic version. Each run verifies:
 - an anchored successful `CHROMA_MCP` connection marker in the current daemon's lifetime;
 - no new anchored connection-failure events since the previous probe checkpoint.
 
-The connection window starts at the current daemon's recorded start, rather than an arbitrary 24-hour
-age limit: a healthy persistent connection is not failed just because its startup marker is old.
-Failure events are compared by time, so log expiry cannot hide them by decreasing a cumulative counter.
-The checkpoint overlaps scan-start timestamps by one millisecond and retains hashes of overlapping failure events,
-so an event appended during a scan is checked on the next run without reporting the same event twice.
-Checkpoint corruption fails loudly. Hook text containing marker words cannot satisfy the anchored marker check.
+The detector reads a fixed byte prefix from each append-only log inode, including `logs/retained/`.
+It checks the opened inode against its inventory and retries detected rotation, truncation or rewrites
+without advancing the checkpoint. Each complete event is identified by device/inode, byte offset and raw-line
+digest; rename preserves that identity. An append after a snapshot is new on the next scan even if its
+wall timestamp precedes the previous run, and two identical lines at different offsets are separate events.
+An incomplete final line is processed only when complete. The private checkpoint retains the complete set
+of event identities still present in the scanned logs, avoiding both timestamp gaps and duplicate alerts.
+
+**F6 resolved in the repository:** UTC wall time records diagnostics; it does not decide event novelty
+or expire an attested same-daemon connection. No negative elapsed-time comparison can raise a clock alarm.
+Both backward and forward steps preserve event identity. After daemon identity changes, a newly observed
+connection marker is required, regardless of that marker's wall time. First-time/legacy bootstrap uses the
+recorded daemon start to associate an existing marker, then adopts the identity checkpoint.
+Legacy checkpoints lack a complete event inventory, so the first corrected run seeds historical events
+before making the real probe; failures arising during that probe and subsequent runs are checked by identity.
+It cannot reconstruct the legacy monitor's unrecorded event history. No historical success is claimed from it.
+Checkpoint corruption still fails loudly. Hook text containing marker words cannot satisfy the anchored marker check.
 The detector is an availability check, not a relevance grade.
 
 A previously observed connection marker is cached against the worker PID, start timestamp and port.
@@ -236,9 +256,10 @@ connection failures cannot be inspected. Readiness/transport failures get at mos
 apart; newly observed connection-failure events are reported immediately and never retried away.
 This debounces short restart gaps without requiring consecutive daily failures. A restart taking longer
 than those attempts can still alarm. Idle sessions do not expire connection evidence or the all-time query.
-A backward clock step still fails closed before querying when it precedes the checkpoint; this is an
-unresolved false-positive risk pending a clock-reset/event-history policy, not a semantic failure diagnosis.
-Do not silently delete the checkpoint to clear it, because that can discard failure history.
+The clock regression moves UTC back two hours, verifies silence on a healthy path, observes a new
+failure with the earlier timestamp exactly once, and verifies silence again when UTC returns forward.
+A separate restart case accepts the genuinely new connection marker even when its timestamp precedes
+the new worker's recorded start. Clock changes do not require deleting or resetting the checkpoint.
 
 Healthy execution emits **nothing** and exits **0**. Failure emits one structured JSON message on stderr
 and exits **1**, naming the failed signal and an action. Backend/transport failure, missing connection
@@ -246,7 +267,7 @@ evidence, rising failures and empty results are all errors regardless of their c
 and raw response bodies are never printed. MCP/Pydantic repair guidance is conditional, not the detector's remit.
 
 The private known-result query lives in `<HOME>/.local/state/claude-mem-retention/semantic-probe.json`;
-the checkpoint contains only times, counters, local worker identity and failure-event hashes. Its JSON schema is `{"query":"<private known-result text>"}`;
+the checkpoint contains only times, counters, local worker identity and connection/failure-event hashes. Its JSON schema is `{"query":"<private known-result text>"}`;
 the existing file is owner-only and never committed. The probe sets an explicit all-time range so the normal
 90-day search window cannot age its known result out; changes to the retained corpus may require refreshing it. The installed script is
 `<HOME>/.local/bin/claude-mem-semantic-health.py`. The supplied service and timer are enabled under
@@ -259,8 +280,7 @@ overlapping itself. The retention unit has `TimeoutStartSec=15min`; terminating 
 transaction rolls it back, and incomplete archives never authorize deletion. Both units use absolute
 `/usr/bin/python3`; the detector calls HTTP through the standard library and needs no uv/PATH lookup.
 Enabled `Persistent=true` user timers resume after reboot when the user manager starts; this machine has
-`Linger=yes`, so it does not depend on an interactive login. Reinstall edited scripts/units and run
-`systemctl --user daemon-reload` to adopt repository changes in an existing installation.
+`Linger=yes`, so it does not depend on an interactive login. The installation section below distinguishes these repository settings from the stale live units.
 
 **After every claude-mem plugin update, run the detector once and confirm it is silent:**
 
@@ -271,6 +291,45 @@ systemctl --user start claude-mem-semantic-health.service
 Inspect failures with `journalctl --user -u claude-mem-semantic-health.service`.
 Disable scheduling, without altering the worker, with
 `systemctl --user disable --now claude-mem-semantic-health.timer`.
+
+### Installation truth after the review follow-ups
+
+The earlier detector was installed, enabled and successfully executed. That remains true, but its installed
+copy and both enabled service units **predate the review fixes**. Read-only inspection during this follow-up
+returned `TimeoutStartUSec=infinity` for **both live services**; repository values are 15 minutes and 240 seconds.
+Thus F4 is corrected in source and **is not active on this machine yet**. F5/F6 are likewise source changes.
+No installation, daemon reload, service start, data swap or rollback modification was performed in this task.
+A green source receipt does not certify the stale live installation.
+[review-followup.json](review-followup.json) records the read-only unit/script digests and failing-before outcomes.
+
+From the checked-out repository, the owner can install the corrected scripts and units explicitly:
+
+```bash
+set -euo pipefail
+timeout 100s systemctl --user disable --now claude-mem-retention.timer claude-mem-semantic-health.timer
+timeout 100s systemctl --user stop claude-mem-retention.service claude-mem-semantic-health.service
+install -d "$HOME/.local/bin" "$HOME/.config/systemd/user"
+install -m 0755 docs/claude-mem-retention/retention.py \
+  "$HOME/.local/bin/claude-mem-retention.py"
+install -m 0755 docs/claude-mem-retention/semantic_health.py \
+  "$HOME/.local/bin/claude-mem-semantic-health.py"
+install -m 0644 docs/claude-mem-retention/claude-mem-{retention,semantic-health}.{service,timer} \
+  "$HOME/.config/systemd/user/"
+systemctl --user daemon-reload
+systemctl --user start claude-mem-semantic-health.service
+systemctl --user enable --now claude-mem-retention.timer claude-mem-semantic-health.timer
+systemctl --user show claude-mem-retention.service claude-mem-semantic-health.service \
+  --property=Id,TimeoutStartUSec
+```
+
+The last command must show retention `15min` and semantic health `4min`, and the explicit detector run must
+be silent with exit 0. Pausing the timers and waiting for both jobs to stop prevents a half-upgraded pair
+from running. The 100-second stop bounds exceed the normal systemd 90-second stop limit; a failure aborts
+the shell before installation continues. A failed upgrade/probe leaves scheduling disabled and requires
+owner correction before re-enabling. Re-enabling a persistent timer may run a missed retention schedule,
+after both corrected scripts are installed. The worker, Chroma configuration and verified rollback are
+not altered. Keep the existing private probe and checkpoint; the detector migrates its checkpoint when
+first run. Install **both** scripts, since preservation during rotation and reading retained inodes are a paired change.
 
 ### Isolated fault injection and recovery
 

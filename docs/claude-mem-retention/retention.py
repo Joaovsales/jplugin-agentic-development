@@ -65,7 +65,7 @@ def maintain(database, logs, archives, now_ms):
         ('prompt_rows', 'user_prompts', '*', 'created_at_epoch < ?', now_ms - 90 * days,
          'DELETE FROM user_prompts'),
     ]
-    report = dict(utc=now.isoformat(),payload_bytes=0,counts={},archives=[],logs=0,log_bytes=0)
+    report = dict(utc=now.isoformat(),payload_bytes=0,counts={},archives=[],logs=0,log_bytes=0,log_bytes_reclaimed=0)
     conn = sqlite3.connect(database, timeout=30)
     conn.row_factory = sqlite3.Row
     try:
@@ -105,7 +105,17 @@ def maintain(database, logs, archives, now_ms):
         after = original.stat()
         if (before.st_ino,before.st_size,before.st_mtime_ns) != (after.st_ino,after.st_size,after.st_mtime_ns):
             raise RuntimeError('Log changed during archival; original retained')
-        original.unlink()
+        # Keep the inode: a writer may append after the final stat or hold it open.
+        retained = logs / 'retained'
+        retained.mkdir(exist_ok=True, mode=0o700)
+        destination = Path(tempfile.mkdtemp(prefix='log-', dir=retained))
+        original.rename(destination / original.name)
+        for directory_path in (destination, retained, logs):
+            descriptor = os.open(directory_path, os.O_RDONLY | os.O_DIRECTORY)
+            try:
+                os.fsync(descriptor)
+            finally:
+                os.close(descriptor)
         report['logs'] += 1
         report['log_bytes'] += before.st_size
     (run/'report.json').write_text(json.dumps(report,indent=2)+'\n')

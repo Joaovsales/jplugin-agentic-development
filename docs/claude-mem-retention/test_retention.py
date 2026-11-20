@@ -5,6 +5,7 @@ import json
 import pathlib
 import sqlite3
 import tempfile
+from unittest import mock
 spec=importlib.util.spec_from_file_location('retention',pathlib.Path(__file__).with_name('retention.py'))
 m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m)
 with tempfile.TemporaryDirectory() as folder:
@@ -36,12 +37,32 @@ with tempfile.TemporaryDirectory() as folder:
         c.close()
         assert old.exists()
     finally:m.archived_bytes=original_archive
-    report=m.maintain(db,logs,root/'archives',now)
+    real_stat=pathlib.Path.stat
+    checks=0
+    late=b'\nsynthetic append after final stat\n'
+    def append_after_final_stat(path,*args,**kwargs):
+        global checks
+        result=real_stat(path,*args,**kwargs)
+        if path==old:
+            checks+=1
+            if checks==2:
+                with old.open('ab') as stream:stream.write(late)
+        return result
+    with old.open('ab') as writer:
+        with mock.patch.object(pathlib.Path,'stat',append_after_final_stat):
+            report=m.maintain(db,logs,root/'archives',now)
+        writer.write(b'synthetic open-descriptor append after rotation\n')
+        writer.flush()
+    assert any(late in path.read_bytes() for path in logs.rglob('*.log')), 'F5: final concurrent append was lost from both source and retained raw logs'
+
     c=sqlite3.connect(db)
     assert c.execute('SELECT user_prompt FROM sdk_sessions WHERE id=1').fetchone()==(None,)
     assert c.execute('SELECT count(*) FROM user_prompts').fetchone()==(1,)
     assert c.execute('SELECT tool_input FROM pending_messages ORDER BY id').fetchall()==[(None,),('keep',),('keep',),('boundary',),('recent failure',)]
     assert not old.exists() and boundary.exists()
+    assert report['log_bytes_reclaimed']==0
+    retained=list((logs/'retained').rglob('*.log'))
+    assert len(retained)==1 and b'synthetic open-descriptor append after rotation' in retained[0].read_bytes()
     archives=list((root/'archives').glob('*/prompt_rows.jsonl.gz'))
     recovered=[json.loads(line) for line in gzip.open(archives[0],'rt')]
     assert recovered[0]['row']['prompt_text']=='synthetic expired'
