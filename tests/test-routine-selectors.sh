@@ -423,8 +423,8 @@ print("in-contract:", all(name in CONTRACT_ROUTINES for name in PRODUCER_ROUTINE
 print("selectable:", ",".join(sorted(set(PRODUCER_ROUTINES) & set(DEFAULT_SELECTORS))) or "none")
 PY
 )"
-assert_contains "$producers" "producers: architect,janitor,tidy" \
-  "AC2: config.PRODUCER_ROUTINES names all three producers"
+assert_contains "$producers" "producers: architect,janitor,tidy,workflow" \
+  "AC2: config.PRODUCER_ROUTINES names all four producers"
 assert_contains "$producers" "in-contract: True" \
   "AC2: every producer is also a contract routine"
 assert_contains "$producers" "selectable: none" \

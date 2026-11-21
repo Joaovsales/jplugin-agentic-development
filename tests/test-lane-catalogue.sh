@@ -73,12 +73,12 @@ print("janitor-chain:", " -> ".join(c.lane("janitor").chain))
 print("none-chain:", " -> ".join(c.lane("none").chain))
 PY
 )"
-assert_contains "$views" "names: architect,babysit,build,fix,improve,investigate,janitor,none,perf,plan,refactor,simplify,tidy" \
-  "AC1: the catalogue carries the thirteen lanes, alphabetical"
-assert_contains "$views" "routines: architect,build,fix,improve,janitor,plan,simplify,tidy" \
-  "AC1: routines are the eight lanes with routine: set"
-assert_contains "$views" "producers: architect,janitor,tidy" \
-  "AC1: producers are the three routine: producer lanes"
+assert_contains "$views" "names: architect,babysit,build,fix,improve,investigate,janitor,none,perf,plan,refactor,simplify,tidy,workflow" \
+  "AC1: the catalogue carries the fourteen lanes, alphabetical"
+assert_contains "$views" "routines: architect,build,fix,improve,janitor,plan,simplify,tidy,workflow" \
+  "AC1: routines are the nine lanes with routine: set"
+assert_contains "$views" "producers: architect,janitor,tidy,workflow" \
+  "AC1: producers are the four routine: producer lanes"
 assert_contains "$views" "deferred: build" "AC1: build is the one deferred lane"
 assert_contains "$views" "#97" "AC1: build's deferral reason cites #97"
 assert_contains "$views" "#98" "AC1: build's deferral reason cites #98"
@@ -124,9 +124,9 @@ PY
 )"
 assert_contains "$lazy" "after-import: 0" \
   "AC1: importing registry.config reads no lane file"
-assert_contains "$lazy" "contract: architect,build,fix,improve,janitor,plan,simplify,tidy" \
+assert_contains "$lazy" "contract: architect,build,fix,improve,janitor,plan,simplify,tidy,workflow" \
   "AC1: CONTRACT_ROUTINES is the catalogue's routines view, one order everywhere"
-assert_contains "$lazy" "producers: architect,janitor,tidy" "AC1: PRODUCER_ROUTINES from the catalogue"
+assert_contains "$lazy" "producers: architect,janitor,tidy,workflow" "AC1: PRODUCER_ROUTINES from the catalogue"
 assert_contains "$lazy" "deferred: build" "AC1: DEFERRED_ROUTINES from the catalogue"
 assert_contains "$lazy" "selectors: fix=bug,tech-debt;improve=enhancement,documentation;plan=design-decision;simplify=simplify" \
   "AC1: DEFAULT_SELECTORS from the catalogue"
@@ -135,7 +135,7 @@ assert_contains "$lazy" "skills: build=/build,/quality-gate,/wrap-up-session;fix
 assert_contains "$lazy" "after-access: 1" "AC1: the catalogue is read once, on first access"
 
 config_py="$SCRIPTS/registry/config.py"
-for literal in '"/debug"' '"/quality-gate"' '"janitor"' '"architect"' '"tidy"' '("plan", "fix"'; do
+for literal in '"/debug"' '"/quality-gate"' '"janitor"' '"architect"' '"tidy"' '"workflow"' '("plan", "fix"'; do
   assert_file_not_matches "$config_py" "$(printf '%s' "$literal" | sed 's/[][()]/\\&/g')" \
     "AC1: config.py no longer carries the lane literal $literal"
 done
@@ -274,7 +274,7 @@ PY
 # ============================================================================
 printf '\n-- files --\n'
 for tree in .agents; do
-  for lane in architect babysit build fix improve investigate janitor none perf plan refactor simplify tidy; do
+  for lane in architect babysit build fix improve investigate janitor none perf plan refactor simplify tidy workflow; do
     f="$tree/skills/task-registry/lanes/$lane.md"
     assert_file_exists "$f" "AC3: $f exists"
     [ -f "$f" ] || continue
@@ -345,7 +345,7 @@ assert_file_contains "$template" "lanes/" \
 printf '\n-- lanes command --\n'
 table="$(reg lanes --repo "$REPO" 2>&1)"; code=$?
 assert_eq "0" "$code" "AC4: lanes exits 0 on this repository"
-for lane in architect babysit build fix improve investigate janitor none perf plan refactor simplify tidy; do
+for lane in architect babysit build fix improve investigate janitor none perf plan refactor simplify tidy workflow; do
   assert_contains "$table" "$lane" "AC4: the table has a $lane row"
 done
 assert_contains "$table" "/debug -> /quality-gate -> /wrap-up-session" \

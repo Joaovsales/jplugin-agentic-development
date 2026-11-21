@@ -1,7 +1,7 @@
 ---
 name: sweep
-description: Producer routine engine — verify the codebase through one lens (janitor for bugs, architect for design) and file every proven finding as a registry task with a reproduction and a proposed fix. Use unattended from the janitor and architect routines, or by hand for a weekly audit.
-argument-hint: "--routine <janitor|architect>"
+description: Producer routine engine — verify the codebase through one lens (janitor for bugs, architect for design, workflow for agent workflow efficiency) and file every proven finding as a registry task with a reproduction and a proposed fix. Use unattended from the janitor, architect and workflow routines, or by hand for a weekly audit.
+argument-hint: "--routine <janitor|architect|workflow>"
 disable-model-invocation: false
 harness: universal
 ---
@@ -15,13 +15,14 @@ from the issue body this skill writes. Contract: `specs/sweep-routines.md` and
 `.agents/skills/wrap-up-session/references/routines.md` § *Producers*.
 
 `--routine <name>` picks the lens. Steps 3 and 4 differ per lens and live in
-`references/lens-janitor.md` and `references/lens-architect.md`; every other step
-is shared and stated once here.
+`references/lens-janitor.md`, `references/lens-architect.md` and
+`references/lens-workflow.md`; every other step is shared and stated once here.
 
 | Routine | Lens | Files as | Priority |
 |---|---|---|---|
 | `janitor` | bugs — the full test suite plus the verifier full pass | `--kind bug` | `MUST-FIX` → `--label now`, `SHOULD-FIX` → `--label next` |
 | `architect` | design — APOSD red flags over the whole tree | `--kind task --label tech-debt`, or `--kind decision` when the proposed fix is a choice between designs | same |
+| `workflow` | agent workflow efficiency and reliability — completed sessions after a cursor | `--kind bug` for a reproduced reliability defect, `--kind task --label tech-debt` for proven waste, `--kind decision` for a tradeoff needing an owner | same |
 
 **No sub-agent is dispatched anywhere in a sweep.** The prompt that invokes this
 skill is universal across projects and carries no dispatch; the skill runs every
@@ -76,7 +77,8 @@ update, reopen, relabel, or create an eligible replacement for the same finding.
 
 ### 3. Run the engine — lens file
 
-`references/lens-janitor.md` or `references/lens-architect.md` § *Engine*.
+`references/lens-janitor.md`, `references/lens-architect.md` or
+`references/lens-workflow.md` § *Engine*.
 Whatever the lens runs, record **every command with its exit status**; the
 record's *Scope* section is built from this list, not from memory.
 
@@ -90,8 +92,12 @@ shared floor:
   filed with the test command as its reproduction.
 - `architect`: an `evidence` line quoting the motivating code with `file:line`,
   and confidence `75` or above. `NITPICK` is never filed.
-- Both: a proposed fix as concrete steps, and acceptance criteria as checkable
-  outcomes.
+- `workflow`: a verbatim `file:line` or session/event anchor with its source
+  digest, the four axes at confidence `75` or above, never `NITPICK`; two
+  distinct completed sessions for a repeat-pattern optimisation, and `/eval`
+  Mode C for a claimed cost improvement.
+- Every lens: a proposed fix as concrete steps, and acceptance criteria as
+  checkable outcomes.
 
 A candidate below the bar goes into the record's *Unverified* section with the
 reason, and is never filed. A feature the engine could not reach (app would not
@@ -128,7 +134,10 @@ python3 .agents/skills/task-registry/scripts/task-registry.py upsert --apply \
   task's ID instead.
 - **Kind and labels.** `janitor` → `--kind bug`. `architect` → `--kind task
   --label tech-debt`, or `--kind decision` when the fix is a choice a human must
-  make. Severity maps to priority: `MUST-FIX` → `--label now`, `SHOULD-FIX` →
+  make.
+  `workflow` → `--kind bug` for a reproduced reliability defect, `--kind task
+  --label tech-debt` for proven waste, `--kind decision` for a tradeoff.
+  Severity maps to priority: `MUST-FIX` → `--label now`, `SHOULD-FIX` →
   `--label next`. Labels are passed by name; a label the provider lacks is
   reported by the provider, never created by this skill.
 - **Body fields.** `--summary` is the one-line impact. `--reproduction` is
@@ -171,6 +180,11 @@ when a section is empty:
 A clean sweep still writes the record: it is the only place "every mapped feature
 was driven and nothing failed" is stated. It still hands off to wrap-up, and the
 PR title is suffixed `— clean`.
+
+`workflow` only: once the record is written, advance the engine's cursor
+(`references/lens-workflow.md` § *Engine* step 5) and name its new position in
+*Scope*. Never before — a run that stops early must leave the sessions it read
+in front of the cursor.
 
 ### 7. Hand off
 

@@ -1823,7 +1823,7 @@ for lane in .agents/skills/task-registry/lanes/*.md; do
   assert_file_not_matches "$lane" 'wrap-up-session` — review passes' \
     "routine spine: $lane no longer says wrap-up runs review passes"
 done
-for lane in architect build fix improve janitor plan tidy; do
+for lane in architect build fix improve janitor plan tidy workflow; do
   assert_file_contains ".agents/skills/task-registry/lanes/$lane.md" \
     "\`/wrap-up-session\` — checks the quality receipt, tests" \
     "routine spine: lanes/$lane.md names the quality receipt check"
