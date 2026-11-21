@@ -1185,6 +1185,41 @@ back vacuous and was repaired.
   - [process/a-derived-receipt-verdict-on-windows-needs-its-test-phase-run-under-linux.md](solutions/process/a-derived-receipt-verdict-on-windows-needs-its-test-phase-run-under-linux.md):
     the Docker recipe; a HOLD cannot cover a red test run.
 
+## 2026-11-18 — #444 unattended scan (improve lane, unattended)
+
+- Slice 1 (`2adb4c1`): `unattended_scan.py` with 20 built-in stdlib rules,
+  each with fixtures and gaps, and an add-only project rule file.
+- Slice 2 (`6ffdc4f`): the pre-push hook scans `routine/` and
+  `UNATTENDED_SCAN=1` pushes before `SKIP_PREPUSH`; wrap-up files the finding.
+- Quality gate: Phase 4 inline, test-engineer lost (no Agent tool in the Orca
+  worker); receipt aaed27bb GO (policy qg1-314de3d6).
+- Learning: [patterns/a-pre-push-hook-with-two-ref-readers-reads-stdin-once.md](solutions/patterns/a-pre-push-hook-with-two-ref-readers-reads-stdin-once.md).
+
+### [2026-11-19] — PR #450 independent review fixes
+
+Preserved the previous worker's regression fixtures and fixed all six review
+findings: trusted scanner/rule snapshots, binary text extraction, hunk framing,
+multiline pipelines, quoted reconnaissance and transcript-source assertions.
+Actual scratch pushes now refuse every reported bypass; independent mutation
+checks prove the new regressions fail against the original scanner and missing
+transcript support. Learning: [scanner trust boundary](solutions/bugs/unattended-scan-must-not-trust-the-pushed-tree.md).
+
+### [2026-11-19] — PR #450 N1 server-authoritative scanner anchor
+
+Replaced mutable local-ref trust with the negotiated remote SHA for existing
+refs and fully qualified server base refs for new refs, with no fallback when
+lookup or the local anchor object is missing. Real installed-hook pushes now
+refuse all three ref-trust attacks; lookup failure, missing-object and alternate
+push-URL journeys are covered. Corrected the existing scanner trust learning
+and documented the installed-hook residual boundary.
+
+### [2026-11-19] — PR #450 N2 fork-point range
+
+Separated new-ref range ancestry from policy trust: diffs and protected-file
+checks start at the server anchor's merge base with the branch, while scanner
+and rules still load from the server anchor. Four actual-push stale-base cases
+pass and the trust probes still refuse. Clarified no-finding recovery for a
+could-not-run scan and the Git-configuration/PATH residual boundary.
 ### [2026-11-18] — #443 eval variant-lift holdout
 - Key changes: `/eval` Mode B splits its prompts with `variant-holdout.py split` (refuses fewer than four distinct prompts; SHA-256 order, first `n // 2` held out) and promotes only on `variant-holdout.py verdict`'s `promote` — the candidate's holdout mean strictly beats both `unchanged` and `previous`. The report shows the split, both baselines on tuning and holdout, and an arm's cost as `unknown` when any of its runs reported none. Plugin version 1.8.20.
 - Quality gate: Phase 4 inline (no Agent tool in the worker session), test-engineer review lost. One SHOULD-FIX left for a human: prompts added after tuning shift the boundary; § Mode B now warns. Receipt GO.

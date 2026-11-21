@@ -204,12 +204,12 @@ The `commit-push` action; hooks stay enabled for every commit the loop makes.
 1. Stage only relevant changes (`git add -p`); commit with a type prefix (`feat`,
    `fix`, `refactor`, `docs`, `test`, `chore`) and optional `Constraint:`,
    `Rejected:`, `Not-tested:`, `Confidence:` trailers
-2. Push: `git push -u origin <branch>`
+2. Push: `git push -u origin <branch>`; an unattended run pushes with `UNATTENDED_SCAN=1` (`references/routines.md` § *Unattended scan*)
 3. Report `push: ok`; `push: non-ff` with the branch, which the engine routes to
    `references/closure-actions.md` § *Conflict repair*, never a rebase; or
    `push: denied`. Other failures: `references/closure-actions.md` § *Push failures*
 4. On `push: ok`, open or re-sync the pull request — § *The Pull Request*
-5. A pre-push gate refusal: report it, never bypass it, and end through § *Terminal PR assertion*
+5. A pre-push gate refusal: report it, never bypass it, and end through § *Terminal PR assertion*; a `BLOCKED: unattended scan` refusal first files its findings (§ *Unattended scan* there)
 
 ### The Pull Request
 
