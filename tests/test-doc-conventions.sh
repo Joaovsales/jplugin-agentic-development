@@ -1980,6 +1980,13 @@ assert_precedes "$(flatten "$BUILD_SKILL")" 'gate-integrity.py --snapshot' '### 
   "gate integrity: the gate base is recorded before the slice is implemented"
 assert_precedes "$(flatten "$QG_SKILL")" '## Phase 0 — Gate Integrity' '## Phase 1 — Structural Quality' \
   "gate integrity: Phase 0 runs before Phase 1"
+# The full procedure lives in the build reference the skill points to.
+GI_REF=.agents/skills/build/references/gate-integrity.md
+assert_contains "$GI_CLOSE" 'references/gate-integrity.md' "gate integrity: Slice Close points to the build reference"
+for token in 'gate-integrity.py --snapshot' 'never an earlier slice' 'the union of its Surfaces' \
+             'The finding lines it prints on any exit' '`/quality-gate` Phase 0 against' 'never as clean'; do
+  assert_file_contains "$GI_REF" "$token" "gate integrity: the build reference contains '$token'"
+done
 assert_contains "$BELOW_END" "Protected paths: tests/run.sh tests/affected.sh tests/lib.sh" \
   "gate integrity: AGENTS.md declares this repository's runners below the end marker"
 

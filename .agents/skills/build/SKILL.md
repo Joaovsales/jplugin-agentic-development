@@ -211,11 +211,8 @@ and says so in one line. A slice whose heading carries `> Candidates: <N>` runs 
 `open`, one Step 1 dispatch per worktree, then `rank`, which applies the winner; `discard` if the build stops between
 them: `.agents/skills/build/references/candidates.md`.
 
-Before each dispatch (once per parallel batch), record the **gate base** tree id:
-`python3 .agents/skills/quality-gate/scripts/gate-integrity.py --snapshot`.
-Slice Close judges against it, never an earlier slice's edits. On failure,
-record `gate integrity: not checked — <reason>` and resolve before dispatch.
-After central integration, check a parallel batch against its gate base and the union of its Surfaces.
+Before each dispatch (once per parallel batch), record the **gate base**:
+`python3 .agents/skills/quality-gate/scripts/gate-integrity.py --snapshot` (`.agents/skills/build/references/gate-integrity.md`).
 
 ### Step 1 — Implement the Slice
 
@@ -306,14 +303,10 @@ script's own run; a sub-agent's quoted test output never closes a slice. Only ex
 (`slice_result=True SUCCEEDED`) closes it: exit 1 (`VERIFICATION_FAILED`, `AGENT_FAILED`) goes back
 to Step 3; exit 3 (`Unknown`) leaves the header `[ ]` until the check can run.
 
-Then `python3 .agents/skills/quality-gate/scripts/gate-integrity.py --base <gate-base> --spec <spec> --slice <n>`
-hashes every protected file against the dispatch gate base (`specs/gate-integrity.md`),
-never the session base SHA; a parallel batch passes `--slice` once per slice.
-The cumulative check is `/quality-gate` Phase 0 against the merge-base.
-Exit 1 (`GATE_TAMPERED`) stops the slice: the header stays `[ ]` and the
-handover records `unfinished: GATE_TAMPERED <paths>`. Exit 3 goes on the
-`> Surface:` line as `gate integrity: not checked — <reason>`, never as clean;
-the finding lines it prints on any exit go there too.
+Then `python3 .agents/skills/quality-gate/scripts/gate-integrity.py --base <gate-base> --spec <spec> --slice <n>` runs
+against the dispatch gate base, never the session base SHA; a parallel batch passes `--slice` once per slice.
+Exit 1 (`GATE_TAMPERED`) stops the slice: the header stays `[ ]`, the handover records `unfinished: GATE_TAMPERED <paths>`.
+Exit 3 goes on `> Surface:` as `gate integrity: not checked — <reason>`, never as clean (`references/gate-integrity.md`).
 
 Write a `> Handover:` blockquote under the slice heading, after its rows and above any `> [AMBIGUITY]` lines already there
 (they stay its last lines, outside the five) — two to five blockquote lines, each with its own prefix:
@@ -542,16 +535,8 @@ Next: /wrap-up-session
 
 ### Sub-Agent Failure (hangs, silent stops, compaction conflicts)
 
-A sub-agent that **crashes** returns null and your fallback catches it. One that **hangs**
-returns nothing — no result, no error, no event — so every null-check fallback is downstream of
-a return that never happens. Under parallel dispatch this holds the entire phase.
-
-Most common cause: output-compression / compaction layers replace a large tool result with a
-placeholder, the agent loops on a failing retrieval call, and it is killed rather than erroring.
-This selects agents doing heavy source reading, so the most load-bearing agent is the one that
-dies while its siblings complete normally.
-
-Before any dispatch, apply `.agents/references/subagent-resilience.md` § *Dispatch checklist*.
+A sub-agent that **hangs** returns nothing, so no null-check fallback fires and a parallel phase stalls (`.agents/references/subagent-resilience.md`
+§ *The failure that matters*, § *Conflicts with compaction and compression layers*). Before any dispatch, apply its § *Dispatch checklist*.
 
 - **Implementation failure**: Retry once with additional context. If still failing, surface to user and pause.
 - **Test regression**: Fix with `code-debugger`. Max 3 fix attempts per regression (see circuit breaker).
