@@ -1263,6 +1263,80 @@ for token in 'The `- [ ]` row under each `### Slice n/N` heading' \
              'its status lives in the one feature issue'; do
   assert_prose_contains "$BUILD_SKILL" "$token" "slice close: SKILL.md contains '$token'"
 done
+# --- three outcomes: Slice Close records agent, verification and slice results ---
+# specs/slice-three-outcomes.md AC1, AC2, AC4. The orchestrator's own run
+# through slice_outcome.py decides; only exit 0 closes a slice; the handover,
+# the Phase 6 report and the PR body's Handovers section carry > Outcome:.
+SLICE_CLOSE="$(section_body "$BUILD_SKILL" "### Slice Close" '^##')"
+for token in 'slice_outcome.py --agent <true|false|unknown>' \
+             'a sub-agent'"'"'s quoted test output never closes a slice' \
+             'Only exit 0 (`slice_result=True SUCCEEDED`) closes it' \
+             '`VERIFICATION_FAILED`' 'exit 3 (`Unknown`) leaves the header `[ ]`' \
+             '> Outcome:' 'The first three lines are required' \
+             "the script's last \`slice-outcome: agent_result=\` line" \
+             'on exit 0 only, mark the header `[x]`'; do
+  assert_contains "$SLICE_CLOSE" "$token" \
+    "three outcomes: Slice Close contains '$token'"
+done
+PHASE6="$(section_body "$BUILD_SKILL" "## Phase 6 — Build Report" '^## [^#]')"
+for token in 'an `> Outcome:` with `slice_result=True`' \
+             'agent_result=<v> verification_result=<v> slice_result=<v> <LABEL>' \
+             'an `[x]` whose `> Outcome:` is not `slice_result=True`'; do
+  assert_contains "$PHASE6" "$token" "three outcomes: Phase 6 contains '$token'"
+done
+# --- run ledger: every run records itself (specs/run-ledger.md AC5) ---
+# Phase 6 records the build run; /receive-review decides the parent
+# changes_requested and records the rework with --parent; the reference names
+# every caller, the merger's decide included.
+for token in 'run_ledger.py record' 'references/run-ledger.md'; do
+  assert_contains "$PHASE6" "$token" "run ledger: Phase 6 contains '$token'"
+done
+for token in 'run_ledger.py last --branch' \
+             'run_ledger.py decide --run-id "$parent" --result changes_requested' \
+             '--parent "$parent"'; do
+  assert_file_contains .agents/skills/receive-review/SKILL.md "$token" "run ledger: /receive-review contains '$token'"
+done
+for token in 'run_ledger.py record --branch' '--slice "<n> attempts=<k> <Outcome line>"' \
+             '--result merged' '--result closed' 'routine/fix/' \
+             'a final human decision is never overwritten' 'never 0' 'run_ledger.py stats'; do
+  assert_file_contains .agents/skills/build/references/run-ledger.md "$token" "run ledger: the reference contains '$token'"
+done
+# --- candidates: an opted-in slice runs N Builders (specs/parallel-candidates.md AC5) ---
+# /build names the opt-in line and the open -> dispatch -> rank flow with
+# discard on a stop; the references document the commands and the ledger field.
+for token in '`> Candidates: <N>`' 'candidates.py' '`open`' '`rank`' '`discard`' \
+             '.agents/skills/build/references/candidates.md'; do
+  assert_prose_contains "$BUILD_SKILL" "$token" "candidates: /build contains '$token'"
+done
+for token in 'candidates.py open --slice <n> --count <N>' 'candidates.py rank --spec' \
+             'candidates.py discard --slice <n>' '--agent c<k>=' 'eligible' 'candidate number' \
+             'candidates: applied c<k>' 'removed' 'references/run-ledger.md'; do
+  assert_file_contains .agents/skills/build/references/candidates.md "$token" "candidates: the reference contains '$token'"
+done
+for token in '`candidates`' 'candidates.py rank'; do
+  assert_file_contains .agents/skills/build/references/run-ledger.md "$token" "candidates: the run-ledger reference contains '$token'"
+done
+assert_prose_contains .agents/skills/wrap-up-session/references/closure-actions.md \
+  '`> Do not re-derive:`, `> Outcome:`, `> Surface:`' \
+  "three outcomes: the PR body's Handovers section carries > Outcome:"
+# specs/slice-three-outcomes.md AC3: a check that did not run is reported as
+# not checked with a reason, never as clean, in /verify-evidence and /quality-gate.
+assert_prose_contains .agents/skills/verify-evidence/SKILL.md \
+  '**Not checked is never clean.**' "three outcomes: /verify-evidence states not checked is never clean"
+assert_prose_contains .agents/skills/verify-evidence/SKILL.md \
+  '`not checked: <check> — <reason>`: never as a pass, never omitted' \
+  "three outcomes: /verify-evidence names the not-checked wording"
+for token in '"dispatch": "lost", "reason": "<why>"' \
+             '`receipt.py write` refuses `lost` without a `reason`' \
+             '`receipt: not checked phase 5 test-engineer — <reason>`' \
+             'for each ancestor'"'"'s lost review, ending `(inherited from <fp8>)`' \
+             '`lost` with a non-empty `reason`' \
+             'Each `Not checked:` item reads `not checked: <check> — <reason>`' \
+             'a check that did not run is never reported as clean'; do
+  assert_prose_contains .agents/skills/quality-gate/SKILL.md "$token" \
+    "three outcomes: /quality-gate contains '$token'"
+done
+
 assert_file_contains .agents/skills/slice/references/plan-block.md '## Legacy block' "legacy: plan-block.md holds the one definition"
 assert_prose_contains .agents/skills/slice/references/plan-block.md 'when no open `## Plan:` block in `tasks/todo.md` classifies as legacy' "legacy: plan-block.md names the sunset condition"
 assert_prose_contains "$BUILD_SKILL" 'slice/references/plan-block.md` § *Legacy block*' "slice close: legacy is defined by pointing at plan-block.md § Legacy block"
@@ -1796,7 +1870,7 @@ for lane in .agents/skills/task-registry/lanes/*.md; do
   assert_file_not_matches "$lane" 'wrap-up-session` — review passes' \
     "routine spine: $lane no longer says wrap-up runs review passes"
 done
-for lane in architect build fix improve janitor plan tidy; do
+for lane in architect build fix improve janitor plan tidy workflow; do
   assert_file_contains ".agents/skills/task-registry/lanes/$lane.md" \
     "\`/wrap-up-session\` — checks the quality receipt, tests" \
     "routine spine: lanes/$lane.md names the quality receipt check"
@@ -1927,5 +2001,40 @@ for stem in "build_""section" "wrap_""section" "wrap_""sub" "ca_""section" "qg_"
 done
 assert_sweep_empty "section-body: no private awk heading extractor remains in this file" tests/lib.sh \
   -- grep -nE 'index\(\$0, h\) == 1' -- "$SELF"
+
+# --- gate integrity (specs/gate-integrity.md AC1, AC4, AC7) -------------------
+# Slice Close runs the content-hash check beside slice.py check and stops the
+# slice on GATE_TAMPERED; /quality-gate runs it as Phase 0 and maps its lines to
+# findings; a check that cannot run is recorded as not checked, never clean.
+GI_CLOSE="$(section_body "$BUILD_SKILL" '### Slice Close')"
+for token in 'gate-integrity.py --base <gate-base> --spec <spec> --slice <n>' \
+             'never the session base SHA' 'passes `--slice` once' \
+             'Exit 1 (`GATE_TAMPERED`) stops the slice' 'the header stays `[ ]`' \
+             'unfinished: GATE_TAMPERED <paths>' 'gate integrity: not checked — <reason>' 'never as clean'; do
+  assert_contains "$GI_CLOSE" "$token" "gate integrity: build Slice Close says '$token'"
+done
+GI_P0="$(section_body "$QG_SKILL" '## Phase 0 — Gate Integrity')"
+for token in 'gate-integrity.py --base <merge-base>' \
+             '`GATE_TAMPERED` is `[MUST-FIX | confidence: 100 | autofix_class: manual | owner: human]`' \
+             '`EXPECTED_FAILURE_ADDED`' '`GATE_CHANGED`' 'confidence: 50' 'refuted' \
+             'Exit 3' '`Not checked:`'; do
+  assert_contains "$GI_P0" "$token" "gate integrity: quality-gate Phase 0 says '$token'"
+done
+# The gate base is a per-slice snapshot taken at dispatch (review of PR #447).
+GI_PHASE1="$(section_body "$BUILD_SKILL" '## Phase 1 — Slice Execution (TDD Loop)')"
+assert_contains "$GI_PHASE1" 'gate-integrity.py --snapshot' "gate integrity: build records a gate base before each dispatch"
+assert_precedes "$(flatten "$BUILD_SKILL")" 'gate-integrity.py --snapshot' '### Step 1 — Implement the Slice' \
+  "gate integrity: the gate base is recorded before the slice is implemented"
+assert_precedes "$(flatten "$QG_SKILL")" '## Phase 0 — Gate Integrity' '## Phase 1 — Structural Quality' \
+  "gate integrity: Phase 0 runs before Phase 1"
+# The full procedure lives in the build reference the skill points to.
+GI_REF=.agents/skills/build/references/gate-integrity.md
+assert_contains "$GI_CLOSE" 'references/gate-integrity.md' "gate integrity: Slice Close points to the build reference"
+for token in 'gate-integrity.py --snapshot' 'never an earlier slice' 'the union of its Surfaces' \
+             'The finding lines it prints on any exit' '`/quality-gate` Phase 0 against' 'never as clean'; do
+  assert_file_contains "$GI_REF" "$token" "gate integrity: the build reference contains '$token'"
+done
+assert_contains "$BELOW_END" "Protected paths: tests/run.sh tests/affected.sh tests/lib.sh" \
+  "gate integrity: AGENTS.md declares this repository's runners below the end marker"
 
 finish

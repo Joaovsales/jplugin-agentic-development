@@ -13,6 +13,7 @@ sub-agents where the harness offers them and run inline where it does not.
 | `janitor` | producer | `janitor.md` | `/sweep --routine janitor` | Planner | weekly |
 | `architect` | producer | `architect.md` | `/sweep --routine architect` | Planner | weekly |
 | `tidy` | producer | `tidy.md` | `/tidy` | Planner | weekly |
+| `workflow` | producer | `workflow.md` | `/sweep --routine workflow` | Planner | weekly, after a manual run |
 | `fix` | consumer | `fix.md` | `/debug #N` | Builder | daily |
 | `improve` | consumer | `improve.md` | `/plan` from `task-registry show <N>`, then `/build` | Builder | daily |
 | `plan` | consumer | `plan.md` | `/plan` from `task-registry show <N>` | Planner | daily |
@@ -57,6 +58,13 @@ Configure once per project:
   it every worktree is report-only. A fresh checkout has no installed copies
   and no worktrees, so `installed` and `worktrees` report *skipped* there —
   those two surfaces are only ever checked by a run on the operator's machine.
+- **`workflow` only: the operator's own transcripts, and a manual run first.**
+  The engine reads `~/.claude/projects` on the machine that runs it and keeps
+  its cursor under `~/.local/state/jplugin/`, so it runs where the sessions
+  are, never in a fresh cloud checkout. Run it by hand once and review the
+  findings before scheduling it; the repository ships no scheduler binding. A
+  cheap precheck is `workflow-incidence.py pending`, which exits 1 when no
+  settled session waits after the cursor.
 - **`task-registry doctor` green** in that environment, once, by hand, before
   scheduling anything.
 

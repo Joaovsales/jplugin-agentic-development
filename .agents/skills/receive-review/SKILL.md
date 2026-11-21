@@ -162,6 +162,38 @@ For multi-item feedback:
 5. Run full suite to verify no regressions
 6. Reconcile the affected blocks
 
+### Record the rework run
+
+When a reviewer asks for changes on an open PR whose branch has a run in
+`tasks/runs/` (`.agents/skills/build/references/run-ledger.md`), mark that run and
+record this round as its rework. Before the first change:
+
+```bash
+branch="$(git branch --show-current)"
+if parent="$(python3 .agents/skills/build/scripts/run_ledger.py last --branch "$branch" 2>&1)"; then
+  python3 .agents/skills/build/scripts/run_ledger.py decide --run-id "$parent" --result changes_requested || exit "$?"
+elif [ "$parent" = "last: no run on branch $branch in tasks/runs" ]; then
+  parent=""
+else
+  printf '%s\n' "$parent" >&2
+  exit 1
+fi
+```
+
+After the round is committed, with `<start>` the HEAD before its first change:
+
+```bash
+if [ -n "$parent" ]; then
+  python3 .agents/skills/build/scripts/run_ledger.py record --branch "$(git branch --show-current)" --base <start> --parent "$parent" || exit "$?"
+fi
+```
+
+Only the exact diagnostic `last: no run on branch <branch> in tasks/runs`
+means no recorded run: skip both. Every other `last`, `decide` or `record`
+failure stops the ledger step and is reported; a malformed record is never
+treated as no run. A final-decision refusal means the PR was already merged
+or closed — report it; never retry with another result.
+
 ## When to Push Back
 
 Push back when:

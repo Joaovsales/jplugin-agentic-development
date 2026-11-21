@@ -1,6 +1,6 @@
 ---
 title: Write skill prose so the static guards can read it — pinned phrases on one line, home paths without the skills token
-date: 2026-09-15
+date: 2026-11-19
 problem_type: convention
 module: .agents/skills/*/SKILL.md, tests/test-doc-conventions.sh, tests/test-skill-references.sh
 tags: [skills, static-pins, test-skill-references, doc-conventions, authoring]
@@ -52,6 +52,9 @@ nothing — so the accommodation belongs in the prose.
 The blocked-exit build (#440, 2026-11-18) hit rule 3 twice: `build/references/harness-dispatch.md`
 cited `slice/references/plan-block.md` and the reverse; both went red in the
 affected-test run and were fixed by writing the full `.agents/skills/` path.
+The run-ledger build (#442, 2026-11-19) hit it from the other side: `/receive-review`
+writing ``/build`'s `references/run-ledger.md`` failed the guard's RefInt check, and
+the fix was `.agents/skills/build/references/run-ledger.md`.
 
 ## Related
 
