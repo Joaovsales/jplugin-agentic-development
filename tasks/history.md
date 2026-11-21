@@ -1225,8 +1225,29 @@ back vacuous and was repaired.
 - Learnings: [bugs/a-pathlib-glob-reads-a-crashed-writes-dot-temp-as-a-record.md](solutions/bugs/a-pathlib-glob-reads-a-crashed-writes-dot-temp-as-a-record.md),
   rule 3 of [conventions/write-skill-prose-so-the-static-guards-can-read-it.md](solutions/conventions/write-skill-prose-so-the-static-guards-can-read-it.md).
 
+### [2026-11-19] — #445 parallel candidates (improve lane, unattended)
+
+- Plan: `specs/parallel-candidates.md` via `/plan` (D7: not `/system-design-planning` —
+  one script plus one additive field in the `run-ledger/1` record); two slices.
+- Slice 1: `.agents/skills/build/scripts/candidates.py` (`open`, `rank`, `discard`)
+  and `run_ledger.add_candidates`; `tests/test-candidates.sh`. Built inline: this
+  worker has no sub-agent tool.
+- Slice 2: `/build` Phase 1 names `> Candidates: <N>`; `references/candidates.md`
+  and `references/run-ledger.md` § *Candidates*; `tests/test-doc-conventions.sh`
+  § candidates. `build/SKILL.md` reflowed to stay at 600 lines.
+- Quality gate (inline, test-engineer `lost`): `rank` validates `--run-id` and
+  `--base`, resolves the Surface before its cleanup `try`, applies before it
+  records. Delta receipt on #442's.
+- Learnings: [patterns/validate-inputs-before-a-finally-that-destroys-work.md](solutions/patterns/validate-inputs-before-a-finally-that-destroys-work.md).
 ### [2026-11-19] — Run ledger review fixes
 - Key changes: serialized both ledger writers with a per-run OS lock, validated stored decisions and telemetry, and made the receive-review caller stop on ledger errors while preserving the exact no-run diagnostic and exit codes.
 - Verification: deterministic process races, crash recovery, timeout, malformed payloads and executable caller blocks are covered by `tests/run-ledger-regressions.py` through `tests/test-run-ledger.sh`.
 - Learnings captured: [atomic replace does not serialize ledger writers](solutions/bugs/atomic-replace-does-not-serialize-ledger-writers.md).
 - Closure verification: resumed worker reran focused (54 assertions), affected (58 files / 5807 assertions) and full (101 files / 8641 assertions) suites; all passed with 0 failures, receipt `4a792b03` GO.
+
+### [2026-11-19] — #445 PR #458 review fixes
+
+- Merged #456's run-ledger fixes (e468d95); `add_candidates` now runs under `run_lock` and `load_record`, and `candidates.py` uses the public `run_id_arg`/`sha_arg`.
+- Review fixes, test-first (14 assertions red before the fix, then green; each fix confirmed by a mutation probe): the outcome wrapper's exit status gates eligibility; `open` is all-or-nothing under cancellation; git-only removal keeps a locked worktree and exits 1; concurrent ledger writers are pinned.
+- A blocked signal mask is inherited across fork/exec: `_bootstrap` blocks TERM/HUP/INT only around `Popen` and unblocks them in the child (`preexec_fn`), or `killpg` would wait out the 10 s SIGKILL fallback.
+- Re-review N1/N2: a signal held across `Popen` is delivered at the unmask, so the settling `try` must already be open; and waiting for a process-group leader proves nothing about its descendants — TERM the group, bounded grace, then KILL the group before removing the directory they could write into.

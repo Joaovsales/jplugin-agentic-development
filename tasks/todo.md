@@ -3086,3 +3086,52 @@ Step ledger (routine `simplify`):
 - Verification: affected tests — all 58 files, 5807 assertions; full suite — all 101 files, 8641 assertions, 0 failures; quality receipt `4a792b03` is GO (independent test review unavailable under this dispatch).
 - Pending: none in this review round.
 - Carry-forward: the spec's timestamp tie-break and automatic merge/close observation (#457) remain unchanged; Windows runtime and live agent wiring were not checked in this worker task.
+
+## Plan: parallel-candidates
+> Spec: specs/parallel-candidates.md
+> Issue: #445
+
+### Slice 1/2 — Candidate ranker
+- [x] Candidate ranker — candidates.py opens, ranks and discards candidate worktrees; run_ledger.add_candidates records the ranking
+- [x] TDD: tests/test-candidates.sh § deterministic — the same measurements in any order rank the same; two rank runs over identical worktrees print identical lines -> candidates.py rank (AC1)
+- [x] TDD: tests/test-candidates.sh § eligibility — a failed or unknown check is never selected even with the smallest diff; no eligible candidate exits 1 and changes nothing -> candidates.py rank (AC2)
+- [x] TDD: tests/test-candidates.sh § cleanup — worktrees are removed on success, on no winner, on SIGTERM mid-verification, and by discard -> candidates.py (AC3)
+- [x] TDD: tests/test-candidates.sh § ledger — the run record holds one entry per candidate with rank, selected, outcomes, measurements and reason -> run_ledger.add_candidates (AC4)
+
+> Handover: landed 288ccec..8258176 — `.agents/skills/build/scripts/candidates.py` (`open`, `rank`, `discard`) and `run_ledger.add_candidates`; `tests/test-candidates.sh` pins AC1–AC4 (37 assertions).
+> Do not re-derive: worktrees live at `<toplevel>/../<repo>-slice-<n>-c<k>`, detached, made by `bootstrap-worktree.sh --detach-head`; each candidate's git dir holds `jplugin-candidate.json` (base commit, bootstrap-copied paths unstaged before measuring); `rank` prints `candidates: c<k> rank=… selected|discarded …` then `candidates: applied c<k>`; the ledger field is `candidates.<slice>` in the `run-ledger/1` record.
+> Outcome: agent_result=True verification_result=True slice_result=True SUCCEEDED
+> Surface: none (`slice.py check --slice 1 --base 288ccec`)
+
+### Slice 2/2 — Build runs candidates
+- [x] Build runs candidates — /build names the opt-in and the flow; the references document the commands and the ledger field
+- [x] TDD: tests/test-doc-conventions.sh § candidates — /build names `> Candidates:`, open, rank and discard; references/candidates.md and run-ledger.md document the commands and the candidates field -> wiring (AC5)
+
+> Handover: landed 8258176..0c39b79 — `/build` Phase 1 names `> Candidates: <N>` and the `open` → dispatch → `rank` / `discard` flow; `.agents/skills/build/references/candidates.md` documents the commands and exits; `references/run-ledger.md` § *Candidates* documents the field; `tests/test-doc-conventions.sh` § candidates pins AC5.
+> Do not re-derive: build/SKILL.md stays at exactly 600 lines — the paragraph was reflowed, not grown; a `> Candidates:` line under a slice heading leaves `slice.py ready` and `link` unchanged (checked on a scratch copy).
+> Outcome: agent_result=True verification_result=True slice_result=True SUCCEEDED
+> Surface: undeclared tasks/todo.md — the plan block's slice-1 handover (`slice.py check --slice 2 --base 8258176`)
+
+## Session Summary — [2026-11-19] [8b6b806..fb663f6]
+
+- Completed: #445 parallel candidates — `candidates.py` (`open`, `rank`, `discard`) builds an opted-in slice N ways in detached worktrees, ranks by eligibility, checks passed, diff lines, outside-Surface paths and candidate number, applies the winner, records every candidate in the run ledger and removes every worktree, cancellation included; `/build` and the references name the flow.
+- Pending: none in this PR.
+- Carry-forward: stacked on #456 (→ #448) — merge those first; the plugin version was not bumped (the guard compares against master at 1.8.19) and needs a bump once #456 lands at 1.8.21.
+
+## Session Summary — [2026-11-19] [46326c8..46326c8] — #456 review fixes merged
+
+- Completed: merged `origin/Joaovsales/esf-442-run-ledger` (e468d95); `run_ledger.add_candidates` now runs under `run_lock` and `load_record`'s validation, `load_record` refuses a non-object `candidates` field, and `candidates.py` uses the public `run_id_arg`/`sha_arg` instead of the private `_run_id`/`_sha`.
+- Pending: none in this PR.
+- Carry-forward: plugin version bump on top of #456's 1.8.21 when the stack lands, if the guard requires it.
+
+## Session Summary — [2026-11-19] [a09aaae..a09aaae] — PR #458 review fixes
+
+- Completed: independent review of #458 (CHANGES-REQUIRED) — `_verify` trusts the outcome only when the wrapper's exit status, the supplied agent claim and `derive` agree; `open` is a transaction (targets owned before bootstrap, TERM/HUP/INT around the whole call, the bootstrap's process group settled before its worktree is removed, an existing path refused and kept); removal goes through git only and reports a kept (locked) candidate with exit 1; concurrent `add_candidates` writers and a `decide` during a candidate write are pinned.
+- Pending: none in this PR.
+- Carry-forward: plugin version bump on top of #456's 1.8.21 when the stack lands, if the guard requires it.
+
+## Session Summary — [2026-11-19] [a62d4b3..a62d4b3] — PR #458 re-review fixes
+
+- Completed: re-review N1 — `_bootstrap` enters its settling `try` before the signal unmask, so a cancellation pending at the unmask still settles the just-started bootstrap; N2 — `_settle` TERMs the bootstrap's whole process group, waits up to `SETTLE_SECONDS` (2 s), then always KILLs the group, so a TERM-ignoring hook cannot recreate a removed candidate.
+- Pending: none in this PR.
+- Carry-forward: plugin version bump on top of #456's 1.8.21 when the stack lands, if the guard requires it.

@@ -70,6 +70,10 @@ def _sha(value: str) -> str:
     return value
 
 
+# Public argparse types for scripts that write into the ledger (candidates.py).
+run_id_arg, sha_arg = _run_id, _sha
+
+
 def _positive_int(value: str) -> int:
     if not value.isdigit() or int(value) < 1:
         raise argparse.ArgumentTypeError(f"--pr {value!r} is not a positive integer")
@@ -198,6 +202,8 @@ def load_record(path: Path) -> Dict[str, object]:
                                           (type(value) is int or math.isfinite(value))):
             raise Refused(f"run-ledger: {path}: invalid {field} — expected a finite non-negative "
                           f"{'integer' if field == 'tokens' else 'number'} or 'unknown'")
+    if not isinstance(record.get("candidates", {}), dict):
+        raise Refused(f"run-ledger: {path}: invalid candidates — expected an object keyed by slice")
     return record
 
 
@@ -270,8 +276,40 @@ def load_ledger(ledger: Path) -> List[Dict[str, object]]:
 # --------------------------------------------------------------------------
 # Commands
 
+def default_run_id(branch: str, base: str) -> str:
+    return f"{_slug(branch)}-{base[:12]}"
+
+
+def _stored_or_new(path: Path, run_id: str) -> Dict[str, object]:
+    """The stored record, validated by load_record, or a new one. Call under run_lock."""
+    return load_record(path) if path.exists() else {
+        "schema": SCHEMA, "run_id": run_id, "spec": None, "pr": None, "parent_run_id": None,
+        "models": {}, "slices": [], "tokens": UNKNOWN_VALUE, "cost_usd": UNKNOWN_VALUE,
+        "recorded_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "human_result": None, "decisions": [],
+    }
+
+
+def add_candidates(ledger: Path, branch: str, base: str, run_id: Optional[str],
+                   slice_id: str, entries: List[Dict[str, object]]) -> str:
+    """Write one slice's ranked candidates (candidates.py rank) into the run record.
+
+    Same transaction as `record`: one run lock around read, merge and write.
+    `candidates` is not a `record` option, so a later `record` keeps it."""
+    run_id = run_id or default_run_id(branch, base)
+    if not RUN_ID_RE.fullmatch(run_id) or not SHA_RE.fullmatch(base):
+        raise Refused(f"run-ledger: refused candidates for run {run_id!r} at base {base!r}")
+    path = ledger / f"{run_id}.json"
+    with run_lock(path):
+        stored = _stored_or_new(path, run_id)
+        record = {"branch": branch, "base_sha": base, **stored,
+                  "candidates": {**stored.get("candidates", {}), slice_id: entries}}
+        write_record(ledger, record)
+    return run_id
+
+
 def cmd_record(args: argparse.Namespace) -> int:
-    run_id = args.run_id or f"{_slug(args.branch)}-{args.base[:12]}"
+    run_id = args.run_id or default_run_id(args.branch, args.base)
     if args.parent == run_id:
         print(f"run_ledger.py record: error: run {run_id} cannot be its own parent", file=sys.stderr)
         return 2
@@ -284,12 +322,7 @@ def cmd_record(args: argparse.Namespace) -> int:
     }
     # An option left out keeps the stored value; the human fields are not options.
     with run_lock(path):
-        stored = load_record(path) if path.exists() else {
-            "schema": SCHEMA, "run_id": run_id, "spec": None, "pr": None, "parent_run_id": None,
-            "models": {}, "slices": [], "tokens": UNKNOWN_VALUE, "cost_usd": UNKNOWN_VALUE,
-            "recorded_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-            "human_result": None, "decisions": [],
-        }
+        stored = _stored_or_new(path, run_id)
         record = {**stored, **{k: v for k, v in given.items() if v is not None}}
         write_record(args.ledger, record)
     print(f"record: recorded {run_id}")
