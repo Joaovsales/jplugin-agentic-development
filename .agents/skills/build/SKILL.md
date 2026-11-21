@@ -182,7 +182,11 @@ Get the ready set instead of guessing independence from prose:
 python3 .agents/skills/slice/scripts/slice.py ready --index tasks/todo.md --spec <spec>
 ```
 
-This prints each ready slice with its surface and every intersecting pair.
+This prints each ready slice with its surface and every intersecting pair; a
+slice carrying `> Blocked:` prints as `blocked: <n> <name>` and every slice its
+`Blocked by` chain reaches as `waits: <n> <name> on blocked <m>` — neither is
+dispatched. Phase 1 ends when `ready` names no ready slice; blocked and waiting slices stay `[ ]` and incomplete.
+Phases 1.5–5 run over closed slices only; with none, skip their completed-work checks and proceed to Phase 6's blocked report.
 Disjoint ready slices dispatch in parallel; an intersecting pair with no
 blocker between them is a plan defect — serialized in table order and
 reported, never guessed. Re-run `ready` after every slice closes to pick up
@@ -211,6 +215,9 @@ and says so in one line. A slice whose heading carries `> Candidates: <N>` runs 
 `open`, one Step 1 dispatch per worktree, then `rank`, which applies the winner; `discard` if the build stops between
 them: `.agents/skills/build/references/candidates.md`.
 
+Before each dispatch (once per parallel batch), record the **gate base**:
+`python3 .agents/skills/quality-gate/scripts/gate-integrity.py --snapshot` (`.agents/skills/build/references/gate-integrity.md`).
+
 ### Step 1 — Implement the Slice
 
 Choose the agent or approach based on the slice's work type:
@@ -236,6 +243,8 @@ Choose the agent or approach based on the slice's work type:
 - The tool-call budget and escape hatch from `.agents/references/subagent-resilience.md` Rule
   1, and the instruction to list unfinished acceptance criteria under
   `## Not finished`
+- The blocked exit, `.agents/skills/build/references/harness-dispatch.md` § *Blocked exit*:
+  `[BLOCKED] <reason> | tried: <…> | needs: <…>` — BLOCKED is an acceptable result; a deleted or weakened test is not
 
 **Role-based context injection from `tasks/project-context.md`** (if it exists):
 
@@ -252,6 +261,11 @@ first copy every line of its output that starts with `[AMBIGUITY]` verbatim into
 `> [AMBIGUITY] …` line after the last `>` line (else the rows) under this plan block's heading for the slice it
 served — the `### Slice N/N` heading once every slice has closed. A compaction (auto, manual, or idle while a
 background suite runs) summarises agent output away, so every later reader — Phase 3's deferral list, Phase 4.5 — reads only the file.
+
+**A blocked exit ends the slice.** When a dispatch's output holds a line that starts with `[BLOCKED]`, copy it under the
+slice heading as `> Blocked: <reason> | tried: <…> | needs: <…>`, the last line of its `> Handover:` blockquote; then
+dispatch nothing more for it — no Step 3 attempt, no rung of the escalation ladder — leave the header `[ ]` and re-run
+`ready`. From a Phase 2–4 repair it stops that repair and never reopens a closed slice.
 
 ### Step 2 — Per-Slice Spec Compliance Check (inline, no agent)
 
@@ -299,6 +313,11 @@ python3 .agents/skills/build/scripts/slice_outcome.py --agent <true|false|unknow
 script's own run; a sub-agent's quoted test output never closes a slice. Only exit 0
 (`slice_result=True SUCCEEDED`) closes it: exit 1 (`VERIFICATION_FAILED`, `AGENT_FAILED`) goes back
 to Step 3; exit 3 (`Unknown`) leaves the header `[ ]` until the check can run.
+
+Then `python3 .agents/skills/quality-gate/scripts/gate-integrity.py --base <gate-base> --spec <spec> --slice <n>` runs
+against the dispatch gate base, never the session base SHA; a parallel batch passes `--slice` once per slice.
+Exit 1 (`GATE_TAMPERED`) stops the slice: the header stays `[ ]`, the handover records `unfinished: GATE_TAMPERED <paths>`.
+Exit 3 goes on `> Surface:` as `gate integrity: not checked — <reason>`, never as clean (`references/gate-integrity.md`).
 
 Write a `> Handover:` blockquote under the slice heading, after its rows and above any `> [AMBIGUITY]` lines already there
 (they stay its last lines, outside the five) — two to five blockquote lines, each with its own prefix:
@@ -350,7 +369,7 @@ Phase 6 counts nested rows.
 
 ## Phase 1.5 — Changed Verification Map
 
-After every slice header is `[x]`, classify the completed work. If ANY acceptance
+When the ready set is exhausted, classify the completed work in closed slices. If ANY acceptance
 criterion is `user-facing`:
 
 1. Invoke `/maintain-verification-skill --scope changed` with the session intent,
@@ -372,7 +391,7 @@ UI tasks with 3D or video deliverables run the design-stack gates in
 `.agents/skills/build/references/design-stack-gates.md` § *Phase 2: 3D and video gates*
 before the steps below.
 
-After every slice header is `[x]`:
+When the ready set is exhausted, validate the work in closed slices:
 
 1. Run the **affected-test command** against the base SHA — every test file the
    build touched, in one run. The pre-push full run is `/wrap-up-session` § *Full suite*.
@@ -414,17 +433,12 @@ previous_failures: []
 | `integration` | Integration test passes (real API/DB/service interaction) |
 | `user-facing` | E2E walkthrough via `/verify-evidence --scope e2e` — entry in `tasks/e2e-log.md` for current commit short-sha |
 
-If ANY AC is classified `user-facing`:
-
-1. Invoke `/verify-evidence --scope e2e` before declaring Phase 4 complete.
-
 **For each round**:
 
 1. Re-read `specs/[feature-name].md`
-2. For every `user-facing` AC, invoke `/verify-evidence --scope e2e` (skip if already run this round with PASS entry for current commit)
-3. Walk through each AC:
-   - Mark: `✅` (unit/integration test), `✅✅` (e2e walkthrough), `❌` (missing)
-4. **If all criteria are `✅` or `✅✅`**: proceed to Phase 5
+2. First classify ACs owned by blocked or waiting slices as `⛔` (incomplete — reported, never verified or looped).
+3. For each remaining `user-facing` AC in the closed slices, invoke `/verify-evidence --scope e2e` (skip if already run this round with PASS entry for current commit). Mark remaining ACs `✅` (unit/integration test), `✅✅` (e2e walkthrough), or `❌` (missing).
+4. **If all criteria are `✅`, `✅✅` or `⛔`**: proceed to Phase 5
 5. **If any criterion is `❌`**:
    - Compare against `previous_failures`
    - **Same failures as last round** → HALT with circular-fix message, escalate to user
@@ -468,7 +482,7 @@ After Phase 4 passes:
 
 If `tasks/backlog.md` exists:
 1. Identify which backlog item this build corresponds to
-2. Mark the item as `[x]` in `tasks/backlog.md`
+2. Mark the item as `[x]` in `tasks/backlog.md` only if every slice closed; otherwise retain its incomplete status
 3. Update `tasks/project-context.md` `[CURRENT-PHASE]` if the phase is now complete
 
 ## Phase 6 — Build Report
@@ -493,6 +507,8 @@ Tasks: [X] completed, [Y] added during build
 Tests: [N] total, [N] passing, [0] failing
 Spec Validation: [all criteria met / N gaps remain]
 Quality Gate: [N improvements applied]
+Ambiguities: [N, from Phase 4.5]
+Blocked slices: [none | <n> <name> — <reason> | needs: <…>; waiting: <m> …]
 Slices (one `> Outcome:` per slice, verbatim):
   [n] <name> — agent_result=<v> verification_result=<v> slice_result=<v> <LABEL>
 
@@ -527,16 +543,8 @@ Next: /wrap-up-session
 
 ### Sub-Agent Failure (hangs, silent stops, compaction conflicts)
 
-A sub-agent that **crashes** returns null and your fallback catches it. One that **hangs**
-returns nothing — no result, no error, no event — so every null-check fallback is downstream of
-a return that never happens. Under parallel dispatch this holds the entire phase.
-
-Most common cause: output-compression / compaction layers replace a large tool result with a
-placeholder, the agent loops on a failing retrieval call, and it is killed rather than erroring.
-This selects agents doing heavy source reading, so the most load-bearing agent is the one that
-dies while its siblings complete normally.
-
-Before any dispatch, apply `.agents/references/subagent-resilience.md` § *Dispatch checklist*.
+A sub-agent that **hangs** returns nothing, so no null-check fallback fires and a parallel phase stalls (`.agents/references/subagent-resilience.md`
+§ *The failure that matters*, § *Conflicts with compaction and compression layers*). Before any dispatch, apply its § *Dispatch checklist*.
 
 - **Implementation failure**: Retry once with additional context. If still failing, surface to user and pause.
 - **Test regression**: Fix with `code-debugger`. Max 3 fix attempts per regression (see circuit breaker).
@@ -579,9 +587,6 @@ User input required before proceeding.
 Dispatch sub-agents (`backend-developer` or `frontend-developer`, model as configured in Model Routing table) for each task in Phase 1.
 For 2+ independent tasks: dispatch in parallel (multiple Agent tool calls in a single message).
 
-On Claude Code, these resolve via built-in model name resolution (`sonnet`, `haiku`, `opus`).
-On Pi + OpenRouter, explicit model IDs from the Model Routing table are used.
-
 **Ceiling-tier agents take no `model` at all.** `code-reviewer`, `security-reviewer`,
 `software-design-expert-review`, and `critic` inherit the session model — passing an
 override caps the highest-stakes review below the model the user chose.
@@ -592,9 +597,3 @@ See `.agents/references/model-routing.md`.
 ### Pi and Codex Dispatch
 
 See `.agents/skills/build/references/harness-dispatch.md` § *Pi Dispatch* and § *Codex Dispatch*.
-
-### Per-Task Review
-Phase 1 Step 2 remains inline (no agent). Spec compliance check is a read + compare, not a coding task.
-
-### Quality Gate
-In Phase 3, invoke `/quality-gate` normally. The quality-gate skill dispatches `software-design-expert-review` on Claude Code.

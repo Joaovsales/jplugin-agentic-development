@@ -3136,6 +3136,116 @@ Step ledger (routine `simplify`):
 - Pending: none in this PR.
 - Carry-forward: plugin version bump on top of #456's 1.8.21 when the stack lands, if the guard requires it.
 
+## Plan: Gate integrity
+> Spec: specs/gate-integrity.md
+> Issue: https://github.com/Joaovsales/jplugin-agentic-development/issues/439
+
+### Slice 1/3 — Content-hash tamper check
+- [x] Content-hash tamper check — The script resolves the protected set, hashes each candidate against its base blob and classifies changes against the Surface
+> Handover: landed 3c962ca..9b3651a — `gate-integrity.py --base <rev> [--spec [--slice]]` hashes every protected candidate (base `ls-tree` ∪ `ls-files -c -o --exclude-standard`) against its base blob; GATE_TAMPERED exits 1, GATE_CHANGED exits 0; 28/28 in tests/test-gate-integrity.sh
+> Do not re-derive: `Report.add` counts every kind other than GATE_TAMPERED/NOT_CHECKED as a finding, so slice 2 only adds lines; `NotChecked` from `check()` already becomes `not checked —` exit 3 in `main`; `gi_repo` in the test builds the shared fixture (expected-failures row `tests/test-old.sh linux* old message`, `tests/test-a.sh` with two assert_eq lines)
+> Surface: none (slice.py check --slice 1 --base 3c962ca); gate-integrity: clean
+
+### Slice 2/3 — Weakening findings
+- [x] Weakening findings — Added expected-failure rows, new skip markers, deleted assertions and the not-checked outcome
+> Handover: landed 9b3651a..2ce9301 — EXPECTED_FAILURE_ADDED (multiset, reorder-proof), SKIP_ADDED and ASSERTION_DELETED (an assertion line whose count dropped) for test files present at the base, NOT_CHECKED per file and `not checked — base <rev> does not resolve to a commit`; 59/59, affected 31 files green
+> Do not re-derive: SKIP_ADDED/ASSERTION_DELETED are regex candidates — dogfooding on 9b3651a flagged the marker strings inside this test's printf fixtures, so /quality-gate must verify each before it is a finding (spec Decision 5); exit precedence is tampered 1 > not checked 3 > 0
+> Surface: none (slice.py check --slice 2 --base 9b3651a); gate-integrity: findings (7), all SKIP_ADDED test data in tests/test-gate-integrity.sh plus its one real `skip` for the chmod case
+
+### Slice 3/3 — Skill wiring
+- [x] Skill wiring — `/build` Slice Close stops on `GATE_TAMPERED`, `/quality-gate` Phase 0 maps results to findings, `AGENTS.md` declares this repository's runners
+> Handover: landed 2ce9301..f538420 — `/build` § Slice Close runs `gate-integrity.py --base <sha> --spec <spec> --slice <n>` after `slice.py check` and stops on exit 1; `/quality-gate` § Phase 0 maps each result line to a four-axis finding; `AGENTS.md` declares `Protected paths: tests/run.sh tests/affected.sh tests/lib.sh`; doc-conventions 959/959
+> Do not re-derive: spec Decision 5 was refined in this slice (SKIP_ADDED/ASSERTION_DELETED start at confidence 50 and need one verification read); the version guard needs `scripts/bump-plugin-version.sh` (1.8.20) before push
+> Surface: undeclared specs/gate-integrity.md (Decision 5 reconciliation), tasks/todo.md (bookkeeping) (slice.py check --slice 3 --base 2ce9301); gate-integrity: clean
+
+## Session Summary — 2026-11-18 [887e959..61af185]
+- Completed: #439 gate integrity in three slices. `gate-integrity.py` does a
+  content-hash tamper check and reports weakening findings. `/build` Slice
+  Close and `/quality-gate` Phase 0 run it, and `AGENTS.md` declares the
+  protected runners. A symlink false positive was fixed during the quality gate.
+- Pending: none in this PR.
+- Carry-forward: two NITPICKs in `gate-integrity.py` — `rev-parse` has no
+  `--end-of-options`, and one symlink hash failure aborts the whole run. The
+  test-engineer adequacy review did not run (lost in an Orca worker with no
+  sub-agent tool).
+
+## Session Summary — 2026-11-19 [a131d30..128ad38]
+- Completed: PR #447 review fixes for #439: retain historical gate policy,
+  hash raw bytes, inspect symlink referents, classify unreadable policy as
+  not checked, and compare slices against per-dispatch snapshots. Both
+  revision-option and partial-symlink-error nits are covered by regressions.
+- Validation: gate integrity 113 assertions and 95% statement coverage;
+  affected tests all 56 files, 5708 assertions; full suite all 100 files,
+  8614 assertions. Quality receipt GO 59a9ce80, policy qg1-a6dee920.
+- Pending: none of the independent review findings remain open.
+- Carry-forward: review phases ran inline; the separate test-engineer review
+  was recorded lost because this task explicitly prohibited helper agents.
+
+## Session Summary — 2026-11-19 [c364ffb..f3c4ce8]
+- Completed: PR #447 re-review fixes N1–N3: shared bounded link resolution
+  retains historical AGENTS policy; baseline patterns preserve Surface
+  precision; snapshots retain recorded gitlink IDs, including deinitialized
+  submodules, while refusing unsupported filesystem entries.
+- Validation: red regressions 121 passed/15 failed before the fixes; green
+  gate tests 138 assertions, 96% scanner statement coverage; affected tests
+  all 56 files/5733 assertions; full suite all 100 files/8639 assertions.
+  Quality receipt GO b837af41, policy qg1-a6dee920.
+- Pending: none of the three re-review findings remain open.
+- Carry-forward: reviews ran inline; phase 5's separate test-engineer review
+  is recorded lost because this task explicitly prohibited helper agents.
+
+## Plan: blocked-exit
+> Spec: specs/blocked-exit.md
+> Issue: #440
+
+### Slice 1/2 — ready-skips-blocked
+- [x] ready-skips-blocked — `slice.py ready` names blocked slices and the slices waiting on them instead of listing them ready
+> Handover: landed 887e959..ffe6439 — `PlanBlock.blocked_slices(done)` reads `> Blocked:` per slice span (fences blanked, `[x]` ignored); `cmd_ready` prints `blocked: <n> <name>` and `waits: <n> <name> on blocked <m>` after the ready set and keeps both out of it
+> Do not re-derive: the span walk is the shared `PlanBlock._slice_lines` (stops at the next `##`), also used by `tdd_surface_problems`; a waiting slice names the lowest-numbered blocked slice its chain reaches
+> Surface: none
+
+### Slice 2/2 — build-blocked-exit
+- [x] build-blocked-exit — `/build`'s dispatch contract carries the `[BLOCKED]` exit, persists it, stops retrying and reports it in Phase 6
+> Handover: landed ffe6439..4ed289a — `harness-dispatch.md` § *Blocked exit* defines the line; `build/SKILL.md` carries it in the delegation list, persists it as `> Blocked:`, stops the slice, marks its ACs `⛔` in Phase 4 and reports `Blocked slices:` under `Ambiguities:` in Phase 6
+> Do not re-derive: `build/SKILL.md` is at 597 of its 600-line budget; the line format lives only in `harness-dispatch.md`
+> Surface: none
+
+## Session Summary — 2026-11-18 [887e959..9335e0e]
+- Completed: #440 blocked exit — `slice.py ready` names `blocked:` / `waits:` slices; `/build` carries the `[BLOCKED]` dispatch exit, persists `> Blocked:`, never retries the slice, reports `Blocked slices:` in Phase 6.
+- Pending: none.
+- Carry-forward: Helix's blocked state is out of scope (spec Decision 5) — a later Helix reader consumes the `> Blocked:` line.
+
+## Session Summary — [2026-11-19] [805dc2c..0c394e9]
+- Completed: PR #455 review fixes for #440 — partial-build validation, blocked AC classification before e2e, implicit blocked-state persistence and malformed-marker refusal, with failing-first regressions; all 99 full-suite files passed.
+- Pending: none from the three review findings.
+- Carry-forward: no live agent-driven blocked build was run; phase flow is checked as a prose contract. Existing cycle validation, historical fingerprint warnings and unrelated AirLLM debt are unchanged.
+
+## Plan: Variant-lift holdout and two-baseline promotion
+> Spec: specs/eval-holdout.md
+> Issue: https://github.com/Joaovsales/jplugin-agentic-development/issues/443
+
+### Slice 1/1 — variant-lift holdout
+- [x] variant-lift holdout — `variant-holdout.py` split and verdict, and § Mode B steps that use them
+
+> Handover: `variant-holdout.py` (split / verdict, refusals exit 2 through `read_transcript.run`) and § Mode B steps 2–5 landed in c38c166; `bash tests/test-eval-variant-holdout.sh` 40 passed, 0 failed. Surface check: only the three Surface files changed. No later slice.
+
+## Session Summary — 2026-11-18 [887e959..c38c166]
+- Completed: #443 — `variant-holdout.py` split/verdict and § Mode B steps (slice 1/1); plugin 1.8.20.
+- Pending: none in this PR.
+- Carry-forward:
+  - The quality gate's test-engineer review was lost in this worker session.
+
+## Session Summary — [2026-11-19] [5668a31..5668a31]
+- Completed: PR #449 review fixes — `verdict` bound to a `split --manifest` (growth and deletion refuse, AC6); unequal-run-count weighting fixture (AC7); learning corrected.
+- Pending: none in this PR.
+- Carry-forward: the manifest is a file the author keeps; nothing outside the run pins it before tuning.
+
+
+## Session Summary — [2026-11-19] [b11feb3..b11feb3]
+- Completed: PR #449 remaining MUST-FIX — required externally retained `--expect` fingerprint; regenerated, replaced and unlink-and-regenerated manifests refuse; original manifests verify; 72 CLI assertions and a seven-failure guard mutation.
+- Pending: none in the requested implementation; final release verification is recorded in the PR.
+- Carry-forward: the orchestrator must retain the original fingerprint honestly outside the tuning loop; rewriting its own recorded anchor is outside the agreed boundary. No paid evaluation or live candidate spawning was performed.
+
 ## Sweep: workflow 2026-11-21
 
 Routine `workflow` — step ledger (first manual run):

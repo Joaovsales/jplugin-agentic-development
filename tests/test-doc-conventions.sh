@@ -1202,6 +1202,53 @@ build_lines="$(wc -l < "$BUILD_SKILL" | tr -d ' ')"
 assert_eq "yes" "$([ "$build_lines" -le 600 ] && echo yes || echo "no ($build_lines lines)")" \
   "build: SKILL.md is at most 600 lines"
 
+# specs/blocked-exit.md (#440): a Builder that cannot satisfy a slice stops with
+# one `[BLOCKED]` line; /build persists it as `> Blocked:`, never retries the
+# slice, and reports it in Phase 6 beside the ambiguities. The line format is
+# defined once, in harness-dispatch.md § Blocked exit.
+DISPATCH_REF=.agents/skills/build/references/harness-dispatch.md
+assert_file_contains "$DISPATCH_REF" "## Blocked exit" "blocked: harness-dispatch.md holds § Blocked exit"
+assert_file_contains "$DISPATCH_REF" "[BLOCKED] <reason> | tried: <what was attempted> | needs: <what would unblock it>" \
+  "blocked: harness-dispatch.md defines the [BLOCKED] line"
+assert_prose_contains "$DISPATCH_REF" "an acceptable result" "blocked: harness-dispatch.md calls BLOCKED an acceptable result"
+flat_build="$(flatten "$BUILD_SKILL")"
+assert_precedes "$flat_build" 'Delegation prompt must include' 'BLOCKED is an acceptable result' \
+  "blocked: the delegation prompt list carries the blocked exit"
+assert_precedes "$flat_build" 'BLOCKED is an acceptable result' 'Role-based context injection' \
+  "blocked: the blocked exit sits inside the delegation prompt list"
+for token in 'references/harness-dispatch.md` § *Blocked exit*' \
+             'starts with `[BLOCKED]`' '`> Blocked:`' \
+             'no Step 3 attempt, no rung of the escalation ladder' \
+             'leave the header `[ ]`' 'blocked: <n>' 'waits: <n>' \
+             'Blocked slices:'; do
+  assert_prose_contains "$BUILD_SKILL" "$token" "blocked: SKILL.md contains '$token'"
+done
+assert_eq "Blocked slices:" \
+  "$(grep -A1 -E '^Ambiguities:' "$BUILD_SKILL" | sed -n 2p | grep -oE '^Blocked slices:')" \
+  "blocked: the Phase 6 report puts Blocked slices: on the line after Ambiguities:"
+
+# A partial build with no ready slices must reach validation and the report
+# without claiming its blocked/waiting headers or ACs are complete.
+for phase in '## Phase 1.5 —' '## Phase 2 —'; do
+  phase_body="$(section_body "$BUILD_SKILL" "$phase" '^##')"
+  assert_contains "$phase_body" 'When the ready set is exhausted' \
+    "blocked: $phase enters when no slice is ready"
+  assert_contains "$phase_body" 'closed slices' \
+    "blocked: $phase validates only closed slices"
+  assert_not_contains "$phase_body" 'After every slice header is `[x]`' \
+    "blocked: $phase does not require blocked headers to close"
+done
+phase_exit="$(section_body "$BUILD_SKILL" '## Phase 1 —' '^## Phase 1.5')"
+assert_contains "$phase_exit" 'blocked and waiting slices stay `[ ]` and incomplete' \
+  'blocked: exhausting ready preserves incomplete headers'
+phase_validation="$(section_body "$BUILD_SKILL" '## Phase 4 —')"
+assert_precedes "$(printf '%s' "$phase_validation" | tr '\n' ' ')" \
+  'classify ACs owned by blocked or waiting slices as `⛔`' \
+  'invoke `/verify-evidence --scope e2e`' \
+  'blocked: Phase 4 classifies blocked ACs before e2e verification'
+assert_contains "$phase_validation" 'For each remaining `user-facing` AC in the closed slices' \
+  'blocked: Phase 4 verifies only completed user-facing work'
+
 # Slice Close and the forbidden state hold for both plan grammars: the header is
 # the row under each ### Slice heading, Slice Close fires on the dispatch's
 # return (new block) or the last TDD: row (legacy), unfinished work
@@ -1954,5 +2001,40 @@ for stem in "build_""section" "wrap_""section" "wrap_""sub" "ca_""section" "qg_"
 done
 assert_sweep_empty "section-body: no private awk heading extractor remains in this file" tests/lib.sh \
   -- grep -nE 'index\(\$0, h\) == 1' -- "$SELF"
+
+# --- gate integrity (specs/gate-integrity.md AC1, AC4, AC7) -------------------
+# Slice Close runs the content-hash check beside slice.py check and stops the
+# slice on GATE_TAMPERED; /quality-gate runs it as Phase 0 and maps its lines to
+# findings; a check that cannot run is recorded as not checked, never clean.
+GI_CLOSE="$(section_body "$BUILD_SKILL" '### Slice Close')"
+for token in 'gate-integrity.py --base <gate-base> --spec <spec> --slice <n>' \
+             'never the session base SHA' 'passes `--slice` once' \
+             'Exit 1 (`GATE_TAMPERED`) stops the slice' 'the header stays `[ ]`' \
+             'unfinished: GATE_TAMPERED <paths>' 'gate integrity: not checked — <reason>' 'never as clean'; do
+  assert_contains "$GI_CLOSE" "$token" "gate integrity: build Slice Close says '$token'"
+done
+GI_P0="$(section_body "$QG_SKILL" '## Phase 0 — Gate Integrity')"
+for token in 'gate-integrity.py --base <merge-base>' \
+             '`GATE_TAMPERED` is `[MUST-FIX | confidence: 100 | autofix_class: manual | owner: human]`' \
+             '`EXPECTED_FAILURE_ADDED`' '`GATE_CHANGED`' 'confidence: 50' 'refuted' \
+             'Exit 3' '`Not checked:`'; do
+  assert_contains "$GI_P0" "$token" "gate integrity: quality-gate Phase 0 says '$token'"
+done
+# The gate base is a per-slice snapshot taken at dispatch (review of PR #447).
+GI_PHASE1="$(section_body "$BUILD_SKILL" '## Phase 1 — Slice Execution (TDD Loop)')"
+assert_contains "$GI_PHASE1" 'gate-integrity.py --snapshot' "gate integrity: build records a gate base before each dispatch"
+assert_precedes "$(flatten "$BUILD_SKILL")" 'gate-integrity.py --snapshot' '### Step 1 — Implement the Slice' \
+  "gate integrity: the gate base is recorded before the slice is implemented"
+assert_precedes "$(flatten "$QG_SKILL")" '## Phase 0 — Gate Integrity' '## Phase 1 — Structural Quality' \
+  "gate integrity: Phase 0 runs before Phase 1"
+# The full procedure lives in the build reference the skill points to.
+GI_REF=.agents/skills/build/references/gate-integrity.md
+assert_contains "$GI_CLOSE" 'references/gate-integrity.md' "gate integrity: Slice Close points to the build reference"
+for token in 'gate-integrity.py --snapshot' 'never an earlier slice' 'the union of its Surfaces' \
+             'The finding lines it prints on any exit' '`/quality-gate` Phase 0 against' 'never as clean'; do
+  assert_file_contains "$GI_REF" "$token" "gate integrity: the build reference contains '$token'"
+done
+assert_contains "$BELOW_END" "Protected paths: tests/run.sh tests/affected.sh tests/lib.sh" \
+  "gate integrity: AGENTS.md declares this repository's runners below the end marker"
 
 finish

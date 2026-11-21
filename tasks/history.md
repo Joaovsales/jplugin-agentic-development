@@ -1185,6 +1185,41 @@ back vacuous and was repaired.
   - [process/a-derived-receipt-verdict-on-windows-needs-its-test-phase-run-under-linux.md](solutions/process/a-derived-receipt-verdict-on-windows-needs-its-test-phase-run-under-linux.md):
     the Docker recipe; a HOLD cannot cover a red test run.
 
+### [2026-11-18] — #443 eval variant-lift holdout
+- Key changes: `/eval` Mode B splits its prompts with `variant-holdout.py split` (refuses fewer than four distinct prompts; SHA-256 order, first `n // 2` held out) and promotes only on `variant-holdout.py verdict`'s `promote` — the candidate's holdout mean strictly beats both `unchanged` and `previous`. The report shows the split, both baselines on tuning and holdout, and an arm's cost as `unknown` when any of its runs reported none. Plugin version 1.8.20.
+- Quality gate: Phase 4 inline (no Agent tool in the worker session), test-engineer review lost. One SHOULD-FIX left for a human: prompts added after tuning shift the boundary; § Mode B now warns. Receipt GO.
+- PR #449 review (CHANGES-REQUIRED) fixed: the open SHOULD-FIX was a real bypass in both directions — prompts added after tuning, or the holdout prompts dropped, re-split the set and promoted a tuning-only win. `split --manifest` now pins the membership before tuning and `verdict <manifest> <scores>` validates it and refuses added or missing prompts (AC6). A fixture with unequal run counts pins per-prompt averaging (AC7); a flat-mean mutation had passed all 40 old assertions. The learning's claim that dropping prompts never leaks was wrong and is corrected.
+- Learnings captured: [split moves with the set](solutions/patterns/a-split-recomputed-from-the-scored-set-moves-when-the-set-changes.md).
+
+
+### [2026-11-19] — #443 externally retained manifest fingerprint
+- PR #449 re-review kept finding 1 open: a self-consistent replacement manifest still restored the tuning-only false promotion. `split` now prints a canonical SHA-256 fingerprint, and `verdict` requires the orchestrator's pre-tuning value via `--expect` before reading scores. Mode B records it in the report header outside the tuning agent's write surface and publishes the same value with results; an orchestrator rewriting its own recorded fingerprint is explicitly out of scope.
+- Regression proof: the reviewer’s regenerated, in-place replaced and unlink-and-regenerated cases now refuse against the original fingerprint, while original manifests verify; 72 assertions pass. Removing just the comparison fails seven assertions. The existing split-drift learning and generated spec plan are reconciled.
+### [2026-11-18] — blocked exit for an unbuildable slice (#440)
+- Key changes:
+  - `slice.py ready` prints `blocked: <n> <name>` for an open slice carrying `> Blocked:` and `waits: <n> <name> on blocked <m>` for every open slice whose `Blocked by` chain reaches it; neither is ever `ready:`.
+  - `build/references/harness-dispatch.md` § *Blocked exit* defines `[BLOCKED] <reason> | tried: <…> | needs: <…>`; `build/SKILL.md` puts it in the delegation prompt as an acceptable result, persists it as `> Blocked:`, stops the slice with no Step 3 attempt or ladder rung, marks its ACs `⛔` in Phase 4 and reports `Blocked slices:` under `Ambiguities:` in Phase 6.
+- Quality gate: receipt bd70deaf GO (policy qg1-314de3d6); Phases 1–4 inline, Phase 5 test-engineer review `lost` (no sub-agent dispatch in an Orca worker session).
+- Learnings: rule 3 appended to [conventions/write-skill-prose-so-the-static-guards-can-read-it.md](solutions/conventions/write-skill-prose-so-the-static-guards-can-read-it.md) — cite another skill's file by its full `.agents/skills/` path.
+
+### [2026-11-19] — blocked-exit review fixes (#440 / PR #455)
+- Key changes: later build phases validate closed slices when readiness is exhausted; blocked ACs are classified before e2e checks; implicit slices honor persisted blocked state; malformed blocked records refuse readiness with exit 2.
+- Test-first verification: the new regressions failed before implementation; focused tests passed 254 slice and 966 doc-contract assertions, affected tests passed all 50 files (5,849 assertions), and the full suite passed all 99 files (8,535 assertions).
+- Quality gate: GO 35d84a34, policy qg1-314de3d6; Phases 1–4 inline without confidence promotion, Phase 5 test-engineer dispatch recorded lost because this worker was instructed to work alone.
+- Learnings: [bugs/a-blocked-exit-must-reach-validation-through-every-plan-format.md](solutions/bugs/a-blocked-exit-must-reach-validation-through-every-plan-format.md).
+## 2026-11-18 — #439 gate integrity (improve lane, unattended)
+
+- Resumed after the previous worker hit its usage limit. Slices 1–3 had landed
+  (3c962ca..f538420); this session closed slice 3 and ran the gate and wrap-up.
+- `gate-integrity.py` compares each protected file with its base blob by
+  content hash. `/build` Slice Close runs it and stops on `GATE_TAMPERED`, and
+  `/quality-gate` runs it as Phase 0. `AGENTS.md` declares
+  `Protected paths: tests/run.sh tests/affected.sh tests/lib.sh`.
+- Quality gate: Phase 1 found and fixed a symlink false positive (TDD).
+  Receipt GO; two NITPICKs left unresolved. The test-engineer review was
+  `lost`: this worker had no sub-agent tool.
+- Learning: [bugs/git-hash-object-on-a-symlink-hashes-the-target-file-not-the-link.md](solutions/bugs/git-hash-object-on-a-symlink-hashes-the-target-file-not-the-link.md).
+- Plugin version 1.8.20.
 ### [2026-11-18] — #441 three outcomes at Slice Close (improve lane, unattended)
 
 - Resumed after the previous worker hit the usage limit with slice 1 committed

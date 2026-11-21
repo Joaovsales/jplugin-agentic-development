@@ -207,6 +207,60 @@ OUT="$("$PY" "$SLICE" ready --index "$FIXTURES/ready/todo-header-slice1-done.md"
 assert_contains "$OUT" "ready: 2 two" "header-plan: slice 2 is ready once its header is [x]"
 assert_not_contains "$OUT" "ready: 1 one" "header-plan: a done header is absent from the ready set"
 
+printf '\n--- ready: a blocked slice and the slices waiting on it (#440) ---\n'
+
+# specs/blocked-exit.md AC1/AC3: a `> Blocked:` line under a slice heading keeps
+# that slice and every slice whose `Blocked by` chain reaches it out of the
+# ready set, so `/build` never re-dispatches an impossible slice or its dependents.
+BLK="$FIXTURES/ready-blocked"
+OUT="$("$PY" "$SLICE" ready --index "$BLK/todo-slice1-blocked.md" --spec "$BLK/spec.md" 2>&1)"
+CODE=$?
+assert_eq "0" "$CODE" "blocked: a plan with a blocked slice exits 0"
+assert_contains "$OUT" "blocked: 1 one" "blocked: the slice carrying > Blocked: is named blocked"
+assert_not_contains "$OUT" "ready: 1 one" "blocked: the blocked slice is never ready"
+assert_contains "$OUT" "waits: 2 two on blocked 1" "blocked: a direct dependent waits on the blocked slice"
+assert_contains "$OUT" "waits: 3 three on blocked 1" "blocked: a transitive dependent waits on the blocked slice"
+assert_not_contains "$OUT" "ready: 2 two" "blocked: a direct dependent is never ready"
+assert_not_contains "$OUT" "ready: 3 three" "blocked: a transitive dependent is never ready"
+assert_contains "$OUT" "ready: 4 four" "blocked: a slice with no path to the blocked one stays ready"
+
+OUT="$("$PY" "$SLICE" ready --index "$BLK/todo-done-and-blocked.md" --spec "$BLK/spec.md" 2>&1)"
+assert_not_contains "$OUT" "blocked: 1 one" "blocked: a > Blocked: line under an [x] slice changes nothing"
+assert_contains "$OUT" "blocked: 2 two" "blocked: slice 2 is blocked once its own line says so"
+assert_contains "$OUT" "waits: 3 three on blocked 2" "blocked: slice 3 waits on the blocked slice its chain reaches"
+assert_contains "$OUT" "ready: 4 four" "blocked: the independent slice stays ready"
+
+OUT="$("$PY" "$SLICE" ready --index "$BLK/todo-two-blocked.md" --spec "$BLK/spec.md" 2>&1)"
+assert_contains "$OUT" "blocked: 1 one" "blocked: the first of two blocked slices is named"
+assert_contains "$OUT" "blocked: 2 two" "blocked: a blocked slice is named blocked, not waiting"
+assert_not_contains "$OUT" "waits: 2 two" "blocked: a blocked slice is not also printed as waiting"
+assert_contains "$OUT" "waits: 3 three on blocked 1" "blocked: a slice reaching two blocked slices names the lowest-numbered one"
+
+OUT="$("$PY" "$SLICE" ready --index "$BLK/todo-no-ready.md" --spec "$BLK/spec.md" 2>&1)"
+assert_eq "0" "$?" "blocked: no-ready partial build exits 0"
+assert_not_contains "$OUT" "ready:" "blocked: closed independent work leaves no ready slice"
+assert_contains "$OUT" "blocked: 1 one" "blocked: no-ready partial build preserves the blocked slice"
+assert_contains "$OUT" "waits: 3 three on blocked 1" "blocked: no-ready partial build preserves waiting slices"
+
+for malformed in bare empty-fields; do
+  OUT="$("$PY" "$SLICE" ready --index "$BLK/todo-$malformed.md" --spec "$BLK/spec.md" 2>&1)"
+  CODE=$?
+  assert_eq "2" "$CODE" "blocked: $malformed refuses malformed state"
+  assert_contains "$OUT" "invalid: 1 blocked line malformed" "blocked: $malformed identifies the malformed slice"
+  assert_not_contains "$OUT" "ready:" "blocked: $malformed refuses before dispatching any slice"
+done
+
+OUT="$("$PY" "$SLICE" ready --index "$BLK/todo-implicit-blocked.md" --spec "$FIXTURES/ready-implicit/spec.md" 2>&1)"
+assert_eq "0" "$?" "blocked: an implicit blocked slice exits 0"
+assert_contains "$OUT" "blocked: 1 legacy-feature" "blocked: an implicit slice retains blocked state"
+assert_not_contains "$OUT" "ready:" "blocked: an implicit blocked slice is never ready"
+# Removing the persisted marker, with the task still open, releases the slice.
+IMPLICIT_RELEASED="$(fixture_dir)"
+sed '/^> Blocked:/d' "$BLK/todo-implicit-blocked.md" > "$IMPLICIT_RELEASED/todo.md"
+OUT="$("$PY" "$SLICE" ready --index "$IMPLICIT_RELEASED/todo.md" --spec "$FIXTURES/ready-implicit/spec.md" 2>&1)"
+assert_eq "0" "$?" "blocked: removing an implicit marker exits 0"
+assert_contains "$OUT" "ready: 1 legacy-feature" "blocked: removing an implicit marker releases the slice"
+
 TWO="$FIXTURES/validate-two-links"
 for ok in todo-one-row todo-one-issue; do
   OUT="$("$PY" "$SLICE" validate --spec "$TWO/spec.md" --index "$TWO/$ok.md" 2>&1)"
