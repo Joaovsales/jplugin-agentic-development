@@ -1202,6 +1202,53 @@ build_lines="$(wc -l < "$BUILD_SKILL" | tr -d ' ')"
 assert_eq "yes" "$([ "$build_lines" -le 600 ] && echo yes || echo "no ($build_lines lines)")" \
   "build: SKILL.md is at most 600 lines"
 
+# specs/blocked-exit.md (#440): a Builder that cannot satisfy a slice stops with
+# one `[BLOCKED]` line; /build persists it as `> Blocked:`, never retries the
+# slice, and reports it in Phase 6 beside the ambiguities. The line format is
+# defined once, in harness-dispatch.md § Blocked exit.
+DISPATCH_REF=.agents/skills/build/references/harness-dispatch.md
+assert_file_contains "$DISPATCH_REF" "## Blocked exit" "blocked: harness-dispatch.md holds § Blocked exit"
+assert_file_contains "$DISPATCH_REF" "[BLOCKED] <reason> | tried: <what was attempted> | needs: <what would unblock it>" \
+  "blocked: harness-dispatch.md defines the [BLOCKED] line"
+assert_prose_contains "$DISPATCH_REF" "an acceptable result" "blocked: harness-dispatch.md calls BLOCKED an acceptable result"
+flat_build="$(flatten "$BUILD_SKILL")"
+assert_precedes "$flat_build" 'Delegation prompt must include' 'BLOCKED is an acceptable result' \
+  "blocked: the delegation prompt list carries the blocked exit"
+assert_precedes "$flat_build" 'BLOCKED is an acceptable result' 'Role-based context injection' \
+  "blocked: the blocked exit sits inside the delegation prompt list"
+for token in 'references/harness-dispatch.md` § *Blocked exit*' \
+             'starts with `[BLOCKED]`' '`> Blocked:`' \
+             'no Step 3 attempt, no rung of the escalation ladder' \
+             'leave the header `[ ]`' 'blocked: <n>' 'waits: <n>' \
+             'Blocked slices:'; do
+  assert_prose_contains "$BUILD_SKILL" "$token" "blocked: SKILL.md contains '$token'"
+done
+assert_eq "Blocked slices:" \
+  "$(grep -A1 -E '^Ambiguities:' "$BUILD_SKILL" | sed -n 2p | grep -oE '^Blocked slices:')" \
+  "blocked: the Phase 6 report puts Blocked slices: on the line after Ambiguities:"
+
+# A partial build with no ready slices must reach validation and the report
+# without claiming its blocked/waiting headers or ACs are complete.
+for phase in '## Phase 1.5 —' '## Phase 2 —'; do
+  phase_body="$(section_body "$BUILD_SKILL" "$phase" '^##')"
+  assert_contains "$phase_body" 'When the ready set is exhausted' \
+    "blocked: $phase enters when no slice is ready"
+  assert_contains "$phase_body" 'closed slices' \
+    "blocked: $phase validates only closed slices"
+  assert_not_contains "$phase_body" 'After every slice header is `[x]`' \
+    "blocked: $phase does not require blocked headers to close"
+done
+phase_exit="$(section_body "$BUILD_SKILL" '## Phase 1 —' '^## Phase 1.5')"
+assert_contains "$phase_exit" 'blocked and waiting slices stay `[ ]` and incomplete' \
+  'blocked: exhausting ready preserves incomplete headers'
+phase_validation="$(section_body "$BUILD_SKILL" '## Phase 4 —')"
+assert_precedes "$(printf '%s' "$phase_validation" | tr '\n' ' ')" \
+  'classify ACs owned by blocked or waiting slices as `⛔`' \
+  'invoke `/verify-evidence --scope e2e`' \
+  'blocked: Phase 4 classifies blocked ACs before e2e verification'
+assert_contains "$phase_validation" 'For each remaining `user-facing` AC in the closed slices' \
+  'blocked: Phase 4 verifies only completed user-facing work'
+
 # Slice Close and the forbidden state hold for both plan grammars: the header is
 # the row under each ### Slice heading, Slice Close fires on the dispatch's
 # return (new block) or the last TDD: row (legacy), unfinished work

@@ -26,11 +26,11 @@ the prose has to be shaped for them, not only for a human:
    it. An operator-local or downstream-only skill has to be named the other way
    round — `<name> under ~/.claude/skills` — which the token regex does not
    match.
-3. **Name another skill's reference by its full path.** The same guard's RefInt
-   check resolves a bare `references/<file>.md` against the naming skill's own
-   directory, then the repository root. `/receive-review` writing ``/build`'s
-   `references/run-ledger.md`` failed it (#442, 2026-11-19); the fix was
-   `.agents/skills/build/references/run-ledger.md`.
+3. **Name another skill's file by its full `.agents/skills/<skill>/...` path.**
+   The same guard resolves any other path token against the *citing* skill's
+   directory, then the repo root, so `slice/references/plan-block.md` written
+   inside `build/` fails as `not in .agents/skills/build/ nor at repo root`.
+   A skill's own `references/x.md` may stay short.
 
 ## Why
 
@@ -48,6 +48,13 @@ The `/tidy` build (2026-09-14) hit both in one session:
 Both guards are doing their job — the first keeps a documented contract from
 silently disappearing, the second keeps a path a skill names from pointing at
 nothing — so the accommodation belongs in the prose.
+
+The blocked-exit build (#440, 2026-11-18) hit rule 3 twice: `build/references/harness-dispatch.md`
+cited `slice/references/plan-block.md` and the reverse; both went red in the
+affected-test run and were fixed by writing the full `.agents/skills/` path.
+The run-ledger build (#442, 2026-11-19) hit it from the other side: `/receive-review`
+writing ``/build`'s `references/run-ledger.md`` failed the guard's RefInt check, and
+the fix was `.agents/skills/build/references/run-ledger.md`.
 
 ## Related
 

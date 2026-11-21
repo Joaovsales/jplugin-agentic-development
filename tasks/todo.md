@@ -3193,3 +3193,29 @@ Step ledger (routine `simplify`):
 - Pending: none of the three re-review findings remain open.
 - Carry-forward: reviews ran inline; phase 5's separate test-engineer review
   is recorded lost because this task explicitly prohibited helper agents.
+
+## Plan: blocked-exit
+> Spec: specs/blocked-exit.md
+> Issue: #440
+
+### Slice 1/2 — ready-skips-blocked
+- [x] ready-skips-blocked — `slice.py ready` names blocked slices and the slices waiting on them instead of listing them ready
+> Handover: landed 887e959..ffe6439 — `PlanBlock.blocked_slices(done)` reads `> Blocked:` per slice span (fences blanked, `[x]` ignored); `cmd_ready` prints `blocked: <n> <name>` and `waits: <n> <name> on blocked <m>` after the ready set and keeps both out of it
+> Do not re-derive: the span walk is the shared `PlanBlock._slice_lines` (stops at the next `##`), also used by `tdd_surface_problems`; a waiting slice names the lowest-numbered blocked slice its chain reaches
+> Surface: none
+
+### Slice 2/2 — build-blocked-exit
+- [x] build-blocked-exit — `/build`'s dispatch contract carries the `[BLOCKED]` exit, persists it, stops retrying and reports it in Phase 6
+> Handover: landed ffe6439..4ed289a — `harness-dispatch.md` § *Blocked exit* defines the line; `build/SKILL.md` carries it in the delegation list, persists it as `> Blocked:`, stops the slice, marks its ACs `⛔` in Phase 4 and reports `Blocked slices:` under `Ambiguities:` in Phase 6
+> Do not re-derive: `build/SKILL.md` is at 597 of its 600-line budget; the line format lives only in `harness-dispatch.md`
+> Surface: none
+
+## Session Summary — 2026-11-18 [887e959..9335e0e]
+- Completed: #440 blocked exit — `slice.py ready` names `blocked:` / `waits:` slices; `/build` carries the `[BLOCKED]` dispatch exit, persists `> Blocked:`, never retries the slice, reports `Blocked slices:` in Phase 6.
+- Pending: none.
+- Carry-forward: Helix's blocked state is out of scope (spec Decision 5) — a later Helix reader consumes the `> Blocked:` line.
+
+## Session Summary — [2026-11-19] [805dc2c..0c394e9]
+- Completed: PR #455 review fixes for #440 — partial-build validation, blocked AC classification before e2e, implicit blocked-state persistence and malformed-marker refusal, with failing-first regressions; all 99 full-suite files passed.
+- Pending: none from the three review findings.
+- Carry-forward: no live agent-driven blocked build was run; phase flow is checked as a prose contract. Existing cycle validation, historical fingerprint warnings and unrelated AirLLM debt are unchanged.
