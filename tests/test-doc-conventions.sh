@@ -1254,6 +1254,21 @@ for token in 'run_ledger.py record --branch' '--slice "<n> attempts=<k> <Outcome
              'a final human decision is never overwritten' 'never 0' 'run_ledger.py stats'; do
   assert_file_contains .agents/skills/build/references/run-ledger.md "$token" "run ledger: the reference contains '$token'"
 done
+# --- candidates: an opted-in slice runs N Builders (specs/parallel-candidates.md AC5) ---
+# /build names the opt-in line and the open -> dispatch -> rank flow with
+# discard on a stop; the references document the commands and the ledger field.
+for token in '`> Candidates: <N>`' 'candidates.py' '`open`' '`rank`' '`discard`' \
+             '.agents/skills/build/references/candidates.md'; do
+  assert_prose_contains "$BUILD_SKILL" "$token" "candidates: /build contains '$token'"
+done
+for token in 'candidates.py open --slice <n> --count <N>' 'candidates.py rank --spec' \
+             'candidates.py discard --slice <n>' '--agent c<k>=' 'eligible' 'candidate number' \
+             'candidates: applied c<k>' 'removed' 'references/run-ledger.md'; do
+  assert_file_contains .agents/skills/build/references/candidates.md "$token" "candidates: the reference contains '$token'"
+done
+for token in '`candidates`' 'candidates.py rank'; do
+  assert_file_contains .agents/skills/build/references/run-ledger.md "$token" "candidates: the run-ledger reference contains '$token'"
+done
 assert_prose_contains .agents/skills/wrap-up-session/references/closure-actions.md \
   '`> Do not re-derive:`, `> Outcome:`, `> Surface:`' \
   "three outcomes: the PR body's Handovers section carries > Outcome:"

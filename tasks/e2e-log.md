@@ -1795,6 +1795,21 @@ Driver: the actual `run_ledger.py` CLI against a scratch ledger directory, follo
 
 Not checked: a live `/build` or `/receive-review` session invoking these calls. The wiring is pinned by `tests/test-doc-conventions.sh` § run ledger.
 
+## CLI walkthrough — #445 parallel candidates — 2026-11-19 — ade76ae
+
+Spec: specs/parallel-candidates.md (AC1–AC5).
+Driver: the actual `candidates.py` CLI in a scratch repository whose spec has one implicit slice (Surface `src/**`), following `.agents/skills/build/references/candidates.md`.
+
+- `open --slice 1 --count 3` printed `candidates: c1|c2|c3 <scratch>/demo-slice-1-c<k>`. Three detached worktrees were created.
+- Builders' work: c1 wrote one line, c2 two lines, c3 wrote `bad`. `rank … --agent c1=true --agent c2=true --agent c3=true -- sh -c '! grep -q bad src/m.txt'` printed:
+  - `c1 rank=1 selected eligible checks=2/2 diff_lines=2 … SUCCEEDED — selected: ahead of c2 on diff_lines (2 vs 3)`
+  - `c2 rank=2 discarded … — behind c1 on diff_lines (3 vs 2)`
+  - `c3 rank=3 discarded ineligible checks=1/2 … VERIFICATION_FAILED — ineligible: VERIFICATION_FAILED`
+  - `candidates: applied c1`, exit 0.
+- After `rank`, the main tree held c1's content, `git worktree list` showed only the main tree, and the run record held `candidates.1` with c1 selected and c2 and c3 discarded.
+- `open --slice 2 --count 2` then `discard --slice 2` printed `candidates: removed c1|c2 …`, and only the main worktree remained.
+
+Not checked: a live `/build` session dispatching real Builders into the worktrees. The wiring is pinned by `tests/test-doc-conventions.sh` § candidates.
 ## CLI walkthrough — PR #456 ledger review fixes — 2026-11-19 — 8b6b806
 
 Spec: specs/run-ledger.md (AC2, AC3, AC5; persisted-record invariants).
