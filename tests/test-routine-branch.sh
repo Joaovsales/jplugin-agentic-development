@@ -188,7 +188,7 @@ class ProducerTests(unittest.TestCase):
     """
 
     def test_both_producers_are_contract_routines(self):
-        for name in ("janitor", "architect", "tidy"):
+        for name in ("janitor", "architect", "tidy", "workflow"):
             with self.subTest(routine=name):
                 self.assertIn(name, CONTRACT_ROUTINES)
 

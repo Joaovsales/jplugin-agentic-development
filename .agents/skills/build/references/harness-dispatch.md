@@ -1,7 +1,25 @@
 # Harness dispatch notes for /build
 
-Per-harness dispatch rules (Codex, Pi, Pi + OpenRouter) moved from `SKILL.md`, plus the Pi debugger-escalation rule.
-Claude Code dispatch and the Ceiling-tier rule stay in `SKILL.md`.
+Per-harness dispatch rules (Codex, Pi, Pi + OpenRouter) moved from `SKILL.md`, plus the Pi debugger-escalation rule
+and the harness-neutral § *Blocked exit*. Claude Code dispatch and the Ceiling-tier rule stay in `SKILL.md`.
+
+## Blocked exit
+
+Every dispatch that serves a slice — the coder and each `code-debugger`
+attempt — carries this exit in its prompt, on every harness. When the slice
+cannot be done as specified (a contradictory acceptance criterion, a missing
+dependency or credential, a surface that cannot hold the change), the agent
+stops and returns one line; BLOCKED is an acceptable result:
+
+```
+[BLOCKED] <reason> | tried: <what was attempted> | needs: <what would unblock it>
+```
+
+It replaces the moves that fake a green slice: deleting or weakening a test,
+mocking the thing under test, or editing outside the Surface. `/build` records
+the line as `> Blocked:` under the slice heading and dispatches nothing more for
+that slice; `slice.py ready` then names it `blocked:` and its dependents
+`waits:` (`.agents/skills/slice/references/plan-block.md`).
 
 ## Codex: debugger escalation (Model Routing)
 
