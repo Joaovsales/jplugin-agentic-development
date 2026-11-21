@@ -1195,3 +1195,94 @@ back vacuous and was repaired.
 ### [2026-11-19] — #443 externally retained manifest fingerprint
 - PR #449 re-review kept finding 1 open: a self-consistent replacement manifest still restored the tuning-only false promotion. `split` now prints a canonical SHA-256 fingerprint, and `verdict` requires the orchestrator's pre-tuning value via `--expect` before reading scores. Mode B records it in the report header outside the tuning agent's write surface and publishes the same value with results; an orchestrator rewriting its own recorded fingerprint is explicitly out of scope.
 - Regression proof: the reviewer’s regenerated, in-place replaced and unlink-and-regenerated cases now refuse against the original fingerprint, while original manifests verify; 72 assertions pass. Removing just the comparison fails seven assertions. The existing split-drift learning and generated spec plan are reconciled.
+### [2026-11-18] — blocked exit for an unbuildable slice (#440)
+- Key changes:
+  - `slice.py ready` prints `blocked: <n> <name>` for an open slice carrying `> Blocked:` and `waits: <n> <name> on blocked <m>` for every open slice whose `Blocked by` chain reaches it; neither is ever `ready:`.
+  - `build/references/harness-dispatch.md` § *Blocked exit* defines `[BLOCKED] <reason> | tried: <…> | needs: <…>`; `build/SKILL.md` puts it in the delegation prompt as an acceptable result, persists it as `> Blocked:`, stops the slice with no Step 3 attempt or ladder rung, marks its ACs `⛔` in Phase 4 and reports `Blocked slices:` under `Ambiguities:` in Phase 6.
+- Quality gate: receipt bd70deaf GO (policy qg1-314de3d6); Phases 1–4 inline, Phase 5 test-engineer review `lost` (no sub-agent dispatch in an Orca worker session).
+- Learnings: rule 3 appended to [conventions/write-skill-prose-so-the-static-guards-can-read-it.md](solutions/conventions/write-skill-prose-so-the-static-guards-can-read-it.md) — cite another skill's file by its full `.agents/skills/` path.
+
+### [2026-11-19] — blocked-exit review fixes (#440 / PR #455)
+- Key changes: later build phases validate closed slices when readiness is exhausted; blocked ACs are classified before e2e checks; implicit slices honor persisted blocked state; malformed blocked records refuse readiness with exit 2.
+- Test-first verification: the new regressions failed before implementation; focused tests passed 254 slice and 966 doc-contract assertions, affected tests passed all 50 files (5,849 assertions), and the full suite passed all 99 files (8,535 assertions).
+- Quality gate: GO 35d84a34, policy qg1-314de3d6; Phases 1–4 inline without confidence promotion, Phase 5 test-engineer dispatch recorded lost because this worker was instructed to work alone.
+- Learnings: [bugs/a-blocked-exit-must-reach-validation-through-every-plan-format.md](solutions/bugs/a-blocked-exit-must-reach-validation-through-every-plan-format.md).
+## 2026-11-18 — #439 gate integrity (improve lane, unattended)
+
+- Resumed after the previous worker hit its usage limit. Slices 1–3 had landed
+  (3c962ca..f538420); this session closed slice 3 and ran the gate and wrap-up.
+- `gate-integrity.py` compares each protected file with its base blob by
+  content hash. `/build` Slice Close runs it and stops on `GATE_TAMPERED`, and
+  `/quality-gate` runs it as Phase 0. `AGENTS.md` declares
+  `Protected paths: tests/run.sh tests/affected.sh tests/lib.sh`.
+- Quality gate: Phase 1 found and fixed a symlink false positive (TDD).
+  Receipt GO; two NITPICKs left unresolved. The test-engineer review was
+  `lost`: this worker had no sub-agent tool.
+- Learning: [bugs/git-hash-object-on-a-symlink-hashes-the-target-file-not-the-link.md](solutions/bugs/git-hash-object-on-a-symlink-hashes-the-target-file-not-the-link.md).
+- Plugin version 1.8.20.
+### [2026-11-18] — #441 three outcomes at Slice Close (improve lane, unattended)
+
+- Resumed after the previous worker hit the usage limit with slice 1 committed
+  (`8eab3ec`) but not closed. Re-ran its tests (983 assertions green), closed it
+  with a handover and `> Outcome:`, then built slice 2.
+- Slice 1: `.agents/skills/build/scripts/slice_outcome.py` runs the
+  orchestrator's own affected-test command and derives `agent_result`,
+  `verification_result` and `slice_result` (True/False/Unknown). Only
+  `SUCCEEDED` (exit 0) closes a slice.
+- Slice 2: `receipt.py write` refuses a `lost` reviewer without a reason;
+  `write` and `check` print `receipt: not checked phase <n> <lens> — <reason>`.
+  `/verify-evidence` and `/quality-gate` state the `not checked` rule.
+- Quality gate: Phase 1 found that the bare `cached-suite:` prefix read an
+  uncached run's exit 3 as a refusal. Fixed by matching the lock line; the
+  version guard required the 1.8.20 bump. Phase 4 was inline, and Phase 5.1 was
+  recorded `lost` (the worker brief forbids sub-agents).
+- Learning: [tooling/a-cached-suite-refusal-is-its-lock-line-not-any-cached-suite-prefix.md](solutions/tooling/a-cached-suite-refusal-is-its-lock-line-not-any-cached-suite-prefix.md).
+
+### [2026-11-19] — Outcome boundary repair
+- Key changes: PR #448's final summary follows the diagnostic, and an explicit newline follows both replayed streams; regressions cover multiline argv and merged partial text/binary stderr.
+- Learnings captured: [outcome output producers](solutions/bugs/print-authoritative-outcomes-after-every-output-producer.md).
+
+### [2026-11-19] — #442 run ledger (improve lane, unattended, resumed)
+
+- Resumed after the previous worker hit the usage limit with both slices committed
+  (`49f0a1f`, `7034240`) but slice 2 not closed.
+- Slice 1: `.agents/skills/build/scripts/run_ledger.py` writes one
+  `tasks/runs/<run-id>.json` per run (`record`, `decide`, `last`, `stats`) and
+  derives first-pass rate, attempts and cost/tokens per merged PR from the files.
+- Slice 2: `/build` Phase 6 step 5, `/receive-review` § *Record the rework run*,
+  and `.agents/skills/build/references/run-ledger.md`. Its affected run found a
+  RefInt failure: `/receive-review` named `references/run-ledger.md` bare. Fixed
+  with the full path.
+- Merged PR #448's review fixes twice (875778f, cf87923); no field or label
+  `run_ledger.py` reads changed.
+- Quality gate (inline, test-engineer `lost`): `run_ledger.py` ignores and cleans
+  a crashed write's dot-temp file. Bumped the plugin to 1.8.21.
+- Learnings: [bugs/a-pathlib-glob-reads-a-crashed-writes-dot-temp-as-a-record.md](solutions/bugs/a-pathlib-glob-reads-a-crashed-writes-dot-temp-as-a-record.md),
+  rule 3 of [conventions/write-skill-prose-so-the-static-guards-can-read-it.md](solutions/conventions/write-skill-prose-so-the-static-guards-can-read-it.md).
+
+### [2026-11-19] — #445 parallel candidates (improve lane, unattended)
+
+- Plan: `specs/parallel-candidates.md` via `/plan` (D7: not `/system-design-planning` —
+  one script plus one additive field in the `run-ledger/1` record); two slices.
+- Slice 1: `.agents/skills/build/scripts/candidates.py` (`open`, `rank`, `discard`)
+  and `run_ledger.add_candidates`; `tests/test-candidates.sh`. Built inline: this
+  worker has no sub-agent tool.
+- Slice 2: `/build` Phase 1 names `> Candidates: <N>`; `references/candidates.md`
+  and `references/run-ledger.md` § *Candidates*; `tests/test-doc-conventions.sh`
+  § candidates. `build/SKILL.md` reflowed to stay at 600 lines.
+- Quality gate (inline, test-engineer `lost`): `rank` validates `--run-id` and
+  `--base`, resolves the Surface before its cleanup `try`, applies before it
+  records. Delta receipt on #442's.
+- Learnings: [patterns/validate-inputs-before-a-finally-that-destroys-work.md](solutions/patterns/validate-inputs-before-a-finally-that-destroys-work.md).
+### [2026-11-19] — Run ledger review fixes
+- Key changes: serialized both ledger writers with a per-run OS lock, validated stored decisions and telemetry, and made the receive-review caller stop on ledger errors while preserving the exact no-run diagnostic and exit codes.
+- Verification: deterministic process races, crash recovery, timeout, malformed payloads and executable caller blocks are covered by `tests/run-ledger-regressions.py` through `tests/test-run-ledger.sh`.
+- Learnings captured: [atomic replace does not serialize ledger writers](solutions/bugs/atomic-replace-does-not-serialize-ledger-writers.md).
+- Closure verification: resumed worker reran focused (54 assertions), affected (58 files / 5807 assertions) and full (101 files / 8641 assertions) suites; all passed with 0 failures, receipt `4a792b03` GO.
+
+### [2026-11-19] — #445 PR #458 review fixes
+
+- Merged #456's run-ledger fixes (e468d95); `add_candidates` now runs under `run_lock` and `load_record`, and `candidates.py` uses the public `run_id_arg`/`sha_arg`.
+- Review fixes, test-first (14 assertions red before the fix, then green; each fix confirmed by a mutation probe): the outcome wrapper's exit status gates eligibility; `open` is all-or-nothing under cancellation; git-only removal keeps a locked worktree and exits 1; concurrent ledger writers are pinned.
+- A blocked signal mask is inherited across fork/exec: `_bootstrap` blocks TERM/HUP/INT only around `Popen` and unblocks them in the child (`preexec_fn`), or `killpg` would wait out the 10 s SIGKILL fallback.
+- Re-review N1/N2: a signal held across `Popen` is delivered at the unmask, so the settling `try` must already be open; and waiting for a process-group leader proves nothing about its descendants — TERM the group, bounded grace, then KILL the group before removing the directory they could write into.

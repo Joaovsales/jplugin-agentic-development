@@ -177,10 +177,44 @@ assert_file_contains "$STORE2/$FP2.json" "\"lens\": \"test-engineer\"" "write: t
 assert_file_contains ".agents/skills/quality-gate/scripts/receipt.py" "agents\", \"test-engineer.md\""   "write: POLICY_FILES includes the test-engineer persona"
 
 # --- a required but undispatchable review is recorded as lost, and still validated
-sed 's/"dispatch": "dispatched"}$/"dispatch": "lost"}/' "$BOX/outcome-phase5.json" > "$BOX/outcome-lost.json"
+# (specs/slice-three-outcomes.md AC3: a skip carries a reason, and "not checked"
+# is printed, never read as clean)
+sed 's/"dispatch": "dispatched"}$/"dispatch": "lost"}/' "$BOX/outcome-phase5.json" > "$BOX/outcome-lost-noreason.json"
+run receipt_in "$REPO2" write --outcome "$BOX/outcome-lost-noreason.json"
+assert_exit 2 "write: a lost reviewer entry with no reason is refused"
+assert_contains "$output" "reviewers[4].reason: required when dispatch is lost" "write: the no-reason refusal names the field"
+sed 's/"dispatch": "dispatched"}$/"dispatch": "lost", "reason": "   "}/' "$BOX/outcome-phase5.json" > "$BOX/outcome-lost-blank.json"
+run receipt_in "$REPO2" write --outcome "$BOX/outcome-lost-blank.json"
+assert_exit 2 "write: a lost reviewer entry with a blank reason is refused"
+sed 's/"dispatch": "dispatched"}$/"dispatch": "lost", "reason": "no Agent tool in this harness"}/' "$BOX/outcome-phase5.json" > "$BOX/outcome-lost.json"
 run receipt_in "$REPO2" write --outcome "$BOX/outcome-lost.json"
-assert_exit 0 "write: a reviewer entry with dispatch lost is accepted"
+assert_exit 0 "write: a reviewer entry with dispatch lost and a reason is accepted"
 assert_file_contains "$STORE2/$FP2.json" "\"dispatch\": \"lost\"" "write: the lost dispatch is carried in the receipt"
+assert_file_contains "$STORE2/$FP2.json" "\"reason\": \"no Agent tool in this harness\"" "write: the lost reason is carried in the receipt"
+assert_contains "$output" "receipt: not checked phase 5 test-engineer — no Agent tool in this harness" \
+  "write: a lost review prints a not-checked line with its reason"
+run receipt_in "$REPO2" check --base main
+assert_exit 0 "check: a GO receipt with a lost review is still valid (lost is disclosed, not weighed)"
+assert_contains "$output" "receipt: not checked phase 5 test-engineer — no Agent tool in this harness" \
+  "check: a lost review prints a not-checked line with its reason"
+run receipt_in "$REPO2" write --outcome "$BOX/outcome-phase5.json"
+assert_not_contains "$output" "not checked" "write: a fully dispatched outcome prints no not-checked line"
+run receipt_in "$REPO2" check --base main
+assert_not_contains "$output" "not checked" "check: a fully dispatched receipt prints no not-checked line"
+# A receipt stored before reasons were required still verifies, and says so.
+"$PY" - "$STORE2/$FP2.json" <<'PYEOF'
+import json, sys
+path = sys.argv[1]
+receipt = json.load(open(path))
+for reviewer in receipt["reviewers"]:
+    if reviewer["phase"] == 5:
+        reviewer["dispatch"] = "lost"
+json.dump(receipt, open(path, "w"))
+PYEOF
+run receipt_in "$REPO2" check --base main
+assert_exit 0 "check: an old receipt whose lost entry has no reason is not refused"
+assert_contains "$output" "receipt: not checked phase 5 test-engineer — no reason recorded" \
+  "check: an old lost entry with no reason reads 'no reason recorded'"
 sed '/"phase": 4/ s/"dispatch": "[a-z]*"/"dispatch": "lost"/' "$BOX/outcome-phase5.json" > "$BOX/outcome-lost-phase4.json"
 run receipt_in "$REPO2" write --outcome "$BOX/outcome-lost-phase4.json"
 assert_exit 2 "write: dispatch lost on a phase 1-4 entry is refused"
@@ -277,6 +311,32 @@ TREE2B3="$(fp_field 2 "$(receipt_in "$REPO2B" fingerprint --base main)")"
 make_outcome "$BOX/outcome-delta-carry2.json" "$TREE2B3" no 2 GO 0 '["feature.txt"]' ""
 OUT="$(receipt_in "$REPO2B" write --outcome "$BOX/outcome-delta-carry2.json" --parent "$FP2B2")"
 assert_contains "$OUT" "verdict HOLD" "write: SHOULD-FIX carried through a GO link back to the approved HOLD force HOLD"
+
+# --- a lost review in the parent chain stays disclosed on a delta receipt ----
+# (specs/slice-three-outcomes.md AC3) The delta reviews only its own paths, so
+# the parent's unchecked review still covers the rest of the diff.
+with_phase5() { # with_phase5 <in> <out> <dispatch-json-fields>
+  awk -v f="$3" '{ if ($0 ~ /"phase": 4/) { print $0 ","; print "    {\"phase\": 5, \"lens\": \"test-engineer\", " f "}" } else print $0 }' "$1" > "$2"
+}
+REPO2C="$(feature_repo)"
+FP_OUT_C="$(receipt_in "$REPO2C" fingerprint --base main)"
+FP2C="$(fp_field 3 "$FP_OUT_C")"
+make_outcome "$BOX/outcome-lostparent-base.json" "$(fp_field 2 "$FP_OUT_C")" no 0 GO 0 '"full"' ""
+with_phase5 "$BOX/outcome-lostparent-base.json" "$BOX/outcome-lostparent.json" '"dispatch": "lost", "reason": "tool unavailable for original scope"'
+receipt_in "$REPO2C" write --outcome "$BOX/outcome-lostparent.json" >/dev/null
+printf 'delta b\n' > "$REPO2C/b.txt"
+git -C "$REPO2C" add -A
+git -C "$REPO2C" -c commit.gpgsign=false commit -q -m "delta b"
+make_outcome "$BOX/outcome-cleandelta-base.json" "$(fp_field 2 "$(receipt_in "$REPO2C" fingerprint --base main)")" no 0 GO 0 '["b.txt"]' ""
+with_phase5 "$BOX/outcome-cleandelta-base.json" "$BOX/outcome-cleandelta.json" '"dispatch": "dispatched"'
+run receipt_in "$REPO2C" write --outcome "$BOX/outcome-cleandelta.json" --parent "$FP2C"
+assert_exit 0 "write: a fully dispatched delta over a parent with a lost review is accepted"
+assert_contains "$output" "receipt: not checked phase 5 test-engineer — tool unavailable for original scope (inherited from ${FP2C:0:8})" \
+  "write: a delta discloses the lost review it inherits from its parent"
+run receipt_in "$REPO2C" check --base main
+assert_exit 0 "check: the delta over a lost-review parent is still valid (disclosed, not weighed)"
+assert_contains "$output" "receipt: not checked phase 5 test-engineer — tool unavailable for original scope (inherited from ${FP2C:0:8})" \
+  "check: a delta discloses the lost review it inherits from its parent"
 
 # ===========================================================================
 printf '\n--- check and approve ---\n'

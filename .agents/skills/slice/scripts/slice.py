@@ -65,6 +65,11 @@ H2_RE = re.compile(r"^##\s")
 # A plan block's feature link: the `> Issue:` line, or the one `- [ ]` row above the first slice heading.
 ISSUE_LINE_RE = re.compile(r"^>\s*Issue:\s*\S")
 FEATURE_ROW_RE = re.compile(r"^\s*-\s*\[.\]\s")
+# A slice `/build` stopped on a Builder's `[BLOCKED]` line (specs/blocked-exit.md).
+BLOCKED_LINE_RE = re.compile(r"^\s*>\s*Blocked:")
+BLOCKED_FIELDS_RE = re.compile(
+    r"^\s*>\s*Blocked:\s*(?P<reason>.*?)\s*\|\s*tried:\s*(?P<tried>.*?)\s*\|\s*needs:\s*(?P<needs>.*?)\s*$"
+)
 
 
 class SliceError(Exception):
@@ -436,18 +441,13 @@ class PlanBlock:
         The agent a slice dispatches may edit only that surface, so a row naming a
         test outside it is a slice that cannot write its own test. Found live on
         specs/design-stack-hyperframes.md slice 4, whose surface named only skill
-        text while its row targeted `tests/test-design-stack-video.sh`. The last
-        heading's span ends at the next `##` heading: the block runs on to the
-        next `## Plan:`, and the session summaries between carry rows of their own.
+        text while its row targeted `tests/test-design-stack-video.sh`.
         """
         problems = []
         for heading_line, number, _name, boundary in _heading_spans(self.headings, self.end_line):
             if number not in slices:
                 continue
-            for line_number in range(heading_line + 1, boundary + 1):
-                line = self.prose[line_number - 1]
-                if H2_RE.match(line):
-                    break
+            for line in self._slice_lines(heading_line, boundary):
                 match = OPEN_TDD_ROW_RE.match(line)
                 if match and not any(match_path(pattern, match.group("path")) for pattern in slices[number].surface):
                     problems.append(
@@ -455,6 +455,47 @@ class PlanBlock:
                         "which no surface pattern matches"
                     )
         return problems
+
+    def blocked_slices(self, done: Dict[int, bool]) -> List[int]:
+        """Open slices whose span holds a `> Blocked:` line, in heading order.
+
+        A done slice is neither ready nor blocked, so a stale line under an
+        `[x]` header changes nothing; a fenced example is blanked in `prose`.
+        """
+        return [
+            number
+            for heading_line, number, _name, boundary in _heading_spans(self.headings, self.end_line)
+            if not done.get(number, False)
+            and self.has_blocked_line(number, heading_line, boundary)
+        ]
+
+    def has_blocked_line(self, number: int, start: int, boundary: int) -> bool:
+        """Read blocked state, refusing incomplete records before any ready output."""
+        blocked = False
+        for line in self._slice_lines(start, boundary):
+            if not BLOCKED_LINE_RE.match(line):
+                continue
+            fields = BLOCKED_FIELDS_RE.fullmatch(line)
+            if fields is None or not all(value.strip() for value in fields.groupdict().values()):
+                raise SliceError(
+                    f"{self.index_path}: invalid: {number} blocked line malformed; "
+                    "expected > Blocked: <reason> | tried: <attempt> | needs: <requirement> (all nonempty)"
+                )
+            blocked = True
+        return blocked
+
+    def _slice_lines(self, heading_line: int, boundary: int) -> List[str]:
+        """The prose lines a slice heading owns, stopping at the next `##` heading.
+
+        The last heading's span ends at the next `##` heading: the block runs on
+        to the next `## Plan:`, and the session summaries between carry rows of their own.
+        """
+        lines = []
+        for line in self.prose[heading_line:boundary]:
+            if H2_RE.match(line):
+                break
+            lines.append(line)
+        return lines
 
     def _feature_link_lines(self) -> List[int]:
         """1-based lines of the feature links: `> Issue:` lines and feature rows above the first `### Slice`.
@@ -679,15 +720,35 @@ def _refuse_plan_drift(
         )
 
 
-def _ready_numbers(slices: Dict[int, SliceRow], done: Dict[int, bool]) -> List[int]:
-    """Open slices whose every blocker is done, in table order."""
+def _ready_numbers(slices: Dict[int, SliceRow], done: Dict[int, bool], stopped: Sequence[int]) -> List[int]:
+    """Open slices whose every blocker is done, in table order, minus the blocked and waiting ones in `stopped`."""
     return [
         number
         for number in sorted(slices)
         if number in done
         and not done[number]
+        and number not in stopped
         and all(done.get(dep, False) for dep in slices[number].blocked_by)
     ]
+
+
+def _waiting_on_blocked(slices: Dict[int, SliceRow], done: Dict[int, bool], blocked: Sequence[int]) -> Dict[int, int]:
+    """Each open, unblocked slice whose `Blocked by` chain reaches a blocked slice, mapped to the lowest-numbered one."""
+    waits = {}
+    for number in sorted(slices):
+        if done.get(number, False) or number in blocked:
+            continue
+        reached = _reachable(slices, number).intersection(blocked)
+        if reached:
+            waits[number] = min(reached)
+    return waits
+
+
+def _print_blocked(slices: Dict[int, SliceRow], blocked: Sequence[int], waits: Dict[int, int]) -> None:
+    for number in blocked:
+        print(f"blocked: {number} {slices[number].name}")
+    for number, on in waits.items():
+        print(f"waits: {number} {slices[number].name} on blocked {on}")
 
 
 def _print_ready_set(slices: Dict[int, SliceRow], ready_numbers: Sequence[int]) -> None:
@@ -706,7 +767,10 @@ def _implicit_slice_ready(args: argparse.Namespace, block: PlanBlock) -> int:
     """
     if not block.has_open_row():
         return 0
-    _print_ready(1, block.name, read_implementation_paths(args.spec))
+    if block.has_blocked_line(1, block.start_line, block.end_line):
+        print(f"blocked: 1 {block.name}")
+    else:
+        _print_ready(1, block.name, read_implementation_paths(args.spec))
     return 0
 
 
@@ -722,10 +786,13 @@ def cmd_ready(args: argparse.Namespace) -> int:
         problems = block.tdd_surface_problems(slices)
         if problems:
             raise SliceError("; ".join(problems))
+        blocked = block.blocked_slices(done)
     except (SpecPathError, SliceError, IndexUnreadable, OSError) as exc:
         print(f"slice: {exc}", file=sys.stderr)
         return 2
-    _print_ready_set(slices, _ready_numbers(slices, done))
+    waits = _waiting_on_blocked(slices, done, blocked)
+    _print_ready_set(slices, _ready_numbers(slices, done, [*blocked, *waits]))
+    _print_blocked(slices, blocked, waits)
     return 0
 
 
