@@ -3143,4 +3143,10 @@ Routine `workflow` — step ledger (first manual run):
 - [x] 1. `task-registry doctor` — provider `github`, reachable, write approval required (`TASK_REGISTRY_TRUSTED_CONFIG` unset) → findings would land local, publication pending
 - [x] 2. branch `routine/workflow/20261121-sweep` created (new today)
 - [x] 3. `/sweep --routine workflow` — `workflow-incidence.py scan` exit 0: 11 examined, 299 unexamined (token-budget), 3 candidates, 0 at the bar; record `tasks/sweeps/2026-11-21-workflow.md`; `advance` exit 0 after the record; Filed: none
-- [ ] 4. `/wrap-up-session` — ready docs-only PR
+- [x] 4. `/wrap-up-session` — receipt GO (docs-only; phase 5 test-engineer `lost`: no sub-agents), affected 28/28 and full suite 103/103 green, ready docs-only PR (not merged); skip: `/learn` and `/memory-maintain` — first manual test run, findings go to human review, not the learning store
+
+## Session Summary — 2026-11-21 [b80419d..47a980e]
+
+- Completed: first manual `workflow` producer run at `b80419d` — scan exit 0, 11 sessions examined, 299 unexamined (token-budget), 3 candidate patterns, 0 at the bar, Filed: none; cursor advanced after the record.
+- Pending: human review of the run's finding quality before the routine publishes or is scheduled.
+- Carry-forward: engine notes in `tasks/sweeps/2026-11-21-workflow.md` § Run notes (budget spent on one session, non-transcript `.jsonl` counted, observer sessions crowd the bound, `specs/claude-mem-retention.md` absent on master).
