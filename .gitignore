@@ -21,6 +21,9 @@ graphify-out/
 __pycache__/
 *.pyc
 
+# Run-ledger OS locks stay local; only the JSON records are committed.
+tasks/runs/*.lock
+
 # Serena MCP server workspace cache
 .serena/
 tasks/tmp/

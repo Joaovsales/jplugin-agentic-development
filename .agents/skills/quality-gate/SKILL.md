@@ -306,9 +306,11 @@ Its findings are report-only: it never edits the tree, and Phase
 HOLD under the receipt's rule; a MUST-FIX makes the receipt STOP. Record a phase 5
 reviewer entry (`lens: test-engineer`, `dispatch: dispatched`) — always written, dispatched
 or lost; `receipt.py` refuses `lost` on any other entry. When no dispatch is
-possible, record `{"phase": 5, "lens": "test-engineer", "dispatch": "lost"}` and name
-the lost review in `Not checked:` — a lost review and a clean one never leave the same
-receipt. `lost` is disclosed, not weighed: it does not change the derived verdict.
+possible, record `{"phase": 5, "lens": "test-engineer", "dispatch": "lost", "reason": "<why>"}`
+and name the lost review in `Not checked:` — a lost review and a clean one never leave the same
+receipt. `receipt.py write` refuses `lost` without a `reason`, and `write` and `check` print
+`receipt: not checked phase 5 test-engineer — <reason>` for it — and, on a delta receipt, for each
+ancestor's lost review, ending `(inherited from <fp8>)`. `lost` is disclosed, not weighed: it does not change the derived verdict.
 
 ## Phase 6 — Receipt
 
@@ -325,7 +327,7 @@ python3 .agents/skills/quality-gate/scripts/receipt.py write --outcome "$outcome
 
 | Outcome field | Value |
 |---------------|-------|
-| `reviewers` | one `{phase, lens, dispatch, verdict?}` per Phase 1–4, `dispatch` as *Dispatch Disclosure* recorded it, plus the phase 5 `test-engineer` entry — `dispatched`, or `lost` when the review could not be dispatched (disclosed, verdict unchanged) |
+| `reviewers` | one `{phase, lens, dispatch, verdict?}` per Phase 1–4, `dispatch` as *Dispatch Disclosure* recorded it, plus the phase 5 `test-engineer` entry — `dispatched`, or `lost` with a non-empty `reason` when the review could not be dispatched (disclosed, verdict unchanged) |
 | `unresolved` | every finding in `Reported, not applied`, four-axis, with `location` (`file:line`) and `summary` |
 | `design_verdict` | Phase 4's GO / HOLD / STOP |
 | `tests` | Phase 5's record |
@@ -391,7 +393,8 @@ Not checked: [what mattered but could not be read or run | none]
 ```
 
 The human layer — the opener, the numbering, `Lean:` and `Not checked:` — is
-presentation only. `Lean:` sums the lines that the Phase 1.4 and Phase 2 findings
+presentation only. Each `Not checked:` item reads `not checked: <check> — <reason>`: a check
+that did not run is never reported as clean, and never omitted. `Lean:` sums the lines that the Phase 1.4 and Phase 2 findings
 in `Reported, not applied` would remove; applied removals are already in the
 diff. `Verdict:` restates what `receipt.py` derived and never makes
 a new decision; with no receipt it reads `Verdict: none — no receipt`. Nothing

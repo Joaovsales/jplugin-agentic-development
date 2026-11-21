@@ -1754,3 +1754,75 @@ Steps executed:
   ✓ gh pr view 420 reports CLOSED with mergedAt=null; its closing comment links retained results.
 Negative: results tree has no graph-hint shell or Codex hint adapter, and the live installer registered no PreToolUse treatment.
 Result: PASS
+
+## CLI walkthrough — PR #448 review fixes — 2026-11-19 96fbbe6
+
+Spec: specs/slice-three-outcomes.md (AC1–AC4)
+Driver: actual Python CLIs through tests/test-slice-outcome.sh and tests/test-quality-receipt.sh; document contract checks through tests/test-doc-conventions.sh.
+Evidence: /tmp/pr448-finish/test-slice-outcome.log, /tmp/pr448-finish/test-quality-receipt.log, /tmp/pr448-finish/test-doc-conventions.log.
+
+- AC1: a green agent claim with a verification command exiting 1 yields VERIFICATION_FAILED and wrapper exit 1; the last summary remains red after a forged green command line.
+- AC2: no command and the cached-suite lock refusal yield Unknown; injected verification flags are refused; command stdout without a newline stays on its own line; stderr byte 0xff preserves successful command exit 0.
+- AC3: actual receipt write/check in isolated Git repositories disclose a lost phase-5 review inherited from a fully dispatched delta's parent, including its reason and parent fingerprint; verdict remains GO. Missing/blank lost reasons are refused, and historical reason-less entries disclose no reason recorded.
+- AC4: the handover consumer is pinned to the last `slice-outcome: agent_result=` line, and document checks cover the build report and PR handover contract.
+
+Focused results: slice outcome 38 passed; quality receipt 85 passed; document conventions 965 passed; all exit 0.
+Red proof: the current tests against pre-fix source in an isolated archive fail five slice-output assertions and both inherited-disclosure assertions.
+Not checked: live agent-driven slice header mutation — this task verifies the CLI and documented consumer contract, and forbids helper workers.
+
+## CLI walkthrough — PR #448 residual output boundary — 2026-11-19
+
+Spec: specs/slice-three-outcomes.md (AC1, AC2, AC4 output contract).
+Driver: actual slice_outcome.py CLI through tests/test-slice-outcome.sh, with stdout and stderr merged by tests/lib.sh run.
+Evidence: /tmp/pr448-followup/red.log and /tmp/pr448-followup/green.log.
+
+- A command exiting 1 receives a multiline argv containing a standalone fake SUCCEEDED summary: the last matching summary and final output line both record VERIFICATION_FAILED, and the wrapper exits 1.
+- A successful command writes warning without a stderr newline: the captured first line preserves warning and the documented last-summary parser finds SUCCEEDED.
+- A successful command writes raw stderr byte 0xff: the byte remains unchanged on its own captured line, and byte-safe parsing finds the real final SUCCEEDED summary.
+
+Red proof: 40 assertions passed and 6 failed before the source change. Green proof: all 46 assertions passed after it. Field names, labels and exit statuses are unchanged.
+Not checked: live agent-driven header mutation and independent test-engineer dispatch — the worker task forbids helper agents.
+
+## CLI walkthrough — #442 run ledger — 2026-11-19 — 81fb364
+
+Spec: specs/run-ledger.md (AC1–AC5).
+Driver: the actual `run_ledger.py` CLI against a scratch ledger directory, following the flow in `.agents/skills/build/references/run-ledger.md`.
+
+- `/build` Phase 6's `record` with `--slice "1 attempts=1 <Outcome line>"`, tokens and cost → `record: recorded feat-demo-0123456789ab` (the default run id).
+- `/receive-review`'s flow: `last --branch feat/demo` printed the parent; `decide … --result changes_requested` recorded it; the rework `record … --parent` recorded `feat-demo-fedcba987654`.
+- The merger's `decide … --result merged` was recorded; a later `decide … --result closed` was refused, exit 1, with `a final human decision is never overwritten`.
+- `stats` over three runs: `runs=3 prs=2 merged=1 closed=0 open=1`, `first_pass_rate=0/1 (0%)`, `attempts_per_merged_pr=2.00`, `cost_per_merged_pr=0.60`, `tokens_per_merged_pr=1200`. These are the two-run chain's sums, derived from the files.
+
+Not checked: a live `/build` or `/receive-review` session invoking these calls. The wiring is pinned by `tests/test-doc-conventions.sh` § run ledger.
+
+## CLI walkthrough — #445 parallel candidates — 2026-11-19 — ade76ae
+
+Spec: specs/parallel-candidates.md (AC1–AC5).
+Driver: the actual `candidates.py` CLI in a scratch repository whose spec has one implicit slice (Surface `src/**`), following `.agents/skills/build/references/candidates.md`.
+
+- `open --slice 1 --count 3` printed `candidates: c1|c2|c3 <scratch>/demo-slice-1-c<k>`. Three detached worktrees were created.
+- Builders' work: c1 wrote one line, c2 two lines, c3 wrote `bad`. `rank … --agent c1=true --agent c2=true --agent c3=true -- sh -c '! grep -q bad src/m.txt'` printed:
+  - `c1 rank=1 selected eligible checks=2/2 diff_lines=2 … SUCCEEDED — selected: ahead of c2 on diff_lines (2 vs 3)`
+  - `c2 rank=2 discarded … — behind c1 on diff_lines (3 vs 2)`
+  - `c3 rank=3 discarded ineligible checks=1/2 … VERIFICATION_FAILED — ineligible: VERIFICATION_FAILED`
+  - `candidates: applied c1`, exit 0.
+- After `rank`, the main tree held c1's content, `git worktree list` showed only the main tree, and the run record held `candidates.1` with c1 selected and c2 and c3 discarded.
+- `open --slice 2 --count 2` then `discard --slice 2` printed `candidates: removed c1|c2 …`, and only the main worktree remained.
+
+Not checked: a live `/build` session dispatching real Builders into the worktrees. The wiring is pinned by `tests/test-doc-conventions.sh` § candidates.
+## CLI walkthrough — PR #456 ledger review fixes — 2026-11-19 — 8b6b806
+
+Spec: specs/run-ledger.md (AC2, AC3, AC5; persisted-record invariants).
+Driver: real Python CLI subprocesses and the actual receive-review Bash blocks extracted from SKILL.md by `tests/run-ledger-regressions.py`.
+Evidence: `/tmp/pr456-review-red.log`, `/tmp/pr456-extra-red.log`, `/tmp/pr456-caller-red.log`, `/tmp/pr456-regressions.log`.
+
+- Pause a record writer after its real read, observe a merger's contended OS-lock attempt, release the record writer: both succeed and the final JSON retains `merged`, its history and the updated cost.
+- Pause a merger after its real read and concurrently request `closed`: the second writer waits, rereads `merged`, and refuses with `already merged` (exit 1).
+- Keep a writer paused: a contender reaches its bounded timeout and names the lock file; kill the owner and retry `merged`: it succeeds without removing the lock file, and stats still reads the ledger.
+- Change decision/history, cost/tokens or consumed metadata to malformed values: stats, last, decide and record refuse with the file path and no traceback. A ledger path that is a regular file is an error, never absence.
+- Execute receive-review's actual shell: exact no-run diagnostic skips bookkeeping; a valid parent is marked `changes_requested`; malformed records and final-decision refusals stop before the continuation marker; a malformed rework record also stops the post-commit block.
+
+Results: all seven regression methods pass. The original code fails both process races and payload validation; the original caller continues after a malformed rework record, reproduced in `/tmp/pr456-caller-red.log`.
+Not checked: Windows `msvcrt` branch on a Windows host, a live agent-driven receive-review session, and independent test-engineer dispatch (the task forbids helper workers).
+
+Resumed-worker verification: `tests/test-run-ledger.sh` — 54 passed, 0 failed; cached affected suite — all 58 files, 5807 assertions; required cached full suite — `RESULT: all 101 test files passed`, 8641 assertions, 0 failures. Logs: `/tmp/pr456-resumed-focused.log`, `/tmp/pr456-resumed-affected.log`, `/tmp/pr456-resumed-full.log`; receipt `4a792b03` is GO and discloses the unavailable independent test review.

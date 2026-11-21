@@ -3003,6 +3003,139 @@ Step ledger (routine `simplify`):
   - The code-graph timing bounds in `test-session-start.sh` fail on a loaded
     Windows host.
 
+## Plan: slice-three-outcomes
+> Spec: specs/slice-three-outcomes.md
+> Issue: #441
+
+### Slice 1/2 — Slice outcome at Slice Close
+- [x] Slice outcome at Slice Close — slice_outcome.py derives the three outcomes from the orchestrator's own run; Slice Close closes only on SUCCEEDED and writes > Outcome:
+
+> Handover: landed 887e959..8eab3ec — `.agents/skills/build/scripts/slice_outcome.py` derives agent_result / verification_result / slice_result; `/build` § Slice Close runs it, closes only on exit 0 and writes `> Outcome:`; Phase 6 lists one outcome per slice; the PR Handovers section carries `> Outcome:`.
+> Do not re-derive: the outcome line's `key=value` names (`agent_result`, `verification_result`, `slice_result`) and labels (`SUCCEEDED`, `VERIFICATION_FAILED`, `AGENT_FAILED`, `NOT_VERIFIED`, `AGENT_UNKNOWN`) are the contract #442/#445 read; exit 3 means Unknown; `build/SKILL.md` is at its 600-line cap.
+> Outcome: agent_result=True verification_result=True slice_result=True SUCCEEDED
+> Surface: undeclared specs/slice-three-outcomes.md, specs/slice-three-outcomes.plan.html, tasks/todo.md — plan artifacts committed with the slice (`slice.py check --slice 1 --base 887e959`).
+
+### Slice 2/2 — Not checked is never clean
+- [x] Not checked is never clean — the receipt requires a reason on a lost review and prints not checked; /verify-evidence and /quality-gate state the wording rule
+
+> Handover: landed 8eab3ec..51ad7ae — `receipt.py write` refuses `lost` without a non-empty `reason`; `write` and `check` print `receipt: not checked phase <n> <lens> — <reason>` per lost entry; `/verify-evidence` and `/quality-gate` state the `not checked: <check> — <reason>` rule.
+> Do not re-derive: the verdict rule is unchanged (`lost` is disclosed, not weighed — #429 owns receipt soundness); a stored receipt with a reason-less `lost` still verifies and reads `no reason recorded`; editing `receipt.py` changes the policy hash, so earlier receipts go `stale policy-changed`.
+> Outcome: agent_result=True verification_result=True slice_result=True SUCCEEDED
+> Surface: none (`slice.py check --slice 2 --base 8eab3ec` exit 0).
+
+## Session Summary — [2026-11-18] [887e959..42e41a1]
+
+- Completed:
+  - #441 slices 1 and 2: three outcomes at Slice Close; a lost review carries a
+    reason and prints `not checked`.
+  - Plugin version 1.8.20.
+- Pending: none in this PR.
+- Carry-forward:
+  - #439: the gate-integrity check joins `verification_result` as a second
+    input when it lands (spec D3).
+  - #442 / #445 read the `> Outcome:` `key=value` fields named in
+    `specs/slice-three-outcomes.md` § Outputs.
+
+## Session Summary — [2026-11-18] [7da69f9..ddd3676] — closure repair 1
+
+- Completed: PR #448 independent-review fixes — a delta receipt discloses lost reviews inherited from its parent chain (MUST-FIX); the slice outcome starts a fresh line and the last `slice-outcome: agent_result=` line is authoritative; undecodable stderr no longer loses the outcome.
+- Pending: none in this PR.
+- Carry-forward: field names and labels unchanged for the stacked #442 PR.
+
+## Session Summary — [2026-11-19] [875778f..875778f] — closure repair 2
+
+- Completed: PR #448's residual output-boundary fixes; the diagnostic precedes the final summary, and an explicit newline follows both raw replayed streams.
+- Verification: six new assertions fail before the fix; all 46 slice-outcome assertions pass after it. Affected/full-suite results and the refreshed receipt are recorded in PR #448's Review fixes section.
+- Carry-forward: field names and labels remain unchanged for stacked #442; the fix is included in this wrap-up commit, with no earlier implementation commit in this session.
+
+## Plan: run-ledger
+> Spec: specs/run-ledger.md
+> Issue: #442
+
+### Slice 1/2 — Run ledger script
+- [x] Run ledger script — run_ledger.py records runs, decides human results, finds a branch's last run and prints the derived totals
+- [x] TDD: tests/test-run-ledger.sh § stats — first_pass_rate, attempts_per_merged_pr and cost_per_merged_pr come from the records; removing one changes the report -> run_ledger.py stats (AC1)
+- [x] TDD: tests/test-run-ledger.sh § idempotent — the same record call twice leaves the file byte-identical and every count unchanged -> run_ledger.py record (AC2)
+- [x] TDD: tests/test-run-ledger.sh § human decision — merged/closed are final; a later record keeps them; record has no human option -> run_ledger.py decide (AC3)
+- [x] TDD: tests/test-run-ledger.sh § unknown — missing tokens and cost store "unknown" and stats prints unknown with a count -> run_ledger.py (AC4)
+
+> Handover: landed 7da69f9..49f0a1f — `.agents/skills/build/scripts/run_ledger.py` (`record`, `decide`, `last`, `stats`) writes `tasks/runs/<run-id>.json` under schema `run-ledger/1`; `tests/test-run-ledger.sh` pins AC1–AC4.
+> Do not re-derive: the default run id is `<branch slug>-<base[:12]>`; `--slice` takes `<id> attempts=<n>` plus the `> Outcome:` line verbatim and checks it against `slice_outcome.derive`; `record` has no human-result option; `stats` lines start `run-ledger:`.
+> Outcome: agent_result=True verification_result=True slice_result=True SUCCEEDED
+> Surface: undeclared specs/run-ledger.md, specs/run-ledger.plan.html, tasks/todo.md — plan artifacts committed with the slice (`slice.py check --slice 1 --base 7da69f9`).
+
+### Slice 2/2 — Runs record themselves
+- [x] Runs record themselves — /build Phase 6 records the run; /receive-review records a rework with its parent; the reference names every caller
+- [x] TDD: tests/test-doc-conventions.sh § run ledger — Phase 6 calls run_ledger.py record; /receive-review decides changes_requested and records --parent; the reference names the merger's decide -> wiring (AC5)
+
+> Handover: landed 49f0a1f..63f1ed4 — `/build` Phase 6 step 5 records the run; `/receive-review` § *Record the rework run* decides the parent `changes_requested` and records `--parent`; `.agents/skills/build/references/run-ledger.md` names every caller, the merger's `decide` included; `tests/test-doc-conventions.sh` § run ledger pins AC5.
+> Do not re-derive: a skill naming another skill's reference uses the full `.agents/skills/<skill>/references/…` path (test-skill-references RefInt); merged #448 fixes at 875778f change no field or label `run_ledger.py` reads.
+> Outcome: agent_result=True verification_result=True slice_result=True SUCCEEDED
+> Surface: undeclared tasks/todo.md (the plan block) plus the eight #448 files the merge a049285 brought in (`slice.py check --slice 2 --base 49f0a1f`); no slice-2 edit outside its Surface.
+
+## Session Summary — [2026-11-19] [7da69f9..81fb364]
+
+- Completed: #442 run ledger — `run_ledger.py` (`record`, `decide`, `last`, `stats`) writes one `tasks/runs/<run-id>.json` per run; `/build` Phase 6, `/receive-review` and `references/run-ledger.md` name every caller; quality-gate fix for a crashed write's temp file; plugin 1.8.21.
+- Pending: none in this PR.
+- Carry-forward: nobody records `merged` automatically yet (spec D7, R1); `stats` shows undecided PRs as `open`. Stacked on #448 — merge #448 first.
+- [ ] Record merged/closed in the run ledger automatically when a PR is merged or closed <!-- task-id: run-ledger-merge-decision.specs-run-ledger-md --> — From #442 (PR #456), spec Decision D7 and Risk R1: run_ledger.py decide is the only writer of a run's human result, and… ([#457](https://github.com/Joaovsales/jplugin-agentic-development/issues/457))
+
+## Session Summary — [2026-11-19] [8b6b806..8b6b806]
+
+- Completed: PR #456 review fixes — serialized ledger transactions, validated persisted decisions and telemetry, and made receive-review distinguish absence from ledger failures; deterministic two-process and executable caller regressions pass.
+- Verification: affected tests — all 58 files, 5807 assertions; full suite — all 101 files, 8641 assertions, 0 failures; quality receipt `4a792b03` is GO (independent test review unavailable under this dispatch).
+- Pending: none in this review round.
+- Carry-forward: the spec's timestamp tie-break and automatic merge/close observation (#457) remain unchanged; Windows runtime and live agent wiring were not checked in this worker task.
+
+## Plan: parallel-candidates
+> Spec: specs/parallel-candidates.md
+> Issue: #445
+
+### Slice 1/2 — Candidate ranker
+- [x] Candidate ranker — candidates.py opens, ranks and discards candidate worktrees; run_ledger.add_candidates records the ranking
+- [x] TDD: tests/test-candidates.sh § deterministic — the same measurements in any order rank the same; two rank runs over identical worktrees print identical lines -> candidates.py rank (AC1)
+- [x] TDD: tests/test-candidates.sh § eligibility — a failed or unknown check is never selected even with the smallest diff; no eligible candidate exits 1 and changes nothing -> candidates.py rank (AC2)
+- [x] TDD: tests/test-candidates.sh § cleanup — worktrees are removed on success, on no winner, on SIGTERM mid-verification, and by discard -> candidates.py (AC3)
+- [x] TDD: tests/test-candidates.sh § ledger — the run record holds one entry per candidate with rank, selected, outcomes, measurements and reason -> run_ledger.add_candidates (AC4)
+
+> Handover: landed 288ccec..8258176 — `.agents/skills/build/scripts/candidates.py` (`open`, `rank`, `discard`) and `run_ledger.add_candidates`; `tests/test-candidates.sh` pins AC1–AC4 (37 assertions).
+> Do not re-derive: worktrees live at `<toplevel>/../<repo>-slice-<n>-c<k>`, detached, made by `bootstrap-worktree.sh --detach-head`; each candidate's git dir holds `jplugin-candidate.json` (base commit, bootstrap-copied paths unstaged before measuring); `rank` prints `candidates: c<k> rank=… selected|discarded …` then `candidates: applied c<k>`; the ledger field is `candidates.<slice>` in the `run-ledger/1` record.
+> Outcome: agent_result=True verification_result=True slice_result=True SUCCEEDED
+> Surface: none (`slice.py check --slice 1 --base 288ccec`)
+
+### Slice 2/2 — Build runs candidates
+- [x] Build runs candidates — /build names the opt-in and the flow; the references document the commands and the ledger field
+- [x] TDD: tests/test-doc-conventions.sh § candidates — /build names `> Candidates:`, open, rank and discard; references/candidates.md and run-ledger.md document the commands and the candidates field -> wiring (AC5)
+
+> Handover: landed 8258176..0c39b79 — `/build` Phase 1 names `> Candidates: <N>` and the `open` → dispatch → `rank` / `discard` flow; `.agents/skills/build/references/candidates.md` documents the commands and exits; `references/run-ledger.md` § *Candidates* documents the field; `tests/test-doc-conventions.sh` § candidates pins AC5.
+> Do not re-derive: build/SKILL.md stays at exactly 600 lines — the paragraph was reflowed, not grown; a `> Candidates:` line under a slice heading leaves `slice.py ready` and `link` unchanged (checked on a scratch copy).
+> Outcome: agent_result=True verification_result=True slice_result=True SUCCEEDED
+> Surface: undeclared tasks/todo.md — the plan block's slice-1 handover (`slice.py check --slice 2 --base 8258176`)
+
+## Session Summary — [2026-11-19] [8b6b806..fb663f6]
+
+- Completed: #445 parallel candidates — `candidates.py` (`open`, `rank`, `discard`) builds an opted-in slice N ways in detached worktrees, ranks by eligibility, checks passed, diff lines, outside-Surface paths and candidate number, applies the winner, records every candidate in the run ledger and removes every worktree, cancellation included; `/build` and the references name the flow.
+- Pending: none in this PR.
+- Carry-forward: stacked on #456 (→ #448) — merge those first; the plugin version was not bumped (the guard compares against master at 1.8.19) and needs a bump once #456 lands at 1.8.21.
+
+## Session Summary — [2026-11-19] [46326c8..46326c8] — #456 review fixes merged
+
+- Completed: merged `origin/Joaovsales/esf-442-run-ledger` (e468d95); `run_ledger.add_candidates` now runs under `run_lock` and `load_record`'s validation, `load_record` refuses a non-object `candidates` field, and `candidates.py` uses the public `run_id_arg`/`sha_arg` instead of the private `_run_id`/`_sha`.
+- Pending: none in this PR.
+- Carry-forward: plugin version bump on top of #456's 1.8.21 when the stack lands, if the guard requires it.
+
+## Session Summary — [2026-11-19] [a09aaae..a09aaae] — PR #458 review fixes
+
+- Completed: independent review of #458 (CHANGES-REQUIRED) — `_verify` trusts the outcome only when the wrapper's exit status, the supplied agent claim and `derive` agree; `open` is a transaction (targets owned before bootstrap, TERM/HUP/INT around the whole call, the bootstrap's process group settled before its worktree is removed, an existing path refused and kept); removal goes through git only and reports a kept (locked) candidate with exit 1; concurrent `add_candidates` writers and a `decide` during a candidate write are pinned.
+- Pending: none in this PR.
+- Carry-forward: plugin version bump on top of #456's 1.8.21 when the stack lands, if the guard requires it.
+
+## Session Summary — [2026-11-19] [a62d4b3..a62d4b3] — PR #458 re-review fixes
+
+- Completed: re-review N1 — `_bootstrap` enters its settling `try` before the signal unmask, so a cancellation pending at the unmask still settles the just-started bootstrap; N2 — `_settle` TERMs the bootstrap's whole process group, waits up to `SETTLE_SECONDS` (2 s), then always KILLs the group, so a TERM-ignoring hook cannot recreate a removed candidate.
+- Pending: none in this PR.
+- Carry-forward: plugin version bump on top of #456's 1.8.21 when the stack lands, if the guard requires it.
+
 ## Plan: Gate integrity
 > Spec: specs/gate-integrity.md
 > Issue: https://github.com/Joaovsales/jplugin-agentic-development/issues/439

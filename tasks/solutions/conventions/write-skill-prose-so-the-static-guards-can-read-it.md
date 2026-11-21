@@ -1,6 +1,6 @@
 ---
 title: Write skill prose so the static guards can read it — pinned phrases on one line, home paths without the skills token
-date: 2026-09-15
+date: 2026-11-19
 problem_type: convention
 module: .agents/skills/*/SKILL.md, tests/test-doc-conventions.sh, tests/test-skill-references.sh
 tags: [skills, static-pins, test-skill-references, doc-conventions, authoring]
@@ -26,6 +26,11 @@ the prose has to be shaped for them, not only for a human:
    it. An operator-local or downstream-only skill has to be named the other way
    round — `<name> under ~/.claude/skills` — which the token regex does not
    match.
+3. **Name another skill's reference by its full path.** The same guard's RefInt
+   check resolves a bare `references/<file>.md` against the naming skill's own
+   directory, then the repository root. `/receive-review` writing ``/build`'s
+   `references/run-ledger.md`` failed it (#442, 2026-11-19); the fix was
+   `.agents/skills/build/references/run-ledger.md`.
 
 ## Why
 
