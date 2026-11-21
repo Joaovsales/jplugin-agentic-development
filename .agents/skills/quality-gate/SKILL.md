@@ -9,7 +9,8 @@ argument-hint: "[--scope <path> ...] [--parent <fingerprint>]"
 > **Dispatching sub-agents?** Apply `.agents/references/subagent-resilience.md` § *Dispatch checklist* first.
 
 Six sequential phases run after all build tasks are complete: four review
-phases, each with a unique mandate, then the tests and the receipt. This is the
+phases, each with a unique mandate, then the tests and the receipt. Phase 0's
+mechanical gate-integrity check runs before them. This is the
 one review pass a diff gets — `/wrap-up-session` reuses its receipt instead of
 reviewing again (`specs/quality-receipt-closure.md`).
 
@@ -58,6 +59,36 @@ onward makes the next gate solve a problem you were holding the context to solve
 A `MUST-FIX` that the gate will not auto-apply is still a `MUST-FIX`. Report it
 under `owner` and let the caller's gate decide — do not downgrade it to make
 this phase come out clean.
+
+---
+
+## Phase 0 — Gate Integrity
+
+**Mandate**: "Did this change edit the checks that judge it?" — mechanical, no reviewer.
+
+```bash
+python3 .agents/skills/quality-gate/scripts/gate-integrity.py --base <merge-base> [--spec <spec>]
+```
+
+`<merge-base>` is the one from *Scope*; pass the spec when the change has one,
+so every slice's Surface may declare a protected file. The script compares each
+protected file — the runners, the expected-failures list, CI and lint configs,
+plus the `Protected paths:` globs below the `AGENTS.md` end marker, at the base
+and now — with its blob at the base by content hash (`specs/gate-integrity.md`).
+Each line it prints is a finding for `Reported, not applied`:
+
+- `GATE_TAMPERED` is `[MUST-FIX | confidence: 100 | autofix_class: manual | owner: human]`,
+  including an `AGENTS.md` line: a protection declared at the base was removed or retargeted.
+- `EXPECTED_FAILURE_ADDED` is `[SHOULD-FIX | confidence: 100 | autofix_class: manual | owner: human]`.
+- `SKIP_ADDED` and `ASSERTION_DELETED` are pattern matches, so each starts at
+  `[SHOULD-FIX | confidence: 50 | autofix_class: manual | owner: human]`: read
+  its hunk once — a real skip or deletion rises to 75, and a marker that is test
+  data inside a string is refuted and dropped with a word.
+- `GATE_CHANGED` is `[NITPICK | confidence: 100 | autofix_class: advisory | owner: human]`:
+  the Surface named the file.
+
+Exit 3 means the check could not run in full: name it in `Not checked:`, never
+report the phase clean.
 
 ---
 
@@ -326,6 +357,8 @@ auto-applied need no report; the ones that matter here are `owner: human` and
 
 What this change does: [two or three sentences]
 Load assumed: [who and how many run this] (source: [path | none found])
+
+Phase 0 — Gate Integrity: [clean / N findings / not checked — <reason>]
 
 Phase 1 — Structural Quality
   Applied: [N changes — list with file:line]
