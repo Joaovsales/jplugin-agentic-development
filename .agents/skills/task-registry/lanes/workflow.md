@@ -6,9 +6,11 @@ ends: ready, docs-only PR carrying the session record
 
 Runs on a schedule, never on an issue — and the first run is by hand: schedule
 it only after a manual run's findings were reviewed. Lens: agent workflow
-efficiency and reliability. Engine: `workflow-incidence.py` over completed
-sessions after a cursor, bounded to 50 sessions and a configured token budget,
-reusing the transcript parser and the read-incidence row. Files reproduced
+efficiency and reliability. Engine: `workflow-incidence.py` over this
+repository's completed sessions after a cursor — each user's own, on their own
+machine — bounded to 50 sessions and a configured token budget, reusing the
+transcript parser and the read-incidence row. Evidence names sessions by id,
+never by project or path. Files reproduced
 reliability defects as `bug`, proven waste as `task` + `tech-debt`, and a
 tradeoff needing an owner as `decision`; the PR body carries `Refs #N` per
 filed issue, never `Closes`.

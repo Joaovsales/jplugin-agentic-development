@@ -365,22 +365,47 @@ def normalize_path(path: str) -> str:
 
 
 def iter_sessions(root: str) -> List[Session]:
-    """Every main-loop transcript under `root`, each with its sub-agent files."""
+    """Every main-loop transcript under `root`, each with its sub-agent files.
+
+    A transcript sits at `<root>/<project>/<session>.jsonl` (or directly under
+    `root`); a `.jsonl` deeper than that — a plugin's own log under a project
+    directory — is not a session and is not returned."""
     sessions: List[Session] = []
     for dirpath, dirnames, filenames in os.walk(root):
-        if SUBAGENTS_DIR in dirnames:
-            dirnames.remove(SUBAGENTS_DIR)
+        rel = os.path.relpath(dirpath, root)
+        if rel != ".":
+            dirnames.clear()    # a project directory's subdirectories hold no main-loop transcript
         dirnames.sort()    # os.walk descends in listing order, which Linux leaves unsorted
         for name in sorted(filenames):
             if not name.endswith(".jsonl") or name == SHUNT_LOG:
                 continue
             path = os.path.join(dirpath, name)
-            rel = os.path.relpath(dirpath, root)
-            project = rel.replace("\\", "/").split("/")[0] if rel != "." else ""
+            project = rel.replace("\\", "/") if rel != "." else ""
             sessions.append(Session(path, project, _agent_files(session_subagents_dir(path))))
     if not sessions:
         raise EmptyRoot(root)
     return sessions
+
+
+#: How far into a transcript `session_cwd` looks: the working directory is on
+#: the first records, and a file that has none by then is treated as having none.
+CWD_SCAN_LINES = 200
+
+
+def session_cwd(transcript_path: str) -> Optional[str]:
+    """The working directory a session ran in — the first record's `cwd` — or None."""
+    with open(transcript_path, encoding="utf-8", errors="replace") as fh:
+        for line_no, line in enumerate(fh, 1):
+            if line_no > CWD_SCAN_LINES:
+                break
+            try:
+                rec = json.loads(line)
+            except ValueError:
+                continue
+            cwd = rec.get("cwd") if isinstance(rec, dict) else None
+            if isinstance(cwd, str) and cwd:
+                return cwd
+    return None
 
 
 def session_id(transcript_path: str) -> str:
@@ -848,6 +873,57 @@ def _words(segment: str) -> List[str]:
 def _is_print_range(script: str) -> bool:
     body = script[:-1] if script.endswith("p") else ""
     return bool(body) and all(c.isdigit() or c in ",$" for c in body)
+
+
+#: Words that only wrap the command a segment runs: an interpreter, a timer, an
+#: environment edit. `runs_command` looks past them.
+_WRAPPERS = ("bash", "sh", "time", "nice", "command", "exec")
+_ARG_WRAPPERS = {"timeout": 1, "env": 0}
+_REDIRECT = re.compile(r"^(?:\d*|&)(?:>>?|<)")
+
+
+def _core_words(words: List[str]) -> List[str]:
+    """`words` without leading wrappers, `VAR=value` assignments, `env` options and redirections."""
+    i = 0
+    while i < len(words):
+        w = words[i]
+        if "=" in w and not w.startswith("-") and w.split("=", 1)[0].isidentifier():
+            i += 1
+        elif w in _WRAPPERS:
+            i += 1
+        elif w in _ARG_WRAPPERS:
+            i += 1 + _ARG_WRAPPERS[w]
+            while i < len(words) and words[i].startswith("-"):
+                i += 2 if words[i] in ("-u", "--unset", "-s", "--signal", "-k", "--kill-after") else 1
+        else:
+            break
+    core, skip = [], False
+    for w in words[i:]:
+        if skip:
+            skip = False
+        elif _REDIRECT.match(w):
+            skip = _REDIRECT.sub("", w) == ""    # a bare operator: the next word is its target
+        else:
+            core.append(w)
+    return core
+
+
+def runs_command(command: str, declared: str) -> bool:
+    """True when a segment of `command` runs `declared` itself — the same words
+    after wrappers, with nothing added but flags and their values. A run narrowed
+    to named files (`tests/run.sh tests/test-x.sh`) or text that merely mentions
+    the command (a commit message, a heredoc) is not a run of it."""
+    want = _core_words(_words(declared))
+    if not want:
+        return False
+    for segment in _split_segments(command):
+        core = _core_words(_words(segment))
+        if core[:len(want)] != want:
+            continue
+        extra = core[len(want):]
+        if all(w.startswith("-") or w.isdigit() for w in extra):
+            return True
+    return False
 
 
 def bare_shell_reads(command: str) -> List[str]:
