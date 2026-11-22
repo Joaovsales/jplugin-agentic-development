@@ -3303,5 +3303,11 @@ Step ledger (routine `workflow`, manual run, inline — no sub-agent dispatched)
 - [x] 3. Run the engine — `workflow-incidence.py pending` exit 0 (41 settled), `scan` exit 0 (34 examined, 7 unexamined)
 - [x] 4. Verify — 3 candidate rows; none at the filing bar
 - [x] 5. File — `Filed: none`
-- [ ] 6. Session record `tasks/sweeps/2026-11-22-workflow.md`, then `workflow-incidence.py advance`
-- [ ] 7. Hand off — `/wrap-up-session`
+- [x] 6. Session record `tasks/sweeps/2026-11-22-workflow.md` (committed `c25aaad`), then `workflow-incidence.py advance` — exit 0, cursor through `a1edaf1e-1033-46b2-b45c-9272f074d781`, 7 sessions remain
+- [x] 7. Hand off — `/wrap-up-session` — receipt, full suite, ready PR `chore(sweep): workflow 2026-11-22 — clean`; `/learn` and `/memory-maintain` skip: a producer diff carries only the record and its ledger
+
+## Session Summary — [2026-11-22] [cf86f82..c25aaad]
+
+- Completed: second manual `workflow` sweep at `cf86f82` on the PR #476 engine — `pending` exit 0 (41 settled), `scan` exit 0: 34 examined, 7 unexamined (token budget), 230 out of scope, 43 unattributable, 8 oversized, 0 parser gaps; 3 candidate rows, none at the filing bar; `Filed: none`; record `tasks/sweeps/2026-11-22-workflow.md`; cursor advanced through `a1edaf1e-1033-46b2-b45c-9272f074d781`.
+- Pending: 7 unexamined sessions from `edc54bdd-a600-45f2-8a10-127b8f64b728` for the next run; `/eval` Mode C before any fixed-context cost claim.
+- Carry-forward: `excessive-fixed-context` (30 sessions) stays Unverified until first-turn context is apportioned to a repository `file:line`; `repeated-full-suite` needs a second session.
