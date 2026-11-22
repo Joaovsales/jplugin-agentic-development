@@ -3293,3 +3293,15 @@ Step ledger (routine `simplify`):
 - Carry-forward:
   - #452 and the documented local-hook environment boundary remain outside this PR.
   - Separate test-engineer review is unavailable because this worker dispatch prohibits helpers.
+
+## Sweep: workflow 2026-11-22
+
+Step ledger (routine `workflow`, manual run, inline — no sub-agent dispatched):
+
+- [x] 1. Doctor — provider `github`, reachable, write approval required (unattended writes not permitted); tree clean; `HEAD` `cf86f82`
+- [x] 2. Read the backlog — 35 indexed rows read through `task-registry show` (17 open); no open task covers a candidate kind
+- [x] 3. Run the engine — `workflow-incidence.py pending` exit 0 (41 settled), `scan` exit 0 (34 examined, 7 unexamined)
+- [x] 4. Verify — 3 candidate rows; none at the filing bar
+- [x] 5. File — `Filed: none`
+- [ ] 6. Session record `tasks/sweeps/2026-11-22-workflow.md`, then `workflow-incidence.py advance`
+- [ ] 7. Hand off — `/wrap-up-session`
