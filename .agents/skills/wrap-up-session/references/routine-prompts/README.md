@@ -59,9 +59,10 @@ Configure once per project:
   and no worktrees, so `installed` and `worktrees` report *skipped* there —
   those two surfaces are only ever checked by a run on the operator's machine.
 - **`workflow` only: the operator's own transcripts, and a manual run first.**
-  The engine reads `~/.claude/projects` on the machine that runs it and keeps
-  its cursor under `~/.local/state/jplugin/`, so it runs where the sessions
-  are, never in a fresh cloud checkout. Run it by hand once and review the
+  The engine reads this repository's sessions under `~/.claude/projects` on
+  the machine that runs it — each user's own — and keeps its cursor under
+  `~/.local/state/jplugin/`, so it runs where the sessions are, never in a
+  fresh cloud checkout. Other projects' sessions are counted, never read. Run it by hand once and review the
   findings before scheduling it; the repository ships no scheduler binding. A
   cheap precheck is `workflow-incidence.py pending`, which exits 1 when no
   settled session waits after the cursor.

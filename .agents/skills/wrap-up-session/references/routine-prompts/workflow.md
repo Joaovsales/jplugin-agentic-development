@@ -9,7 +9,8 @@ run); schedule it only after that run's findings were reviewed.
 2. Create the branch `routine_branch.py format workflow <YYYYMMDD> sweep` gives
    you. If it already exists today, stop non-zero.
 3. Run `/sweep --routine workflow`. This step is the whole artifact and cannot
-   be skipped: `workflow-incidence.py scan` over at most 50 settled sessions,
+   be skipped: `workflow-incidence.py scan` over at most 50 of this repository's
+   settled sessions,
    verify, one registry task per finding at the bar, the session record under
    `tasks/sweeps/` with the unexamined sessions as coverage gaps, then
    `workflow-incidence.py advance` — never before the record exists.
@@ -17,4 +18,5 @@ run); schedule it only after that run's findings were reviewed.
 
 Rules: edit no product code; reach the tracker only through `/task-registry`;
 never file a `NITPICK`; a repeat pattern needs two distinct sessions; a cost
-claim needs `/eval` Mode C; quote anchors and digests, never session content.
+claim needs `/eval` Mode C; quote session-id anchors and digests, never
+session content, paths or other projects' names.

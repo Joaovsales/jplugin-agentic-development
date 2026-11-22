@@ -419,10 +419,12 @@ tidy` prints it. The rows are not restated here (specs/lane-catalogue.md).
 ### `workflow` — steps
 
 Lens: agent workflow efficiency and reliability. Engine:
-`workflow-incidence.py` (`.agents/skills/eval/scripts/`) over completed
-sessions after a cursor — the existing transcript parser and read-incidence
-row, never a second collector — bounded to 50 sessions, 20 minutes and a
-configured token budget, reporting what it left unexamined; the cursor
+`workflow-incidence.py` (`.agents/skills/eval/scripts/`) over this
+repository's completed sessions after a cursor — each user runs it over their
+own sessions, and evidence names sessions by id, never by project or path; the
+existing transcript parser and read-incidence row, never a second collector —
+bounded to 50 sessions, 20 minutes and a configured token budget, reporting
+what it left unexamined; the cursor
 advances only after the session record is written
 (`.agents/skills/sweep/references/lens-workflow.md`, specs/claude-mem-retention.md
 § *Proposed routine: workflow producer*). Files a reproduced reliability defect
