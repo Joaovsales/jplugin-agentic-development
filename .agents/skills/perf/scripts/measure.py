@@ -46,18 +46,19 @@ def summary(command: str, unit: str, samples: Sequence[float], warmup: int = 0) 
             f"{len(samples)} run(s) is not a measurement: take at least {MIN_RUNS} "
             "runs of the same command and report min, median and spread"
         )
-    low, high, mid = min(samples), max(samples), statistics.median(samples)
-    spread = high - low
+    samples = [round(s, 3) for s in samples]
+    low, high, mid = min(samples), max(samples), round(statistics.median(samples), 3)
+    spread = round(high - low, 3)
     return {
         "command": command,
         "unit": unit,
         "runs": len(samples),
         "warmup": warmup,
-        "samples": [round(s, 3) for s in samples],
-        "min": round(low, 3),
-        "median": round(mid, 3),
-        "max": round(high, 3),
-        "spread": round(spread, 3),
+        "samples": samples,
+        "min": low,
+        "median": mid,
+        "max": high,
+        "spread": spread,
         "spread_pct": round(spread / mid * 100, 1) if mid else 0.0,
     }
 

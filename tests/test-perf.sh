@@ -23,7 +23,7 @@ assert_eq "5" "$(field "$BOX/run.json" 'len(d["samples"])')" "run: five samples 
 assert_eq "1" "$(field "$BOX/run.json" 'd["warmup"]')" "run: warmup recorded"
 assert_eq "ms" "$(field "$BOX/run.json" 'd["unit"]')" "run: unit is ms"
 assert_eq "True" "$(field "$BOX/run.json" 'd["min"] <= d["median"] <= d["max"]')" "run: min <= median <= max"
-assert_eq "True" "$(field "$BOX/run.json" 'abs(d["spread"] - (d["max"] - d["min"])) < 1e-6')" "run: spread is max - min"
+assert_eq "True" "$(field "$BOX/run.json" 'round(d["max"] - d["min"], 3) == d["spread"]')" "run: spread is max - min"
 assert_eq "True" "$(field "$BOX/run.json" '"spread_pct" in d')" "run: spread_pct reported"
 assert_contains "$(field "$BOX/run.json" 'd["command"]')" "-c pass" "run: the command is recorded"
 
@@ -125,5 +125,103 @@ mkdir -p "$BOX/tree/node_modules/x"
 cp "$REPO/$SHOP/client.js" "$BOX/tree/node_modules/x/client.js"
 run "$TEST_PYTHON" "$SCAN" "$BOX/tree"
 assert_not_contains "$output" "client.js" "scan: node_modules is skipped"
+
+# ============================================================================
+# AC5 — audit.py validate: the perf-audit/1 schema refuses what is not evidence
+# ============================================================================
+begin_case audit-validate
+AUDIT="$(under_test .agents/skills/perf/scripts/audit.py)"
+GOOD="$REPO/tests/fixtures/perf/audit/shop-audit.json"
+audit() { "$TEST_PYTHON" "$AUDIT" "$@"; }
+# mutate <name> <python statement over d> — a copy of the fixture audit, edited.
+mutate() {
+  "$TEST_PYTHON" -c 'import json,sys; d=json.load(open(sys.argv[1])); exec(sys.argv[2]); json.dump(d, open(sys.argv[3], "w"))' \
+    "$GOOD" "$2" "$BOX/$1.json"
+  printf '%s\n' "$BOX/$1.json"
+}
+assert_exit 0 "validate: the fixture audit is valid" -- audit validate "$GOOD" --repo "$REPO"
+assert_refused 2 "not a measurement" "validate: a single-run measurement is refused" -- \
+  audit validate "$(mutate single 'm=d["paths"][0]["measurement"]; m["samples"]=[41.2]; m["runs"]=1; m["min"]=m["median"]=m["max"]=41.2; m["spread"]=0')"
+assert_refused 2 "does not match its samples" "validate: a typed median is refused" -- \
+  audit validate "$(mutate typed 'd["paths"][0]["measurement"]["median"]=12.0')"
+assert_refused 2 "expected" "validate: a path without an expected number is refused" -- \
+  audit validate "$(mutate noexpect 'del d["paths"][1]["expected"]')"
+assert_refused 2 "differs from the measured unit" "validate: an expected number in another unit is refused" -- \
+  audit validate "$(mutate unit 'd["paths"][1]["expected"]["unit"]="s"')"
+assert_refused 2 "lab block" "validate: a web path without a lab block is refused" -- \
+  audit validate "$(mutate nolab 'del d["paths"][3]["lab"]')"
+assert_refused 2 "lab data" "validate: lab numbers presented as field data are refused" -- \
+  audit validate "$(mutate field 'd["paths"][3]["lab"]["data"]="field"')"
+assert_refused 2 "inp_ms" "validate: a lab block without INP is refused" -- \
+  audit validate "$(mutate noinp 'del d["paths"][3]["lab"]["inp_ms"]')"
+assert_refused 2 "confidence" "validate: a finding below confidence 75 is refused" -- \
+  audit validate "$(mutate lowconf 'd["findings"][0]["confidence"]=50')"
+assert_refused 2 "file:line" "validate: a finding without a line is refused" -- \
+  audit validate "$(mutate noline 'del d["findings"][0]["line"]')"
+assert_refused 2 "suggested fix" "validate: a finding without a fix is refused" -- \
+  audit validate "$(mutate nofix 'd["findings"][0]["fix"]=""')"
+assert_refused 2 "unknown path" "validate: a finding on an unknown path is refused" -- \
+  audit validate "$(mutate nopath 'd["findings"][0]["path"]="nowhere"')"
+assert_refused 2 "impact" "validate: impact outside 1-3 is refused" -- \
+  audit validate "$(mutate impact 'd["findings"][0]["impact"]=7')"
+assert_refused 2 "schema" "validate: an unknown schema is refused" -- \
+  audit validate "$(mutate schema 'd["schema"]="perf-audit/0"')"
+assert_refused 2 "does not exist" "validate --repo: a file:line absent from the tree is refused" -- \
+  audit validate "$(mutate farline 'd["findings"][0]["line"]=9999')" --repo "$REPO"
+
+# ============================================================================
+# AC6 — audit.py render: measured, expected, gap; lab vitals; ranked findings
+# ============================================================================
+begin_case audit-render
+run audit render "$GOOD"
+assert_exit 0 "render: exits 0"
+REPORT="$output"
+assert_contains "$REPORT" "| Path | Kind | Runs | Min | Median | Spread | Expected | Gap | Likely source |" \
+  "render: critical paths table carries measured, expected and gap"
+# orders: median 41.2 ms over 5 runs vs 8 ms expected -> 5.2x.
+assert_contains "$REPORT" "| List orders (\`orders\`) | endpoint | 5 | 40.8 ms | 41.2 ms | 3.1 ms | 8 ms | 5.2× |" \
+  "render: the orders row has min, median, spread, expected and gap"
+assert_contains "$REPORT" "## Web vitals (lab data)" "render: web vitals are labelled lab data"
+assert_contains "$REPORT" "not field data" "render: the lab caveat is stated"
+assert_contains "$REPORT" "| Home page (\`home\`) | 1240 ms | 180 ms | 0.02 | 3 | 412000 B | playwright-cli 0.1.22 |" \
+  "render: LCP, INP, CLS, long tasks, bundle and backend"
+# score = impact x confidence/100 / effort: n+1 3x1.0/1=3.0, waterfall 2x0.75/1=1.5, cart 3x0.75/2=1.125.
+assert_precedes "$REPORT" "shop.py:30" "shop.py:57" "render: the n+1 (score 3.0) ranks above the waterfall (1.5)"
+assert_precedes "$REPORT" "shop.py:57" "shop.py:71" "render: the waterfall (1.5) ranks above the cart awaits (1.12)"
+assert_contains "$REPORT" "| 1 | N+1 customer lookup in list_orders | \`tests/fixtures/perf/shop/shop.py:30\` |" \
+  "render: rank 1 carries its file:line"
+assert_contains "$REPORT" "## Coverage gaps" "render: coverage gaps section"
+assert_contains "$REPORT" "## Unverified" "render: unverified section"
+run audit render "$(mutate nofind 'd["findings"]=[]')"
+assert_contains "$output" "Findings: none" "render: an audit with no finding says so"
+
+# ============================================================================
+# AC7 — audit.py file: one task per finding, idempotent
+# ============================================================================
+begin_case audit-file
+REG="$(fixture_repo)"
+mkdir -p "$REG/docs" "$REG/tasks"
+printf '# T\n\n```ini\n[tracker]\nprovider = local\n```\n' > "$REG/docs/task-tracking.md"
+printf '# Todo\n' > "$REG/tasks/todo.md"
+# The registry root is the audited project, so its tree holds the finding's file.
+fixture_copy perf/shop "$REG/tests/fixtures/perf/shop"
+run env -u TASK_REGISTRY_TRUSTED_CONFIG "$TEST_PYTHON" "$AUDIT" file "$GOOD" --repo "$REG"
+assert_exit 0 "file (dry-run): exits 0"
+assert_eq "3" "$(printf '%s\n' "$output" | grep -c 'would create')" "file (dry-run): one would-create per finding"
+assert_eq "0" "$(ls "$REG/tasks/details" 2>/dev/null | wc -l | tr -d ' ')" "file (dry-run): nothing written"
+run env -u TASK_REGISTRY_TRUSTED_CONFIG "$TEST_PYTHON" "$AUDIT" file "$GOOD" --repo "$REG" --apply
+assert_exit 0 "file --apply: exits 0"
+assert_eq "3" "$(ls "$REG/tasks/details" | wc -l | tr -d ' ')" "file --apply: exactly one task per finding"
+assert_eq "3" "$(grep -c 'task-id: perf\.' "$REG/tasks/todo.md")" "file --apply: three index rows under the perf namespace"
+detail="$(cat "$REG"/tasks/details/*n-1-customer*.md)"
+assert_contains "$detail" "performance" "file: the performance label"
+assert_contains "$detail" "python3 tests/fixtures/perf/shop/shop.py orders 2000" "file: the measure command is the reproduction"
+assert_contains "$detail" "expected: 8 ms" "file: the expected number travels"
+assert_contains "$detail" "tests/fixtures/perf/shop/shop.py:30" "file: file:line travels"
+assert_contains "$detail" "Join customers" "file: the suggested fix travels"
+run env -u TASK_REGISTRY_TRUSTED_CONFIG "$TEST_PYTHON" "$AUDIT" file "$GOOD" --repo "$REG" --apply
+assert_exit 0 "file --apply again: exits 0"
+assert_eq "3" "$(ls "$REG/tasks/details" | wc -l | tr -d ' ')" "file --apply again: no new task"
+assert_eq "3" "$(grep -c 'task-id: perf\.' "$REG/tasks/todo.md")" "file --apply again: no new index row"
 
 finish

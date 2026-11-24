@@ -3309,7 +3309,9 @@ Step ledger (routine `simplify`):
 > Do not re-derive: mutations (no masking; waterfall ignores dependencies, Python and JS) each fail 2–4 pins.
 
 ### Slice 3/7 — Audit report
-- [ ] Audit report — `audit.py validate`, `render` and `file` over the `perf-audit/1` schema
+- [x] Audit report — `audit.py validate`, `render` and `file` over the `perf-audit/1` schema
+> Handover: `audit.py` imports `Refused`/`check_summary` from measure.py; `ranked()` = impact × confidence ÷ 100 ÷ effort, ties by gap then file:line; `file` shells to task-registry `upsert --derive-id perf --kind task --label performance --label now|next` (dry run unless `--apply`), `--repo` is both the registry root and the tree file:line is checked against. Fixture `tests/fixtures/perf/audit/shop-audit.json` (numbers from `measure.summary`).
+> Do not re-derive: mutations (score ignores effort; lab `data` unchecked) each fail one pin; `measure.summary` now rounds samples first so `spread == max - min` exactly.
 
 ### Slice 4/7 — Skill body
 - [ ] Skill body — `/perf` SKILL.md with both modes and its three references; README row
