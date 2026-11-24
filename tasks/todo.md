@@ -3293,3 +3293,41 @@ Step ledger (routine `simplify`):
 - Carry-forward:
   - #452 and the documented local-hook environment boundary remain outside this PR.
   - Separate test-engineer review is unavailable because this worker dispatch prohibits helpers.
+
+## Plan: perf lane — Audit mode and Debug mode
+> Spec: specs/perf-audit-and-debug.md
+> Issue: #484
+
+### Slice 1/7 — Noise control
+- [x] Noise control — `measure.py run`, `summarize` and `compare` with the five-run floor and the noise-band verdict
+> Handover: `measure.py` — `summary()` is the one JSON shape (`command, unit, runs, warmup, samples, min, median, max, spread, spread_pct`); `check_summary()` recomputes from samples and refuses mismatches; `MIN_RUNS = 5`. Reuse both from audit.py by import, never restate.
+> Do not re-derive: mutation `after.median < baseline.median` fails 3 compare pins.
+
+### Slice 2/7 — Waste scanner
+- [x] Waste scanner — `scan.py` finds the planted N+1, await-in-loop and await waterfall in the Python and JavaScript fixture
+> Handover: `scan.py` — Python via `ast` (`_LoopVisitor`, `_waterfalls_in`), JS via `_mask` + bracket-matched regions; output `{candidates:[{file,line,pattern,evidence,why}], skipped}`; `--format findings` prints confidence-50 four-axis lines. Fixture `tests/fixtures/perf/shop/` (`shop.py` runnable: `orders`, `orders-joined`, `dashboard`, `cart`) marks each planted line with a `# planted:` / `// planted:` comment the test reads.
+> Do not re-derive: mutations (no masking; waterfall ignores dependencies, Python and JS) each fail 2–4 pins.
+
+### Slice 3/7 — Audit report
+- [x] Audit report — `audit.py validate`, `render` and `file` over the `perf-audit/1` schema
+> Handover: `audit.py` imports `Refused`/`check_summary` from measure.py; `ranked()` = impact × confidence ÷ 100 ÷ effort, ties by gap then file:line; `file` shells to task-registry `upsert --derive-id perf --kind task --label performance --label now|next` (dry run unless `--apply`), `--repo` is both the registry root and the tree file:line is checked against. Fixture `tests/fixtures/perf/audit/shop-audit.json` (numbers from `measure.summary`).
+> Do not re-derive: mutations (score ignores effort; lab `data` unchecked) each fail one pin; `measure.summary` now rounds samples first so `spread == max - min` exactly.
+
+### Slice 4/7 — Skill body
+- [x] Skill body — `/perf` SKILL.md with both modes and its three references; README row
+> Handover: `/perf` SKILL.md (Audit and Debug sections, noise rule, scripts) plus four references — `estimate.md`, `non-pessimization.md`, `web-lab.md`, `audit-schema.md` (the schema's runtime copy; the skill cites it, never the spec, because downstream projects do not ship this repo's specs). README row rendered by `scripts/render-skills-table.py`.
+> Do not re-derive: `[AMBIGUITY] the skill body needs the schema at run time | options: A) cite the spec B) a skill reference | picked: B | reason: specs/ is not synced downstream`.
+
+### Slice 5/7 — Two-mode lane and routing
+- [x] Two-mode lane and routing — `lanes/perf.md` with step 1 picking the mode, `/go`'s audit-versus-investigate precedence, the spec rows and their pins
+> Handover: `lanes/perf.md` — step 1 picks Audit or Debug, step 2 `/perf <mode> <ref>`, Debug-only steps carry ` — skip: audit mode` in Audit; chain `/perf -> /debug -> /build -> /quality-gate -> /wrap-up-session`. `/go` and `specs/go-front-door.md` state that a how-fast or audit goal is `perf`, not `investigate`; `specs/lane-catalogue.md` row updated.
+> Do not re-derive: routing is cue-matched by the model, so the pins are on the lane's cues, step 1 and `/go`'s precedence sentence (tests/test-lane-catalogue.sh § perf modes, tests/test-go-lanes.sh § perf modes).
+
+### Slice 6/7 — Quality-gate scan
+- [x] Quality-gate scan — `/quality-gate` Phase 3 runs `scan.py` on the gate's file list
+> Handover: Phase 3 runs `scan.py --format findings` after the load check; each candidate is a confidence-50 scale finding raised to 75 only on a path the stated load reaches; the phase record (`security-scan+load`) is unchanged because tests/test-doc-conventions.sh pins it.
+
+### Slice 7/7 — Fixture audit end to end
+- [x] Fixture audit end to end — A web page beside the shop fixture and a full Audit-mode walkthrough logged in `tasks/e2e-log.md`
+> Handover: `tests/fixtures/perf/web/index.html` plants a 120 ms start-up long task, a late layout-shifting banner and a 150 ms click handler; the walkthrough in `tasks/e2e-log.md` ran Audit (five findings, five local tasks, idempotent re-file) and Debug (fix `improved`, no-op and identical runs `within-noise`) on real measurements.
+> Do not re-derive: the walkthrough found the median-based noise rule let drift through; the fix commit tightened it to disjoint ranges and updated the spec's D5 and AC3.

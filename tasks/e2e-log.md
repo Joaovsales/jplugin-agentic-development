@@ -1962,3 +1962,25 @@ Results: all seven regression methods pass. The original code fails both process
 Not checked: Windows `msvcrt` branch on a Windows host, a live agent-driven receive-review session, and independent test-engineer dispatch (the task forbids helper workers).
 
 Resumed-worker verification: `tests/test-run-ledger.sh` — 54 passed, 0 failed; cached affected suite — all 58 files, 5807 assertions; required cached full suite — `RESULT: all 101 test files passed`, 8641 assertions, 0 failures. Logs: `/tmp/pr456-resumed-focused.log`, `/tmp/pr456-resumed-affected.log`, `/tmp/pr456-resumed-full.log`; receipt `4a792b03` is GO and discloses the unavailable independent test review.
+
+## CLI walkthrough — #484 perf Audit and Debug modes — 2026-11-24 — 1cf04ec (audit), 7240fe3 (debug verdicts)
+
+Spec: specs/perf-audit-and-debug.md (AC2, AC3, AC5, AC6, AC7, AC10).
+Driver: the real `measure.py`, `scan.py` and `audit.py` CLIs and `playwright-cli` 0.1.22 (headless Chromium) against `tests/fixtures/perf/`, following `/perf` Audit mode then Debug mode. The fixture page was served by `python3 -m http.server` on a free loopback port; the report, the filed tasks and the Debug copy lived in a scratch directory outside the repository.
+
+Audit mode:
+- Measure: `measure.py run --runs 10` per backend path — `orders 20000` median 82.5 ms (min 80.9, spread 20.9), `dashboard` 163.2 ms (min 150.4, spread 19.1), `cart` 162.5 ms (min 149.6, spread 28.1); start-up calibration `python3 -c "import asyncio, sqlite3"` 40.0 ms. `measure.py compare` of `orders` against `orders-joined` was refused, exit 2: different commands.
+- Lab trace, five runs of the `references/web-lab.md` recipe (open, observers, `click '#add'`, read, close): LCP 144/148/144/144/152 ms, INP 152 ms each run (the planted 150 ms handler), CLS 0.027 (the late banner), 2 long tasks (the 120 ms start-up block and the handler), 1281 B; load time median 127.9 ms (spread 7.1) through `measure.py summarize`.
+- Review: `scan.py --format findings tests/fixtures/perf` printed the six planted candidates at confidence 50; the three Python ones were read and confirmed on measured paths (75–100); the two JavaScript lines stayed under *Unverified* (no runnable client), and the page's two blocking calls were added by reading.
+- Report: `audit.py validate --repo .` passed; `render` printed measured, expected and gap per path (orders 1.3×, dashboard 1.7×, cart 3.0×, home 4.3×), *Web vitals (lab data)* with LCP 144 ms, INP 152 ms, CLS 0.027, and five findings ranked by score: `shop.py:71` 3.00, `index.html:24` 2.25, `shop.py:30` 2.00, `shop.py:57` 1.50, `index.html:33` 0.75.
+- File: in a scratch project with `provider = local`, `audit.py file` printed five `would create perf.…` lines; `--apply` created five tasks and five index rows labelled `performance` plus `now`/`next`, each carrying the measure command as reproduction and `observed … / expected …`; a second `--apply` printed five `updated` lines and left five tasks.
+
+Debug mode, on the filed cart task in the scratch copy:
+- Baseline `measure.py run --runs 10 -- python3 tests/fixtures/perf/shop/shop.py cart`: median 143.9 ms (min 142.2, max 150.3).
+- A comment-only edit, re-measured: `within-noise`. The same code measured twice back to back: `within-noise`.
+- The fix (`asyncio.gather`), re-measured: median 59.0 ms (max 76.2) — `improved`, against the expected 55 ms. The PR-body table:
+  `| 143.91 ms (min 142.248, spread 8.026, n=10) | 55 ms | 59.048 ms (min 47.25, spread 28.914, n=10) | improved — every after run is faster than every baseline run |`
+
+Finding during the walkthrough: under the first rule (after *median* below the baseline minimum) the comment-only edit read `regressed` and the twice-measured unchanged code read `improved` — batch-to-batch drift. The rule now requires disjoint ranges; twenty more pairs of identical `python3 -c pass` batches (N = 10) all read `within-noise`.
+
+Not checked: a live `/go "audit the performance of …"` session choosing the lane from the goal (routing is pinned by `tests/test-lane-catalogue.sh` and `tests/test-go-lanes.sh` § perf modes), a GitHub-provider `--apply` (the local provider was used so no public issue was filed), and the Chrome DevTools backend.

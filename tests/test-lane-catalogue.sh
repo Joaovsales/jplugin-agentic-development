@@ -544,4 +544,24 @@ assert_not_contains "$doctor_cli" "routines:       MISCONFIGURED" \
 assert_contains "$doctor_cli" "catalogue:      BROKEN" "AC2: doctor prints the catalogue: line as BROKEN"
 assert_contains "$doctor_cli" "broken.md" "AC2: doctor's catalogue: line names the lane file"
 
+# ============================================================================
+# perf — two modes in one lane (specs/perf-audit-and-debug.md AC1)
+# ============================================================================
+printf '\n-- perf modes --\n'
+perf="$(reg lanes perf --repo "$REPO" 2>&1)"; code=$?
+assert_eq "0" "$code" "perf: lanes perf exits 0"
+assert_contains "$perf" "/perf -> /debug -> /build -> /quality-gate -> /wrap-up-session" \
+  "perf: the chain opens with /perf and keeps the debug loop"
+step1="$(grep -E '^1\. ' "$LANES_DIR/perf.md")"
+assert_contains "$step1" "**Audit**" "perf: step 1 names Audit mode"
+assert_contains "$step1" "**Debug**" "perf: step 1 names Debug mode"
+assert_contains "$(grep -E '^2\. ' "$LANES_DIR/perf.md")" '`/perf <mode> <ref>`' "perf: step 2 runs /perf in the picked mode"
+cues="$(grep -E '^cues:' "$LANES_DIR/perf.md")"
+for cue in "audit performance" "how fast is" "slow" "takes N seconds"; do
+  assert_contains "$cues" "$cue" "perf: cues carry '$cue'"
+done
+assert_file_contains "$LANES_DIR/perf.md" "skip: audit mode" "perf: Debug-only steps are skipped by name in Audit mode"
+assert_file_contains "$LANES_DIR/perf.md" "measure.py compare" "perf: the after is compared with the noise rule"
+assert_file_contains "$LANES_DIR/perf.md" "expected" "perf: the PR quotes the expected number"
+
 finish

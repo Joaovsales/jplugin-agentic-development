@@ -1321,3 +1321,14 @@ could-not-run scan and the Git-configuration/PATH residual boundary.
 - Review fixes, test-first (14 assertions red before the fix, then green; each fix confirmed by a mutation probe): the outcome wrapper's exit status gates eligibility; `open` is all-or-nothing under cancellation; git-only removal keeps a locked worktree and exits 1; concurrent ledger writers are pinned.
 - A blocked signal mask is inherited across fork/exec: `_bootstrap` blocks TERM/HUP/INT only around `Popen` and unblocks them in the child (`preexec_fn`), or `killpg` would wait out the 10 s SIGKILL fallback.
 - Re-review N1/N2: a signal held across `Popen` is delivered at the unmask, so the settling `try` must already be open; and waiting for a process-group leader proves nothing about its descendants — TERM the group, bounded grace, then KILL the group before removing the directory they could write into.
+
+### [2026-11-24] — #484 perf lane: Audit and Debug modes
+
+- Planned with /plan and /slice (specs/perf-audit-and-debug.md, 7 slices), then built test-first in one worker session (no subagents, per the dispatch): `/perf` skill with `measure.py` (N ≥ 5 runs, min/median/spread, noise-band verdict), `scan.py` (N+1, await-in-loop, await waterfall for Python and JS), `audit.py` (perf-audit/1 schema, ranked render, one task per finding); the `perf` lane picks Audit or Debug at step 1; `/go` routes how-fast goals to `perf`; `/quality-gate` Phase 3 runs the scan.
+- The end-to-end walkthrough found the first noise rule (after median below the baseline minimum) called unchanged code `improved`; the rule now requires disjoint ranges. Learning: [a performance win needs disjoint ranges](solutions/patterns/a-performance-win-needs-disjoint-ranges-not-a-median-below-the-baseline.md).
+- Quality receipt GO (phase 5 test-engineer lost: no subagents); affected suite 58/58 files green.
+
+## Session Summary — [2026-11-24] [cf86f82..5508be9]
+- Completed: #484 slices 1–7, quality gate, e2e walkthrough (tasks/e2e-log.md).
+- Pending: a live `/go "audit the performance of …"` routing run (/eval Mode A) and a Chrome DevTools backend run.
+- Carry-forward: scan.py TODO(shortcut) — JS regex literals are not masked; upgrade to a real tokenizer if misses show up.

@@ -168,4 +168,13 @@ assert_true "GoLanes: host sweep regex matches /go in the skill's own file (posi
 assert_sweep_empty "GoLanes: no routine host, lane file, or hook invokes /go" \
   .agents/skills/go/SKILL.md -- grep -rnE "$GO_INVOCATION" -- $HOST_ROOTS
 
+# --- perf modes (specs/perf-audit-and-debug.md AC1) -----------------------------
+for tree in $TREES; do
+  f="$tree/skills/go/SKILL.md"
+  assert_prose_contains "$f" 'A goal that asks how fast something is, or asks for a performance audit, is `perf`, not `investigate`' \
+    "GoLanes: $f routes how-fast and audit goals to perf"
+  assert_prose_contains "$f" "the \`perf\` lane's step 1 picks Audit or Debug mode" \
+    "GoLanes: $f leaves the mode to the lane's step 1"
+done
+
 finish
