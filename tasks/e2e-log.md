@@ -1963,7 +1963,7 @@ Not checked: Windows `msvcrt` branch on a Windows host, a live agent-driven rece
 
 Resumed-worker verification: `tests/test-run-ledger.sh` — 54 passed, 0 failed; cached affected suite — all 58 files, 5807 assertions; required cached full suite — `RESULT: all 101 test files passed`, 8641 assertions, 0 failures. Logs: `/tmp/pr456-resumed-focused.log`, `/tmp/pr456-resumed-affected.log`, `/tmp/pr456-resumed-full.log`; receipt `4a792b03` is GO and discloses the unavailable independent test review.
 
-## CLI walkthrough — #484 perf Audit and Debug modes — 2026-11-24 — 0e3e2a5
+## CLI walkthrough — #484 perf Audit and Debug modes — 2026-11-24 — 1cf04ec (audit), 7240fe3 (debug verdicts)
 
 Spec: specs/perf-audit-and-debug.md (AC2, AC3, AC5, AC6, AC7, AC10).
 Driver: the real `measure.py`, `scan.py` and `audit.py` CLIs and `playwright-cli` 0.1.22 (headless Chromium) against `tests/fixtures/perf/`, following `/perf` Audit mode then Debug mode. The fixture page was served by `python3 -m http.server` on a free loopback port; the report, the filed tasks and the Debug copy lived in a scratch directory outside the repository.
