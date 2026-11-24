@@ -134,6 +134,9 @@ verification-promotion rule every phase uses.
 
 ### Audit schema (`perf-audit/1`)
 
+The runtime copy, with every rule `audit.py validate` enforces, is
+`.agents/skills/perf/references/audit-schema.md`.
+
 ```json
 {
   "schema": "perf-audit/1",

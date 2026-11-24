@@ -3314,7 +3314,9 @@ Step ledger (routine `simplify`):
 > Do not re-derive: mutations (score ignores effort; lab `data` unchecked) each fail one pin; `measure.summary` now rounds samples first so `spread == max - min` exactly.
 
 ### Slice 4/7 — Skill body
-- [ ] Skill body — `/perf` SKILL.md with both modes and its three references; README row
+- [x] Skill body — `/perf` SKILL.md with both modes and its three references; README row
+> Handover: `/perf` SKILL.md (Audit and Debug sections, noise rule, scripts) plus four references — `estimate.md`, `non-pessimization.md`, `web-lab.md`, `audit-schema.md` (the schema's runtime copy; the skill cites it, never the spec, because downstream projects do not ship this repo's specs). README row rendered by `scripts/render-skills-table.py`.
+> Do not re-derive: `[AMBIGUITY] the skill body needs the schema at run time | options: A) cite the spec B) a skill reference | picked: B | reason: specs/ is not synced downstream`.
 
 ### Slice 5/7 — Two-mode lane and routing
 - [ ] Two-mode lane and routing — `lanes/perf.md` with step 1 picking the mode, `/go`'s audit-versus-investigate precedence, the spec rows and their pins

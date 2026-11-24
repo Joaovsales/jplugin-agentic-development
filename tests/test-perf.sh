@@ -224,4 +224,37 @@ assert_exit 0 "file --apply again: exits 0"
 assert_eq "3" "$(ls "$REG/tasks/details" | wc -l | tr -d ' ')" "file --apply again: no new task"
 assert_eq "3" "$(grep -c 'task-id: perf\.' "$REG/tasks/todo.md")" "file --apply again: no new index row"
 
+# ============================================================================
+# AC9 — the /perf skill: both modes, the noise rule, estimate, web backends
+# ============================================================================
+begin_case skill
+SKILL="$(under_test .agents/skills/perf/SKILL.md)"
+REFS="$REPO/.agents/skills/perf/references"
+assert_file_matches "$SKILL" '^name: perf$' "skill: frontmatter names perf"
+assert_file_matches "$SKILL" '^## Audit mode' "skill: an Audit mode section"
+assert_file_matches "$SKILL" '^## Debug mode' "skill: a Debug mode section"
+assert_prose_contains "$SKILL" "Fewer than **5 runs** is refused" "skill: the five-run floor"
+assert_prose_contains "$SKILL" "\`improved\` only when the after median is below the baseline's minimum" "skill: the noise rule"
+assert_prose_contains "$SKILL" "\`within-noise\` is never reported as an improvement" "skill: within-noise is not a win"
+assert_prose_contains "$SKILL" "impact × confidence ÷ effort" "skill: the ranking formula"
+for script in measure.py scan.py audit.py; do
+  assert_file_contains "$SKILL" "scripts/$script" "skill: names scripts/$script"
+done
+for ref in estimate non-pessimization web-lab audit-schema; do
+  assert_file_exists "$REFS/$ref.md" "skill: references/$ref.md exists"
+  assert_file_contains "$SKILL" "references/$ref.md" "skill: cites references/$ref.md"
+done
+assert_prose_contains "$REFS/estimate.md" "measured median ÷ expected" "estimate: the gap definition"
+for source in "waste" "cache misses" "waterfalls" "N+1 queries" "oversized payloads"; do
+  assert_file_contains "$REFS/estimate.md" "$source" "estimate: names $source as a gap source"
+done
+assert_precedes "$(cat "$REFS/web-lab.md")" "Playwright CLI" "Chrome DevTools" "web-lab: Playwright CLI before Chrome, as verify-evidence orders"
+assert_file_contains "$REFS/web-lab.md" "verify-evidence" "web-lab: cites verify-evidence's backend order"
+assert_prose_contains "$REFS/web-lab.md" "lab data, never field data" "web-lab: lab traces are labelled lab data"
+for metric in LCP INP CLS; do assert_file_contains "$REFS/web-lab.md" "$metric" "web-lab: $metric recipe"; done
+for pattern in n-plus-one sequential-await await-waterfall; do
+  assert_file_contains "$REFS/non-pessimization.md" "$pattern" "non-pessimization: documents $pattern"
+done
+assert_file_matches "$REPO/README.md" '^\| `/perf` \|' "README: a row for /perf"
+
 finish
