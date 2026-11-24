@@ -3304,7 +3304,9 @@ Step ledger (routine `simplify`):
 > Do not re-derive: mutation `after.median < baseline.median` fails 3 compare pins.
 
 ### Slice 2/7 — Waste scanner
-- [ ] Waste scanner — `scan.py` finds the planted N+1, await-in-loop and await waterfall in the Python and JavaScript fixture
+- [x] Waste scanner — `scan.py` finds the planted N+1, await-in-loop and await waterfall in the Python and JavaScript fixture
+> Handover: `scan.py` — Python via `ast` (`_LoopVisitor`, `_waterfalls_in`), JS via `_mask` + bracket-matched regions; output `{candidates:[{file,line,pattern,evidence,why}], skipped}`; `--format findings` prints confidence-50 four-axis lines. Fixture `tests/fixtures/perf/shop/` (`shop.py` runnable: `orders`, `orders-joined`, `dashboard`, `cart`) marks each planted line with a `# planted:` / `// planted:` comment the test reads.
+> Do not re-derive: mutations (no masking; waterfall ignores dependencies, Python and JS) each fail 2–4 pins.
 
 ### Slice 3/7 — Audit report
 - [ ] Audit report — `audit.py validate`, `render` and `file` over the `perf-audit/1` schema

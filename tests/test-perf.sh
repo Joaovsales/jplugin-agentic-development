@@ -71,4 +71,59 @@ assert_contains "$output" "not an improvement" "compare markdown: within-noise s
 assert_contains "$output" "lab trace x5" "compare markdown: the one command is quoted"
 assert_contains "$output" "50" "compare markdown: the expected number is shown"
 
+# ============================================================================
+# AC4 — scan.py finds the planted waste, at its exact file:line, and nothing else
+# ============================================================================
+begin_case scan
+SCAN="$(under_test .agents/skills/perf/scripts/scan.py)"
+SHOP=tests/fixtures/perf/shop
+# The expected set is read off the fixture's `planted:` comments, one
+# "<file>:<line> <pattern>" per pattern the comment names.
+expected="$(cd "$REPO" && grep -nE '(#|//) planted: ' "$SHOP"/shop.py "$SHOP"/client.js \
+  | "$TEST_PYTHON" -c '
+import re, sys
+out = []
+for row in sys.stdin:
+    path, line, text = row.split(":", 2)
+    for pattern in re.search(r"planted: (.*)$", text).group(1).split(","):
+        out.append(f"{path}:{line} {pattern.strip()}")
+print("\n".join(sorted(out)))')"
+run bash -c "cd '$REPO' && '$TEST_PYTHON' '$SCAN' '$SHOP'"
+assert_exit 0 "scan: exits 0 over the shop fixture"
+printf '%s' "$output" > "$BOX/scan.json"
+actual="$("$TEST_PYTHON" -c '
+import json, sys
+d = json.load(open(sys.argv[1]))
+print("\n".join(sorted("%s:%s %s" % (c["file"], c["line"], c["pattern"]) for c in d["candidates"])))' "$BOX/scan.json")"
+assert_eq "6" "$(printf '%s\n' "$expected" | grep -c .)" "scan: the fixture plants six candidates (three per language)"
+assert_eq "$expected" "$actual" "scan: exactly the planted candidates, at their file:line — clean twins stay silent"
+for lang in shop.py client.js; do
+  for pattern in n-plus-one sequential-await await-waterfall; do
+    assert_contains "$actual" "$lang:" "scan: $lang candidates reported"
+    assert_eq "1" "$(printf '%s\n' "$actual" | grep -c "$lang:.* $pattern\$")" "scan: $lang has one $pattern"
+  done
+done
+assert_eq "True" "$(field "$BOX/scan.json" 'all(c["evidence"] and c["why"] for c in d["candidates"])')" \
+  "scan: every candidate carries its verbatim evidence and why"
+assert_eq "True" "$(field "$BOX/scan.json" 'any("db.execute" in c["evidence"] for c in d["candidates"])')" \
+  "scan: evidence is the source line"
+
+run bash -c "cd '$REPO' && '$TEST_PYTHON' '$SCAN' --format findings '$SHOP/shop.py'"
+assert_exit 0 "scan --format findings exits 0"
+assert_contains "$output" "[SHOULD-FIX | confidence: 50 | autofix_class: manual | owner: agent] $SHOP/shop.py:" \
+  "scan findings: four-axis lines at confidence 50 with file:line"
+assert_contains "$output" "  evidence: " "scan findings: an evidence line"
+assert_contains "$output" "  failure: " "scan findings: a failure line"
+
+printf 'def broken(:\n' > "$BOX/broken.py"
+run "$TEST_PYTHON" "$SCAN" "$BOX/broken.py"
+assert_exit 0 "scan: an unparsable file does not stop the scan"
+assert_contains "$output" '"skipped"' "scan: an unparsable file is listed under skipped"
+assert_contains "$output" "broken.py" "scan: the skipped file is named"
+assert_refused 2 "no such path" "scan: a missing path is refused" -- "$TEST_PYTHON" "$SCAN" "$BOX/missing"
+mkdir -p "$BOX/tree/node_modules/x"
+cp "$REPO/$SHOP/client.js" "$BOX/tree/node_modules/x/client.js"
+run "$TEST_PYTHON" "$SCAN" "$BOX/tree"
+assert_not_contains "$output" "client.js" "scan: node_modules is skipped"
+
 finish
