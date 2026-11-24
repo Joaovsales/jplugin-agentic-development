@@ -109,10 +109,10 @@ assert_eq "<missing>" "$(json_get "$SETTINGS" "$MARKET.ref")" \
   "settings.json: no ref (the source floats; plugin.json version pins)"
 assert_eq "true" "$(json_get "$SETTINGS" "enabledPlugins.jplugin@jplugin-agentic-development")" \
   "settings.json: the plugin is enabled under its install id"
-for kept in env.CLAUDE_CODE_AUTO_COMPACT_WINDOW; do
-  assert_not_contains "$(json_get "$SETTINGS" "$kept")" "<missing>" \
-    "settings.json: the existing $kept block survives the declaration"
-done
+# Claude Code env overrides (compaction window, thinking mode) are a per-user
+# choice in ~/.claude/settings.json; the template ships none to every project.
+assert_eq "<missing>" "$(json_get "$SETTINGS" "env")" \
+  "settings.json: the template ships no env block"
 
 # --- 7. pinning is by version, never by ref (spec § Decisions, S4) ----------
 # `git clone --branch <sha>` fails, so a /sync that wrote the checked-out sha as

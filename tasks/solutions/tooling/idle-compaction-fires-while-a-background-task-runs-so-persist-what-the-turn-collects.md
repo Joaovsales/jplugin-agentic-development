@@ -35,8 +35,8 @@ version-specific:
 So a foreground `Agent` call is safe (the turn is in flight), but a turn that
 ends to wait for a `run_in_background` notification is exposed. `/build` and
 `/wrap-up-session` both do that for the full suite, which takes 30–78 min on
-this Windows host, and the project's `CLAUDE_CODE_AUTO_COMPACT_WINDOW=400000`
-lets a conversation pass the 200 000-token threshold before auto-compact runs.
+this Windows host, and a raised `CLAUDE_CODE_AUTO_COMPACT_WINDOW` (400000 here,
+a per-user setting in `~/.claude/settings.json`) lets a conversation pass the 200 000-token threshold before auto-compact runs.
 
 The official hooks reference lists idle compaction under the `PreCompact` and
 `PostCompact` `auto` matcher, so `.agents/hooks/pre-compact.sh` already flushes

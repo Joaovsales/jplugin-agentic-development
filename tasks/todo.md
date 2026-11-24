@@ -1,3 +1,11 @@
+## Plan: upstream configurable pre-push gate and dynamic route segments
+> No spec — two small fixes upstreamed from a downstream project so `/sync` stops reverting them.
+
+- [x] TDD: tests/test-pre-push-gate.sh § configurable-gates — `package.json` `config.prepush` runs exactly the declared scripts in order; a declared name with no script, or a malformed list, blocks naming the problem; without the config the hook still runs `typecheck` then `lint` when present and stays silent when absent; the unattended scan still runs first -> resolver in `.agents/git-hooks/pre-push`
+- [x] TDD: tests/test-slice.sh § globs — a whole path segment naming a framework dynamic route (`[id]`, `[...slug]`, `[[...slug]]`) is accepted and matched literally; a bracket that is not a whole dynamic segment (`[ab].py`, `src/[a-b]/x`) is still refused -> `.agents/skills/task-registry/scripts/registry/globs.py`
+- [x] Drop the template `.claude/settings.json` `env` block — Claude Code env overrides are a per-user choice in `~/.claude/settings.json`; tests/test-plugin-manifest.sh pins its absence
+- [x] Bump `.claude-plugin/plugin.json` patch version (1.8.29); quality gate GO; one PR to master
+
 ## Plan: ui-design-stack
 > Spec: specs/ui-design-stack.md
 

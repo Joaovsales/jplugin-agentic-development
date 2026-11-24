@@ -1,5 +1,6 @@
 # tests/test-pre-push-gate.sh — the wrap-up coverage gate in .agents/git-hooks/pre-push,
-# the hook's two blocking branches (typecheck and lint failures, § exit-branches),
+# the hook's gate scripts (default typecheck and lint, § exit-branches; package.json
+# config.prepush, § configurable-gates),
 # and the unattended scan that refuses a routine push on a high hit (§ unattended-scan).
 #
 # The wrap-up gate warns and records; it never blocks, so those cases assert
@@ -668,11 +669,11 @@ assert_file_contains "$WRAP/references/routines.md" '--derive-id unattended-scan
   "Unattended scan: wrap-up files the finding through /task-registry"
 
 # ── § exit-branches: typecheck and lint failures block the push (exit 1) ─────
-# The hook runs `npm run typecheck` then `npm run lint` when package.json
-# declares them (it needs jq to read the scripts). A failing script is the one
-# thing it blocks on, so both exit-1 branches are driven by a fixture
+# Without a `config.prepush` list the hook runs `npm run typecheck` then
+# `npm run lint` when package.json declares them (node reads the scripts). A
+# failing script blocks, so both exit-1 branches are driven by a fixture
 # package.json whose scripts print a marker and exit 1 or 0.
-if command -v jq >/dev/null 2>&1 && command -v npm >/dev/null 2>&1; then
+if command -v node >/dev/null 2>&1 && command -v npm >/dev/null 2>&1; then
   # scripts_repo <name> <typecheck-script> <lint-script> — a repo declaring both scripts.
   scripts_repo() {
     _d="$(new_repo "$1")"
@@ -721,8 +722,123 @@ if command -v jq >/dev/null 2>&1 && command -v npm >/dev/null 2>&1; then
   OUT="$( cd "$D" && printf 'refs/heads/master %s refs/heads/master %s\n' "$(sha "$D")" "$(sha "$D")" \
           | SKIP_PREPUSH=1 ./hook origin url 2>&1 )"
   assert_eq "" "$OUT" "SKIP_PREPUSH=1: failing scripts are not run"
+
+# ── § configurable-gates: package.json config.prepush names the gates ────────
+# A project makes its gates mandatory by listing them:
+#   "config": { "prepush": ["type-check", "lint", "test:fast"] }
+# The hook then runs exactly those scripts, in order, and a declared name with no
+# script blocks, so a renamed script can never quietly drop a gate. Without the
+# list the defaults above apply, silently skipping a script that is absent.
+  # config_repo <label> <package.json body> — a repo whose scripts append their
+  # own name to ran.log, so a case reads which gates ran and in what order.
+  config_repo() {
+    _d="$(new_repo "$1")"
+    printf '%s\n' "$2" > "$_d/package.json"
+    printf '%s' "$_d"
+  }
+  rec() { printf 'echo %s >> ran.log' "$1"; }
+  ran() { cat "$1/ran.log" 2>/dev/null | tr '\n' ' '; }
+
+  D="$(config_repo declared "{\"scripts\":{\"type-check\":\"$(rec type-check)\",\"lint\":\"$(rec lint)\",\"test:fast\":\"$(rec test:fast)\",\"typecheck\":\"$(rec typecheck)\"},\"config\":{\"prepush\":[\"type-check\",\"lint\",\"test:fast\"]}}")"
+  run_hook "$D" "$(sha "$D")" "$(sha "$D")"
+  assert_eq "0" "$HOOK_RC" "Declared gates pass: the push is allowed"
+  assert_eq "type-check lint test:fast " "$(ran "$D")" \
+    "Declared gates: exactly the listed scripts run, in the listed order"
+  assert_eq "" "$OUT" "Declared gates pass: nothing on stderr"
+
+  D="$(config_repo declfails "{\"scripts\":{\"lint\":\"$(rec lint)\",\"check\":\"echo CHECK-ERR && exit 1\"},\"config\":{\"prepush\":[\"check\",\"lint\"]}}")"
+  run_hook "$D" "$(sha "$D")" "$(sha "$D")"
+  assert_eq "1" "$HOOK_RC" "Declared gate fails: blocks the push with exit 1"
+  assert_contains "$OUT" "BLOCKED: npm run check failed" "Declared gate fails: names the failing script"
+  assert_contains "$OUT" "CHECK-ERR" "Declared gate fails: shows the tail of the script's own output"
+  assert_eq "" "$(ran "$D")" "Declared gate fails: later gates never run"
+
+  D="$(config_repo renamed "{\"scripts\":{\"type-check\":\"$(rec type-check)\",\"lint\":\"$(rec lint)\"},\"config\":{\"prepush\":[\"typecheck\",\"lint\"]}}")"
+  run_hook "$D" "$(sha "$D")" "$(sha "$D")"
+  assert_eq "1" "$HOOK_RC" "Declared gate with no script: blocks the push with exit 1"
+  assert_contains "$OUT" 'config.prepush declares "typecheck", but no script has that name' \
+    "Declared gate with no script: names the missing script"
+  assert_eq "" "$(ran "$D")" "Declared gate with no script: no gate runs at all"
+
+  for bad in '"lint"' '[]' '["lint", 3]' '[""]' '["lint\nrm"]'; do
+    D="$(config_repo malformed "{\"scripts\":{\"lint\":\"$(rec lint)\"},\"config\":{\"prepush\":$bad}}")"
+    run_hook "$D" "$(sha "$D")" "$(sha "$D")"
+    assert_eq "1" "$HOOK_RC" "Malformed config.prepush $bad: blocks the push"
+    assert_contains "$OUT" "config.prepush must be a non-empty array of script names" \
+      "Malformed config.prepush $bad: says what the list must be"
+    assert_eq "" "$(ran "$D")" "Malformed config.prepush $bad: no gate runs"
+  done
+
+  D="$(config_repo twomissing "{\"scripts\":{\"lint\":\"$(rec lint)\"},\"config\":{\"prepush\":[\"alpha\",\"lint\",\"beta\"]}}")"
+  run_hook "$D" "$(sha "$D")" "$(sha "$D")"
+  assert_eq "1" "$HOOK_RC" "Two declared gates with no script: blocks the push"
+  assert_contains "$OUT" 'declares "alpha"' "Two declared gates with no script: names the first"
+  assert_contains "$OUT" 'declares "beta"' "Two declared gates with no script: names the second in the same push"
+
+  # An inherited property name is not a script: `in` would find `toString`.
+  D="$(config_repo inherited "{\"scripts\":{\"lint\":\"$(rec lint)\"},\"config\":{\"prepush\":[\"toString\"]}}")"
+  run_hook "$D" "$(sha "$D")" "$(sha "$D")"
+  assert_eq "1" "$HOOK_RC" "Declared inherited name (toString): blocks the push"
+  assert_contains "$OUT" 'declares "toString", but no script has that name' \
+    "Declared inherited name (toString): named as a missing script"
+
+  # A gate that reads stdin must not swallow the gates after it.
+  D="$(config_repo reader "{\"scripts\":{\"reader\":\"cat >/dev/null && $(rec reader)\",\"lint\":\"$(rec lint)\"},\"config\":{\"prepush\":[\"reader\",\"lint\"]}}")"
+  run_hook "$D" "$(sha "$D")" "$(sha "$D")"
+  assert_eq "0" "$HOOK_RC" "Stdin-reading gate: the push is allowed"
+  assert_eq "reader lint " "$(ran "$D")" "Stdin-reading gate: the gates after it still run"
+
+  # The unattended scan runs before any gate: a refused routine push runs none.
+  D="$(scan_repo scanfirst)"
+  printf '%s\n' "{\"scripts\":{\"lint\":\"$(rec lint)\"},\"config\":{\"prepush\":[\"lint\"]}}" > "$D/package.json"
+  commit_line "$D" scripts/setup.sh "$HIT"
+  push_hook "$D" "$ROUTINE" "$(sha "$D")" "$ZERO"
+  assert_eq "1" "$HOOK_RC" "Scan before gates: a high hit refuses the push"
+  assert_contains "$OUT" "BLOCKED: unattended scan" "Scan before gates: the scan is what refused it"
+  assert_eq "" "$(ran "$D")" "Scan before gates: no declared gate ran"
+
+  D="$(config_repo broken '{"scripts": ')"
+  run_hook "$D" "$(sha "$D")" "$(sha "$D")"
+  assert_eq "1" "$HOOK_RC" "Unparseable package.json: blocks the push"
+  assert_contains "$OUT" "cannot read the pre-push gates from package.json" \
+    "Unparseable package.json: says the gates could not be read"
+
+  D="$(config_repo defaults "{\"scripts\":{\"lint\":\"$(rec lint)\",\"typecheck\":\"$(rec typecheck)\",\"test\":\"$(rec test)\"}}")"
+  run_hook "$D" "$(sha "$D")" "$(sha "$D")"
+  assert_eq "0" "$HOOK_RC" "No config: the default gates pass"
+  assert_eq "typecheck lint " "$(ran "$D")" "No config: typecheck then lint run, nothing else"
+  assert_eq "" "$OUT" "No config: nothing on stderr"
+
+  D="$(config_repo noscripts '{"name":"fx","scripts":{"build":"exit 1"}}')"
+  run_hook "$D" "$(sha "$D")" "$(sha "$D")"
+  assert_eq "0" "$HOOK_RC" "No config, no default scripts: the push is allowed"
+  assert_eq "" "$OUT" "No config, no default scripts: silent, as before"
+
+  # Without node nothing can run. Declared gates are mandatory, so the push
+  # blocks; without a declaration the optional defaults are skipped, as before.
+  # node often shares a directory with git and the shell tools, so dropping a
+  # PATH entry is not enough: link every tool on PATH into one directory, minus node.
+  NO_NODE_PATH="$(fixture_dir)"
+  printf '%s' "$PATH" | tr ':' '\n' | while IFS= read -r p; do
+    [ -d "$p" ] && cp -sn "$p"/* "$NO_NODE_PATH"/ 2>/dev/null; done
+  rm -f "$NO_NODE_PATH/node" "$NO_NODE_PATH/node.exe"
+  if command -v git >/dev/null 2>&1 && [ -e "$NO_NODE_PATH/git" ] \
+     && ! PATH="$NO_NODE_PATH" command -v node >/dev/null 2>&1; then
+    D="$(config_repo nonodedecl "{\"scripts\":{\"lint\":\"$(rec lint)\"},\"config\":{\"prepush\":[\"lint\"]}}")"
+    PATH="$NO_NODE_PATH" run_hook "$D" "$(sha "$D")" "$(sha "$D")"
+    assert_eq "1" "$HOOK_RC" "No node, declared gates: blocks the push"
+    assert_contains "$OUT" "node is not on PATH" "No node, declared gates: names the missing runtime"
+
+    D="$(config_repo nonodedefault "{\"scripts\":{\"lint\":\"$(rec lint)\"}}")"
+    PATH="$NO_NODE_PATH" run_hook "$D" "$(sha "$D")" "$(sha "$D")"
+    assert_eq "0" "$HOOK_RC" "No node, no config: the push is allowed, as before"
+    assert_contains "$OUT" "default typecheck/lint gates skipped" "No node, no config: says the defaults were skipped"
+  else
+    skip "no-node cases: cannot build a PATH without node here"
+  fi
 else
-  skip "typecheck/lint exit branches need jq and npm on PATH"
+  skip "gate scripts (default and config.prepush) need node and npm on PATH"
 fi
+
 
 finish

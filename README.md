@@ -448,7 +448,7 @@ Claude delegates to these automatically (or you can invoke them via the Agent to
 │   └── marketplace.json             ← the marketplace entry Claude Code installs from
 ├── .claude/
 │   ├── AGENTS.md                    ← Agent reference documentation
-│   ├── settings.json                ← env + plugin declaration (no hooks — see hooks/hooks.json)
+│   ├── settings.json                ← plugin declaration (no env, no hooks — see hooks/hooks.json)
 │   └── agents/                      ← 8 specialized subagents
 ├── mods/
 │   ├── factory-board/               ← Claude Code mod: Kanban pane of the session's sub-agents (see its README)
