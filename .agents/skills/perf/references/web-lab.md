@@ -45,5 +45,8 @@ playwright-cli close
 - **CLS** sums layout shifts without recent input.
 - **Long tasks** counts main-thread tasks over 50 ms.
 - **Bytes** sums the encoded JavaScript and CSS the page loaded.
+- **Load time** — the path's `measurement` — is
+  `performance.getEntriesByType('navigation')[0].loadEventEnd`, read in the same
+  eval; the N runs' values go to `measure.py summarize --unit ms`.
 
 The `lab` block names the backend and its version (`playwright-cli --version`).

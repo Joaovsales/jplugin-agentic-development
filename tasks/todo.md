@@ -3328,4 +3328,6 @@ Step ledger (routine `simplify`):
 > Handover: Phase 3 runs `scan.py --format findings` after the load check; each candidate is a confidence-50 scale finding raised to 75 only on a path the stated load reaches; the phase record (`security-scan+load`) is unchanged because tests/test-doc-conventions.sh pins it.
 
 ### Slice 7/7 — Fixture audit end to end
-- [ ] Fixture audit end to end — A web page beside the shop fixture and a full Audit-mode walkthrough logged in `tasks/e2e-log.md`
+- [x] Fixture audit end to end — A web page beside the shop fixture and a full Audit-mode walkthrough logged in `tasks/e2e-log.md`
+> Handover: `tests/fixtures/perf/web/index.html` plants a 120 ms start-up long task, a late layout-shifting banner and a 150 ms click handler; the walkthrough in `tasks/e2e-log.md` ran Audit (five findings, five local tasks, idempotent re-file) and Debug (fix `improved`, no-op and identical runs `within-noise`) on real measurements.
+> Do not re-derive: the walkthrough found the median-based noise rule let drift through; the fix commit tightened it to disjoint ranges and updated the spec's D5 and AC3.
