@@ -3293,3 +3293,28 @@ Step ledger (routine `simplify`):
 - Carry-forward:
   - #452 and the documented local-hook environment boundary remain outside this PR.
   - Separate test-engineer review is unavailable because this worker dispatch prohibits helpers.
+
+## Plan: perf lane — Audit mode and Debug mode
+> Spec: specs/perf-audit-and-debug.md
+> Issue: #484
+
+### Slice 1/7 — Noise control
+- [ ] Noise control — `measure.py run`, `summarize` and `compare` with the five-run floor and the noise-band verdict
+
+### Slice 2/7 — Waste scanner
+- [ ] Waste scanner — `scan.py` finds the planted N+1, await-in-loop and await waterfall in the Python and JavaScript fixture
+
+### Slice 3/7 — Audit report
+- [ ] Audit report — `audit.py validate`, `render` and `file` over the `perf-audit/1` schema
+
+### Slice 4/7 — Skill body
+- [ ] Skill body — `/perf` SKILL.md with both modes and its three references; README row
+
+### Slice 5/7 — Two-mode lane and routing
+- [ ] Two-mode lane and routing — `lanes/perf.md` with step 1 picking the mode, `/go`'s audit-versus-investigate precedence, the spec rows and their pins
+
+### Slice 6/7 — Quality-gate scan
+- [ ] Quality-gate scan — `/quality-gate` Phase 3 runs `scan.py` on the gate's file list
+
+### Slice 7/7 — Fixture audit end to end
+- [ ] Fixture audit end to end — A web page beside the shop fixture and a full Audit-mode walkthrough logged in `tasks/e2e-log.md`
