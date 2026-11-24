@@ -138,7 +138,7 @@ opens on the first of those.
 | `investigate` | a question that wants an answer, not a change: how does X work, why was Y built this way, is Z safe, compare A and B | `lanes/investigate.md` | inline evidence gathering; `/checkpoint` only if the human asks to keep it | a cited answer, no diff |
 | `fix` | broken, fails, wrong output, regression, error text pasted | `lanes/fix.md` | `/debug`, `/build`, `/quality-gate`, `/wrap-up-session` | PR |
 | `refactor` | rename, extract, inline, dedupe, move, "no behaviour change" | `lanes/refactor.md` | inline before-proof (tests green, or a recorded characterization run), `/plan`, `/build`, `/quality-gate`, `/wrap-up-session` | PR whose body quotes the before and after proof |
-| `perf` | slow, latency, memory, "takes N seconds", a profile attached | `lanes/perf.md` | inline baseline measurement, `/debug` for the cause, `/build`, `/quality-gate`, `/wrap-up-session` | PR whose body quotes baseline and after numbers |
+| `perf` | audit performance, how fast is this app, slow, latency, memory, "takes N seconds", a profile attached | `lanes/perf.md` | step 1 picks Audit or Debug mode; `/perf` (Audit: inventory, measure, estimate, waste review, ranked report, one task per finding; Debug: baseline and expected), then in Debug `/debug` for the cause, `/build`, `measure.py compare`, `/quality-gate`, `/wrap-up-session` | Audit: ranked report and filed tasks; Debug: PR whose body quotes baseline, expected and after numbers |
 | `babysit` | PR URL or number plus "get it green", "address the comments", "anything outstanding", CI red | `lanes/babysit.md` | `/receive-review` for review threads, inline CI log reading; then `/debug` for a red job or `/plan` for a requested change, `/build`, `/wrap-up-session` to push | PR merge-ready, or a named blocker |
 | `feature` | add, change, support, new behaviour | none — direct route | `/brainstorm`, `/plan`, or `/system-design-planning` chosen by CLAUDE.md § *Spec First*'s own criteria; that skill hands to `/build`, `/quality-gate`, `/wrap-up-session` itself | PR |
 | `none` | no lane matches, or the goal is large or unclear ("rework the whole registry", "make it better") | none — direct route | `/brainstorm` | whatever `/brainstorm` produces |
@@ -159,7 +159,10 @@ not invent a second one.
 **Precedence when two lanes match.** `investigate` is decided first, by what
 the human wants back: a goal that asks a question and no change is
 `investigate` even when it pastes error text, and a goal that asks for the
-error to go away is `fix`. Among the change lanes, `fix` outranks `perf`,
+error to go away is `fix`. A goal that asks how fast something is, or asks
+for a performance audit, is `perf`, not `investigate`: its answer is a
+measurement, and the `perf` lane's step 1 picks Audit or Debug mode. Among
+the change lanes, `fix` outranks `perf`,
 `perf` outranks `simplify`, `simplify` outranks `refactor`, and anything with a
 defect cue outranks `improve`.
 The `reason:` names the tie it broke.

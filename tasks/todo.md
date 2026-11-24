@@ -3319,7 +3319,9 @@ Step ledger (routine `simplify`):
 > Do not re-derive: `[AMBIGUITY] the skill body needs the schema at run time | options: A) cite the spec B) a skill reference | picked: B | reason: specs/ is not synced downstream`.
 
 ### Slice 5/7 — Two-mode lane and routing
-- [ ] Two-mode lane and routing — `lanes/perf.md` with step 1 picking the mode, `/go`'s audit-versus-investigate precedence, the spec rows and their pins
+- [x] Two-mode lane and routing — `lanes/perf.md` with step 1 picking the mode, `/go`'s audit-versus-investigate precedence, the spec rows and their pins
+> Handover: `lanes/perf.md` — step 1 picks Audit or Debug, step 2 `/perf <mode> <ref>`, Debug-only steps carry ` — skip: audit mode` in Audit; chain `/perf -> /debug -> /build -> /quality-gate -> /wrap-up-session`. `/go` and `specs/go-front-door.md` state that a how-fast or audit goal is `perf`, not `investigate`; `specs/lane-catalogue.md` row updated.
+> Do not re-derive: routing is cue-matched by the model, so the pins are on the lane's cues, step 1 and `/go`'s precedence sentence (tests/test-lane-catalogue.sh § perf modes, tests/test-go-lanes.sh § perf modes).
 
 ### Slice 6/7 — Quality-gate scan
 - [ ] Quality-gate scan — `/quality-gate` Phase 3 runs `scan.py` on the gate's file list
