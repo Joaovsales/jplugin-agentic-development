@@ -195,7 +195,19 @@ will not apply stays unresolved and reaches the receipt.
 Then state the load, `Load assumed: <who and how many run this> (source: <path | none found>)`,
 looked up as `.agents/references/finding-model.md` § *Expected load* says, and check
 the same file list for its scale patterns. A scale finding goes through the
-**Apply Gate** like any other. Record the phase as
+**Apply Gate** like any other.
+
+Then scan the gate's own file list for wasted work on hot paths:
+
+```bash
+python3 .agents/skills/perf/scripts/scan.py --format findings <the gate's own file list>
+```
+
+It prints N+1 calls, awaits inside loops and independent awaits run one after
+another, each at its `file:line`. Each line is a scale finding at `confidence: 50`
+— a pattern match; read the loop once against the stated load and the
+checklist in `.agents/skills/perf/references/non-pessimization.md`: on a path that load reaches,
+it rises to 75; otherwise drop it with a word. Record the phase as
 `{"phase": 3, "lens": "security-scan+load", "dispatch": "inline"}`.
 
 Security runs before Phase 4 so the dispatched design reviewer sees the

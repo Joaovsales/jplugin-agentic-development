@@ -257,4 +257,16 @@ for pattern in n-plus-one sequential-await await-waterfall; do
 done
 assert_file_matches "$REPO/README.md" '^\| `/perf` \|' "README: a row for /perf"
 
+# ============================================================================
+# AC8 — /quality-gate Phase 3 runs the waste scan on the gate's file list
+# ============================================================================
+begin_case quality-gate
+GATE="$(under_test .agents/skills/quality-gate/SKILL.md)"
+phase3="$(awk '/^## Phase 3/{f=1} /^## Phase 4/{f=0} f' "$GATE")"
+assert_contains "$phase3" "python3 .agents/skills/perf/scripts/scan.py --format findings" "quality-gate: Phase 3 runs scan.py"
+assert_contains "$phase3" "the gate's own file list" "quality-gate: the scan covers the gate's own file list"
+assert_contains "$(printf '%s' "$phase3" | tr '\n' ' ' | tr -s ' ')" "a scale finding at \`confidence: 50\`" \
+  "quality-gate: each candidate starts at confidence 50"
+assert_contains "$phase3" ".agents/skills/perf/references/non-pessimization.md" "quality-gate: cites the non-pessimization checklist"
+
 finish

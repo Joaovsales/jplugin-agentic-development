@@ -3324,7 +3324,8 @@ Step ledger (routine `simplify`):
 > Do not re-derive: routing is cue-matched by the model, so the pins are on the lane's cues, step 1 and `/go`'s precedence sentence (tests/test-lane-catalogue.sh § perf modes, tests/test-go-lanes.sh § perf modes).
 
 ### Slice 6/7 — Quality-gate scan
-- [ ] Quality-gate scan — `/quality-gate` Phase 3 runs `scan.py` on the gate's file list
+- [x] Quality-gate scan — `/quality-gate` Phase 3 runs `scan.py` on the gate's file list
+> Handover: Phase 3 runs `scan.py --format findings` after the load check; each candidate is a confidence-50 scale finding raised to 75 only on a path the stated load reaches; the phase record (`security-scan+load`) is unchanged because tests/test-doc-conventions.sh pins it.
 
 ### Slice 7/7 — Fixture audit end to end
 - [ ] Fixture audit end to end — A web page beside the shop fixture and a full Audit-mode walkthrough logged in `tasks/e2e-log.md`
