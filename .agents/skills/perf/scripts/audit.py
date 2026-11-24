@@ -87,6 +87,7 @@ def _check_finding(index: int, finding: dict, path_ids: set, repo) -> None:
     )
     _require(bool(finding.get("fix")), f"{label}: needs a suggested fix")
     _require(bool(finding.get("evidence")), f"{label}: needs its verbatim evidence line")
+    _require(bool(finding.get("pattern")), f"{label}: needs its pattern (a scan.py pattern or `other`)")
     for axis in ("impact", "effort"):
         _require(finding.get(axis) in SCALE, f"{label}: {axis} must be 1, 2 or 3")
     _require(

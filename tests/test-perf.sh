@@ -168,6 +168,8 @@ assert_refused 2 "confidence" "validate: a finding below confidence 75 is refuse
   audit validate "$(mutate lowconf 'd["findings"][0]["confidence"]=50')"
 assert_refused 2 "file:line" "validate: a finding without a line is refused" -- \
   audit validate "$(mutate noline 'del d["findings"][0]["line"]')"
+assert_refused 2 "needs its pattern" "validate: a finding without a pattern is refused" -- \
+  audit validate "$(mutate nopattern 'del d["findings"][0]["pattern"]')"
 assert_refused 2 "suggested fix" "validate: a finding without a fix is refused" -- \
   audit validate "$(mutate nofix 'd["findings"][0]["fix"]=""')"
 assert_refused 2 "unknown path" "validate: a finding on an unknown path is refused" -- \

@@ -90,16 +90,16 @@ def run_command(argv: List[str], runs: int, warmup: int, timeout: float) -> dict
         )
     samples: List[float] = []
     for index in range(warmup + runs):
+        label = f"warmup {index + 1}" if index < warmup else f"run {index + 1 - warmup}"
         start = time.perf_counter_ns()
         try:
             done = subprocess.run(argv, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, timeout=timeout)
         except FileNotFoundError:
             raise Refused(f"command not found: {argv[0]}") from None
         except subprocess.TimeoutExpired:
-            raise CommandFailed(f"run {index + 1 - warmup} timed out after {timeout} s") from None
+            raise CommandFailed(f"{label} timed out after {timeout} s") from None
         elapsed_ms = (time.perf_counter_ns() - start) / 1e6
         if done.returncode != 0:
-            label = f"warmup {index + 1}" if index < warmup else f"run {index + 1 - warmup}"
             tail = done.stderr.decode("utf-8", "replace").strip().splitlines()[-1:] or [""]
             raise CommandFailed(
                 f"{label} exited {done.returncode}: a failing run's time is not a measurement. {tail[0]}".rstrip()

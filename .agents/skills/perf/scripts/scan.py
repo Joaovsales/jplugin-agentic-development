@@ -187,7 +187,13 @@ def scan_python(text: str) -> List[Tuple[int, str]]:
 # ----------------------------------------------------------------------- javascript
 
 def _mask(text: str) -> str:
-    """Strings, template literals and comments blanked to spaces; quotes and newlines kept."""
+    """Strings, template literals and comments blanked to spaces; quotes and newlines kept.
+
+    TODO(shortcut): regex literals are not masked, so a quote inside one shifts
+    the masking until the next quote; candidates there may be missed or spurious.
+    Every candidate is read before it is reported, so the cost is recall. Upgrade
+    path: a real tokenizer (esprima or the TypeScript scanner) if misses show up.
+    """
     out = list(text)
     i, n = 0, len(text)
     while i < n:
