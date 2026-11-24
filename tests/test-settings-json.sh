@@ -38,9 +38,11 @@ done
 # next contributor to put something back.
 assert_contains "$report" "hooks-key: absent" \
   "settings.json: carries no hooks key at all"
+# Claude Code env overrides are a per-user choice in ~/.claude/settings.json;
+# the template ships none to every project.
+assert_contains "$report" "env: absent" \
+  "settings.json: the template ships no env block"
 # Non-vacuity: the file still carries what it is for.
-assert_contains "$report" "env: present" \
-  "settings.json: the env block survives"
 assert_contains "$report" "plugin: True" \
   "settings.json: the plugin declaration survives"
 

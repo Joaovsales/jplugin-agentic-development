@@ -9,9 +9,5 @@
   },
   "enabledPlugins": {
     "jplugin@jplugin-agentic-development": true
-  },
-  "env": {
-    "CLAUDE_CODE_AUTO_COMPACT_WINDOW": "400000",
-    "CLAUDE_CODE_DISABLE_ADAPTIVE_THINKING": "1"
   }
 }

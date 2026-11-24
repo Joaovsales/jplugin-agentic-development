@@ -68,7 +68,7 @@ assert_contains "$OUT" "slice 2 (two) is blocked by 9, which names no slice" "va
 printf '\n--- validate: a surface with an unsupported glob token ---\n'
 
 # Surfaces go through the same validator as implementation_paths; without it
-# `[ab]` reaches `check` as a literal that matches nothing and `ready` as a
+# `[a,b]` reaches `check` as a literal that matches nothing and `ready` as a
 # pattern that intersects nothing.
 OUT="$("$PY" "$SLICE" validate --spec "$FIXTURES/validate-bad-surface-glob/spec.md" 2>&1)"
 CODE=$?
@@ -513,7 +513,7 @@ cases = {
     "absolute": "/etc/passwd",
     "traversal": "../secret",
     "backslash": "src\\thing.py",
-    "unsupported": "src/[ab]/**",
+    "unsupported": "src/[a,b]/**",
 }
 results = {}
 for name, value in cases.items():
@@ -568,6 +568,64 @@ assert_contains "$INTERSECT_JSON" '"different-extensions": false' \
   "globs: two wildcards with different literal tails do not intersect"
 assert_contains "$INTERSECT_JSON" '"match-star-stays-in-segment": false' \
   "globs: match_path's * stops at /"
+
+printf '\n--- globs: a framework dynamic route segment is a literal directory name ---\n'
+# File-based routers name directories `[id]`, `[...slug]` and `[[...slug]]`.
+# Those are real paths a surface must be able to declare, so a whole segment of
+# that shape is accepted and matched literally; any other bracket is still the
+# character-class syntax this format refuses.
+DYNAMIC_JSON="$("$PY" - "$GLOBS_ROOT" <<'PYEOF'
+import sys, json
+sys.path.insert(0, sys.argv[1])
+from registry.globs import validate_pattern, match_path, patterns_intersect, SpecPathError
+
+def outcome(pattern):
+    try:
+        validate_pattern(pattern, "specs/x.md")
+        return "accepted"
+    except SpecPathError as exc:
+        return str(exc)
+
+print(json.dumps({
+    "param": outcome("app/items/[id]/page.tsx"),
+    "catch-all": outcome("app/docs/[...slug]/**"),
+    "optional-catch-all": outcome("app/[[...slug]]/page.tsx"),
+    "nested-params": outcome("app/[org]/[project]/**"),
+    "class-in-filename": outcome("src/[ab].py"),
+    "class-in-segment": outcome("src/[!a]/x.py"),
+    "partial-segment": outcome("app/item-[id]/page.tsx"),
+    "unbalanced": outcome("app/[[id]/page.tsx"),
+    "double-without-dots": outcome("app/[[id]]/page.tsx"),
+    "empty": outcome("app/[]/page.tsx"),
+    "dots-without-name": outcome("app/[...]/page.tsx"),
+    "braces-beside-param": outcome("app/[id]/{a,b}.tsx"),
+    "match-literal": match_path("app/items/[id]/page.tsx", "app/items/[id]/page.tsx"),
+    "match-not-class": match_path("app/items/[id]/page.tsx", "app/items/i/page.tsx"),
+    "match-under-globstar": match_path("app/[...slug]/**", "app/[...slug]/a/b.tsx"),
+    "intersect-same-route": patterns_intersect("app/[id]/**", "app/[id]/page.tsx"),
+    "intersect-other-route": patterns_intersect("app/[id]/**", "app/[slug]/**"),
+}))
+PYEOF
+)"
+for name in param catch-all optional-catch-all nested-params; do
+  assert_contains "$DYNAMIC_JSON" "\"$name\": \"accepted\"" \
+    "globs: dynamic route segment ($name) is accepted"
+done
+for name in class-in-filename class-in-segment partial-segment unbalanced \
+            double-without-dots empty dots-without-name braces-beside-param; do
+  assert_contains "$DYNAMIC_JSON" "\"$name\": \"specs/x.md: unsupported glob syntax" \
+    "globs: a bracket that is not a whole dynamic segment ($name) is still refused"
+done
+assert_contains "$DYNAMIC_JSON" '"match-literal": true' \
+  "globs: a dynamic segment matches its own directory name"
+assert_contains "$DYNAMIC_JSON" '"match-not-class": false' \
+  "globs: a dynamic segment is a literal, never a character class"
+assert_contains "$DYNAMIC_JSON" '"match-under-globstar": true' \
+  "globs: a dynamic segment composes with **"
+assert_contains "$DYNAMIC_JSON" '"intersect-same-route": true' \
+  "globs: surfaces under the same dynamic segment intersect"
+assert_contains "$DYNAMIC_JSON" '"intersect-other-route": false' \
+  "globs: different dynamic segments are disjoint"
 
 printf '\n--- readiness: an open decision or a blocking question refuses the build prompt ---\n'
 # specs/readable-visual-plans.md AC16 (D23, D26): `/slice` runs `readiness`

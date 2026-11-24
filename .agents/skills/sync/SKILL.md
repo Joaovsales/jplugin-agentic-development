@@ -93,7 +93,7 @@ CLAUDE.md             → Pointer: the single line @AGENTS.md, written by the sa
 .claude/hooks/        → RETIRED — the scripts moved to .agents/hooks/ and run from the plugin; kept so /sync retires downstream copies
 .claude/agents/       → Subagent definitions (Claude Code only)
 .claude/browsers/     → Browser adapter runbooks read by /verify-evidence --scope e2e
-.claude/settings.json → env + plugin declaration (Claude Code only — registers no hook, see above)
+.claude/settings.json → plugin declaration (Claude Code only — registers no hook, see above)
 .agents/git-hooks/    → Git hooks (harness-agnostic; installed separately, see below)
 ```
 
@@ -320,7 +320,7 @@ stop the sync there.
 declares the `jplugin-agentic-development` marketplace under
 `extraKnownMarketplaces` and enables `jplugin@jplugin-agentic-development` under
 `enabledPlugins`. Step 5 merges those two keys into the project's existing
-`.claude/settings.json` rather than overwriting it — the `env` block and any
+`.claude/settings.json` rather than overwriting it — the project's own `env` block and any
 project-specific keys stay as they are. The one thing it removes is a
 `SessionStart`, `PreCompact` or `Stop` entry whose command names
 `.claude/hooks/<name>.sh`: those scripts now run from the plugin's

@@ -13,8 +13,8 @@
   in this spec must be applied to both locations**, kept byte-identical except where
   a file is intentionally Claude-Code-only.
 - **A skill/hook cannot read the live token count.** The ~75% threshold is owned by
-  Claude Code's *native auto-compact* (configured via `CLAUDE_CODE_AUTO_COMPACT_WINDOW`
-  in `.claude/settings.json`). Our job is to make that event *safe* (P1) and to keep
+  Claude Code's *native auto-compact* (tuned per user via `CLAUDE_CODE_AUTO_COMPACT_WINDOW`
+  in `~/.claude/settings.json`; the template ships no `env` block). Our job is to make that event *safe* (P1) and to keep
   context low *between* compactions via semantic checkpoints (P2). We do **not** build
   a token gauge.
 - **Hook I/O contract.** Claude Code passes hook input as JSON on stdin. Follow the
