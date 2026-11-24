@@ -3299,7 +3299,9 @@ Step ledger (routine `simplify`):
 > Issue: #484
 
 ### Slice 1/7 — Noise control
-- [ ] Noise control — `measure.py run`, `summarize` and `compare` with the five-run floor and the noise-band verdict
+- [x] Noise control — `measure.py run`, `summarize` and `compare` with the five-run floor and the noise-band verdict
+> Handover: `measure.py` — `summary()` is the one JSON shape (`command, unit, runs, warmup, samples, min, median, max, spread, spread_pct`); `check_summary()` recomputes from samples and refuses mismatches; `MIN_RUNS = 5`. Reuse both from audit.py by import, never restate.
+> Do not re-derive: mutation `after.median < baseline.median` fails 3 compare pins.
 
 ### Slice 2/7 — Waste scanner
 - [ ] Waste scanner — `scan.py` finds the planted N+1, await-in-loop and await waterfall in the Python and JavaScript fixture
