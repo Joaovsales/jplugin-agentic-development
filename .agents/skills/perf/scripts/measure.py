@@ -110,10 +110,16 @@ def run_command(argv: List[str], runs: int, warmup: int, timeout: float) -> dict
 
 
 def verdict(baseline: dict, after: dict) -> str:
-    """`improved` only below the baseline's minimum; above its maximum is `regressed`."""
-    if after["median"] < baseline["min"]:
+    """`improved` only when every after run beats every baseline run; the mirror is `regressed`.
+
+    Disjoint ranges are the noise rule: for two batches of one unchanged
+    command they happen by chance once in C(2N, N) — 1 in 252 at N = 5, 1 in
+    184756 at N = 10 — while a median compared against the other batch's range
+    is fooled by ordinary drift between batches.
+    """
+    if after["max"] < baseline["min"]:
         return IMPROVED
-    if after["median"] > baseline["max"]:
+    if after["min"] > baseline["max"]:
         return REGRESSED
     return WITHIN_NOISE
 
@@ -138,9 +144,9 @@ def markdown(result: dict) -> str:
     base, after = result["baseline"], result["after"]
     expected = "—" if result["expected"] is None else f"{result['expected']:g} {base['unit']}"
     note = {
-        IMPROVED: "after median is below the baseline minimum",
+        IMPROVED: "every after run is faster than every baseline run",
         WITHIN_NOISE: "inside the baseline's noise band — not an improvement",
-        REGRESSED: "after median is above the baseline maximum",
+        REGRESSED: "every after run is slower than every baseline run",
     }[result["verdict"]]
     return "\n".join([
         f"Command: `{base['command']}`",

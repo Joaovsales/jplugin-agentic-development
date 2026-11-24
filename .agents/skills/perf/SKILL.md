@@ -36,12 +36,18 @@ python3 .agents/skills/perf/scripts/measure.py compare <baseline.json> <after.js
 - `summarize` takes numbers another tool produced — per-endpoint latencies, N
   lab traces, `hyperfine --export-json` times — under the same five-sample floor.
 - `compare` refuses a baseline and an after from different commands, units or
-  run counts. Its verdict: **`improved` only when the after median is below the
-  baseline's minimum**, `regressed` above its maximum, `within-noise`
-  otherwise. `within-noise` is never reported as an improvement.
+  run counts. Its verdict: **`improved` only when every after run is faster than
+  every baseline run** (after max < baseline min), `regressed` for the mirror,
+  `within-noise` otherwise. `within-noise` is never reported as an improvement.
+  Disjoint ranges happen by chance for unchanged code once in C(2N, N) — 1 in
+  252 at N = 5, 1 in 184756 at N = 10 — while a median judged against the
+  other batch's range is fooled by ordinary drift between batches.
 
 Keep the machine quiet while measuring, and say so when it is not (a shared CI
-runner, a laptop on battery): the spread is how the reader judges it.
+runner, a laptop on battery): the spread is how the reader judges it. A verdict
+other than `within-noise` on a change that cannot move the number (a comment, a
+rename) means the machine drifted between batches: measure both again, back to
+back.
 
 ## Audit mode — `/perf audit <app | flow>`
 

@@ -49,14 +49,24 @@ begin_case measure-compare
 measure summarize --unit ms --command 'lab trace x5' 90 91 92 93 99 > "$BOX/better.json"
 measure summarize --unit ms --command 'lab trace x5' 98 99 101 103 110 > "$BOX/noise.json"
 measure summarize --unit ms --command 'lab trace x5' 109 110 112 115 120 > "$BOX/worse.json"
+# Medians clear of the baseline band, but one run inside it: drift, not a win.
+measure summarize --unit ms --command 'lab trace x5' 90 91 92 93 105 > "$BOX/medianonly.json"
+measure summarize --unit ms --command 'lab trace x5' 104 110 112 115 120 > "$BOX/medianworse.json"
 measure summarize --unit ms --command 'other command' 90 91 92 93 99 > "$BOX/othercmd.json"
 measure summarize --unit s --command 'lab trace x5' 90 91 92 93 99 > "$BOX/otherunit.json"
 measure summarize --unit ms --command 'lab trace x5' 90 91 92 93 99 94 > "$BOX/otherruns.json"
 
 verdict() { measure compare "$@" | "$TEST_PYTHON" -c 'import json,sys; print(json.load(sys.stdin)["verdict"])'; }
-assert_eq "improved" "$(verdict "$BOX/base.json" "$BOX/better.json")" "compare: after median below baseline min is improved"
+assert_eq "improved" "$(verdict "$BOX/base.json" "$BOX/better.json")" "compare: every after run below every baseline run is improved"
 assert_eq "within-noise" "$(verdict "$BOX/base.json" "$BOX/noise.json")" "compare: an overlapping change is within-noise"
-assert_eq "regressed" "$(verdict "$BOX/base.json" "$BOX/worse.json")" "compare: after median above baseline max is regressed"
+assert_eq "regressed" "$(verdict "$BOX/base.json" "$BOX/worse.json")" "compare: every after run above every baseline run is regressed"
+assert_eq "within-noise" "$(verdict "$BOX/base.json" "$BOX/medianonly.json")" "compare: a lower median with one run inside the baseline band is within-noise"
+assert_eq "within-noise" "$(verdict "$BOX/base.json" "$BOX/medianworse.json")" "compare: a higher median with one run inside the baseline band is within-noise"
+# Identical code measured twice: with N = 10 each, disjoint ranges by chance are
+# 1 in C(20,10) = 184756, so improved here is a rule defect, not luck.
+measure run --runs 10 --warmup 1 -- "$TEST_PYTHON" -c pass > "$BOX/same1.json"
+measure run --runs 10 --warmup 1 -- "$TEST_PYTHON" -c pass > "$BOX/same2.json"
+assert_not_contains "$(verdict "$BOX/same1.json" "$BOX/same2.json")x" "improved" "compare: the same command twice is not an improvement"
 assert_refused 2 "same command" "compare: different commands are refused" -- measure compare "$BOX/base.json" "$BOX/othercmd.json"
 assert_refused 2 "same unit" "compare: different units are refused" -- measure compare "$BOX/base.json" "$BOX/otherunit.json"
 assert_refused 2 "same number of runs" "compare: different run counts are refused" -- measure compare "$BOX/base.json" "$BOX/otherruns.json"
@@ -234,7 +244,7 @@ assert_file_matches "$SKILL" '^name: perf$' "skill: frontmatter names perf"
 assert_file_matches "$SKILL" '^## Audit mode' "skill: an Audit mode section"
 assert_file_matches "$SKILL" '^## Debug mode' "skill: a Debug mode section"
 assert_prose_contains "$SKILL" "Fewer than **5 runs** is refused" "skill: the five-run floor"
-assert_prose_contains "$SKILL" "\`improved\` only when the after median is below the baseline's minimum" "skill: the noise rule"
+assert_prose_contains "$SKILL" "\`improved\` only when every after run is faster than every baseline run" "skill: the noise rule"
 assert_prose_contains "$SKILL" "\`within-noise\` is never reported as an improvement" "skill: within-noise is not a win"
 assert_prose_contains "$SKILL" "impact × confidence ÷ effort" "skill: the ranking formula"
 for script in measure.py scan.py audit.py; do

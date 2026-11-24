@@ -15,7 +15,7 @@ slowness, latency, memory, "takes N seconds", or an attached profile. Outranks
 2. `/perf <mode> <ref>` — Audit: inventory the critical paths, measure each as N runs (min, median, spread), estimate the expected number, review the hot paths for wasted work, write the ranked report and file one task per finding; the lane ends here and every later step is kept with ` — skip: audit mode`. Debug: the baseline (N runs of one repeatable command) and the expected number, recorded before any edit
 3. `/debug <ref>` — Debug only: the baseline is the reproduction; find the cause, not the first hot spot
 4. `/build` — Debug only: the fix, with a test or measurement that fails at the baseline and passes after
-5. Debug only: re-measure with the baseline's command and run count, then `measure.py compare` with the expected number; `improved` only when the after median is below the baseline's minimum, and a `within-noise` result is never reported as an improvement
+5. Debug only: re-measure with the baseline's command and run count, then `measure.py compare` with the expected number; `improved` only when every after run is faster than every baseline run, and a `within-noise` result is never reported as an improvement
 6. `/quality-gate` — structural, anti-pattern, and APOSD passes, with the Phase 3 waste scan (runs inside the build's Phase 3; the row records where it ran) — **non-skippable** in Debug mode
 7. `/wrap-up-session` — Debug only: the PR body quotes the `measure.py compare` table — baseline, expected and after from the same command, and the verdict
 

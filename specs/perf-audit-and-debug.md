@@ -90,9 +90,11 @@ tasks; its Debug-only steps are kept with ` — skip: audit mode`.
    `measure.py compare` prints the verdict and the Markdown table the PR body
    quotes — baseline, expected and after, one command.
 
-A change is `improved` only when the after median is below the baseline's
-minimum, `regressed` when it is above the baseline's maximum, and
-`within-noise` otherwise. `within-noise` is never reported as an improvement.
+A change is `improved` only when every after run is faster than every
+baseline run (the after maximum is below the baseline minimum), `regressed`
+for the mirror, and `within-noise` otherwise. For unchanged code, disjoint
+ranges happen by chance once in C(2N, N) — 1 in 252 at N = 5, 1 in 184756 at
+N = 10. `within-noise` is never reported as an improvement.
 
 ### Quality gate
 
@@ -252,7 +254,7 @@ Instructions:
 3. Follow § Decisions: every row is settled. A gap the spec leaves is an `[AMBIGUITY]` line, never a question to the user.
 4. Close every slice with a `> Handover:` line; after the last one run `/wrap-up-session`.
 Constraints: Every measurement is N >= 5 runs of one command summarised as min, median, spread; a single-run number is refused (D4).
-Constraints: `improved` only when the after median is below the baseline minimum (D5).
+Constraints: `improved` only when every after run beats every baseline run (D5).
 Constraints: The perf check lives in /quality-gate Phase 3, not a new /sweep routine (D3).
 ```
 
@@ -264,7 +266,7 @@ Constraints: The perf check lives in /quality-gate Phase 3, not a new /sweep rou
 | 2 | Where does the audit procedure live? | A new skill, `/perf`, with `audit` and `debug` modes; the lane names it as its first skill step. | assumed | Lanes name skills and skills own procedures (`plan`, `tidy`, `build` lanes all name their skill). |
 | 3 | Perf lens in `/sweep` or a quality-gate check? | A check inside `/quality-gate` Phase 3 (Security and Load), on the gate's changed files. | assumed | The issue scopes it to "changed hot paths", Phase 3 already owns "one query or call per item" under § Expected load, and a `/sweep` lens is a new producer routine (lane, routine prompt, contract tests) the issue does not need. |
 | 4 | Minimum runs | 5; default 10. | assumed | Enough for a median and a spread on paths up to a minute; fewer is refused. |
-| 5 | Noise rule | `improved` only when the after median is below the baseline minimum. | assumed | "Not measurably better than the baseline's spread is not a win" stated as one comparison anyone can check by eye. |
+| 5 | Noise rule | `improved` only when every after run beats every baseline run (after max < baseline min); `regressed` is the mirror. | assumed | "Not measurably better than the baseline's spread is not a win" as one comparison anyone can check by eye. The first draft compared the after *median* with the baseline minimum; the end-to-end run showed two back-to-back batches of unchanged code judged `improved` under it, so the ranges must be disjoint. |
 | 6 | Ranking | score = impact × confidence ÷ 100 ÷ effort, impact and effort on 1–3; ties broken by the path's gap, then `file:line`. | assumed | The issue's impact × confidence × effort, with effort dividing because more effort ranks lower. |
 | 7 | Filing kind and labels | `--kind task --label performance` plus `now` (impact 3) or `next`. | assumed | No kind label routes the task to `fix`; `/go` then matches the goal text and reaches `perf` Debug mode. |
 | 8 | Filing bar | Confidence 75 or above, as `/sweep` files; lower goes to *Unverified*. | assumed | One filing bar across producers. |
@@ -276,7 +278,7 @@ Constraints: The perf check lives in /quality-gate Phase 3, not a new /sweep rou
 
 - AC1: `task-registry lanes perf` prints step 1 naming both modes with their cues, a `/perf` first skill step, `/debug` before `/build`, and the chain `/perf -> /debug -> /build -> /quality-gate -> /wrap-up-session`; the lane's `cues:` carry both audit and slowness phrases; `/go` states that a how-fast or audit goal is `perf`, not `investigate`.
 - AC2: `measure.py run --runs N` reports `runs`, `samples`, `min`, `median`, `max`, `spread`, `spread_pct`; `--runs` below 5 and `summarize` with fewer than 5 samples exit 2; a run whose command exits non-zero exits 1 naming the run.
-- AC3: `measure.py compare` reports `improved` only when the after median is below the baseline minimum, `within-noise` for an overlapping change, `regressed` above the baseline maximum; refuses different commands, units or run counts; its Markdown carries baseline, expected and after columns.
+- AC3: `measure.py compare` reports `improved` only when every after run is below the baseline minimum, `within-noise` whenever the ranges overlap (including a lower median with one run inside the baseline band), `regressed` for the mirror; refuses different commands, units or run counts; its Markdown carries baseline, expected and after columns.
 - AC4: `scan.py` over `tests/fixtures/perf/shop/` reports the planted N+1 query, the await inside a loop and the independent-await waterfall, each at its exact `file:line`, in both the Python and the JavaScript fixture, and reports nothing for the fixture's clean functions (including `.map(async …)` and dependent awaits).
 - AC5: `audit.py validate` accepts the fixture audit and refuses a single-run measurement, summary numbers that do not match their samples, a missing expected number, a web path without a lab block or with `data` other than `lab`, a finding below confidence 75 or without `file:line`, and (with `--repo`) a `file:line` absent from the tree.
 - AC6: `audit.py render` writes measured, expected and gap for every critical path, a *Web vitals* section with LCP, INP and CLS labelled lab data, and findings ranked by the decision-6 score with `file:line`.
