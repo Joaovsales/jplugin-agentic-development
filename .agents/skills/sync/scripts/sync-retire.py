@@ -113,7 +113,7 @@ def match_path(pattern: str, path: str) -> bool:
     return re.fullmatch(_pattern_to_regex(pattern), path) is not None
 
 
-def validate_pattern(pattern: str, line_number: int, roots: Sequence[str]) -> str:
+def validate_pattern(pattern: str, line_number: int, roots: Optional[Sequence[str]]) -> str:
     """Return `pattern` if this program will interpret it, else raise.
 
     Every rejection is a value that would otherwise fail *silently*: an
@@ -139,7 +139,7 @@ def validate_pattern(pattern: str, line_number: int, roots: Sequence[str]) -> st
             f"{where}: unsupported glob syntax {''.join(bad)!r} in `{pattern}` "
             f"— only *, ? and ** are accepted"
         )
-    if not _reaches_a_root(pattern, roots):
+    if roots is not None and not _reaches_a_root(pattern, roots):
         raise RetireError(
             f"{where}: `{pattern}` is outside every syncable root "
             f"({', '.join(roots)}) — it can never protect anything"
@@ -161,12 +161,15 @@ def _reaches_a_root(pattern: str, roots: Sequence[str]) -> bool:
     return any(head.startswith(root) or root.startswith(head) for root in roots)
 
 
-def read_keep_patterns(repo: str, roots: Sequence[str]) -> Optional[List[str]]:
+def read_keep_patterns(repo: str, roots: Optional[Sequence[str]]) -> Optional[List[str]]:
     """Read `.claude/sync-keep`, or return None when the project has no file.
 
     None is *bootstrap*, an empty list is a recorded "nothing here is
     project-specific". Collapsing the two would make an unconfigured project
     look like one that had opted into deletion.
+
+    `roots=None` skips the "names a syncable root" check, for callers (the
+    kept-path filter) that have no template to read the roots from.
     """
     path = os.path.join(repo, KEEP_FILE)
     if not os.path.isfile(path):
@@ -811,6 +814,9 @@ def _live_plan(template: Template, roots: Sequence[str], patterns: Optional[List
             skipped_roots=skipped,
         )
     retire, kept, unmatched = split_by_allowlist(project_only, patterns)
+    # A pattern naming a file the template still ships protects it from being
+    # overwritten (`--keep-filter`); that is a live entry, not a stale one.
+    unmatched = [p for p in unmatched if not any(match_path(p, t) for t in known)]
     # A pattern under a skipped root matched nothing because nothing under that
     # root was scanned -- not because it went stale. The two need different
     # words: `unmatched` is documented as "about to stop protecting something",
@@ -1081,6 +1087,18 @@ def _prune_upwards(repo: str, relative_dir: str, roots: Sequence[str]) -> None:
         relative_dir = os.path.dirname(relative_dir)
 
 
+def keep_filter(repo: str, paths: Sequence[str]) -> List[Tuple[bool, str]]:
+    """Mark each path as kept by the project (`True`) or open to sync (`False`).
+
+    The one reading of `.claude/sync-keep` outside retirement: /sync Step 5
+    (overwrite) and the session-start drift check both call it, so a path is
+    "the project's own" by the same matcher everywhere. No file means nothing is
+    kept.
+    """
+    patterns = read_keep_patterns(repo, None) or []
+    return [(any(match_path(pat, path) for pat in patterns), path) for path in paths]
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="sync-retire",
@@ -1090,6 +1108,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--from-dir", help="template inventory read from a checkout")
     parser.add_argument("--repo", default=".", help="project root (default: cwd)")
     parser.add_argument("--apply", action="store_true", help="perform the deletions")
+    parser.add_argument(
+        "--keep-filter", action="store_true",
+        help="read paths from stdin, print `kept<TAB>path` or `sync<TAB>path` for each "
+             "(matches .claude/sync-keep; needs no template)",
+    )
     return parser
 
 
@@ -1176,8 +1199,22 @@ def _deletion_outcome(
     return "\n".join(lines), 1
 
 
+def _run_keep_filter(repo: str) -> int:
+    paths = [line for line in sys.stdin.read().splitlines() if line]
+    try:
+        marked = keep_filter(repo, paths)
+    except RetireError as exc:
+        print(f"sync-retire: {exc}", file=sys.stderr)
+        return 1
+    for kept, path in marked:
+        print(f"{'kept' if kept else 'sync'}\t{path}")
+    return 0
+
+
 def main(argv: Optional[Sequence[str]] = None) -> int:
     args = build_parser().parse_args(argv)
+    if args.keep_filter:
+        return _run_keep_filter(os.path.abspath(args.repo))
     # An option supplied but empty means the caller's variable was unset -- the
     # shape `--from-dir "$WORKFLOW_CLONE"` takes when that assignment did not
     # survive. Treating it as "not supplied" would silently sync against the

@@ -720,13 +720,14 @@ ok "installed" "pre-push hook (package.json gates + wrap-up gate)"
 # A git template applies only to repositories created *after* installation, so
 # every already-cloned repo — including this one — would never receive the hook.
 # That is how the previous pre-push guard ended up dormant: present in the tree,
-# wired nowhere. Install into the current repo too when there is one. Worktrees
-# share --git-common-dir, so one copy covers all of them.
-if CURRENT_GIT_DIR="$(git rev-parse --git-common-dir 2>/dev/null)"; then
-  mkdir -p "$CURRENT_GIT_DIR/hooks"
-  cp "$REPO_DIR/.agents/git-hooks/pre-push" "$CURRENT_GIT_DIR/hooks/pre-push"
-  chmod +x "$CURRENT_GIT_DIR/hooks/pre-push"
-  ok "installed" "pre-push hook → $CURRENT_GIT_DIR/hooks (existing repo)"
+# wired nowhere. Install into the current repo too when there is one. --git-path
+# hooks is the one resolver that works from a linked worktree (where .git is a
+# file), honours core.hooksPath, and is shared by every worktree of the repo.
+if CURRENT_HOOKS_DIR="$(git rev-parse --path-format=absolute --git-path hooks 2>/dev/null)"; then
+  mkdir -p "$CURRENT_HOOKS_DIR"
+  cp "$REPO_DIR/.agents/git-hooks/pre-push" "$CURRENT_HOOKS_DIR/pre-push"
+  chmod +x "$CURRENT_HOOKS_DIR/pre-push"
+  ok "installed" "pre-push hook → $CURRENT_HOOKS_DIR (existing repo)"
 fi
 
 git config --global init.templateDir "$GIT_TEMPLATE_DIR"

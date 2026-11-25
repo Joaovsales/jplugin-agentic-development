@@ -32,7 +32,9 @@ Claude Code follows the `@AGENTS.md` import; Pi and Codex read `AGENTS.md` nativ
 
 The `session-start.sh` hook checks the `workflow` remote once per 24h and prints a
 one-line `🔄 TEMPLATE DRIFT` notice at session start when syncable paths differ
-from `workflow/<default-branch>`. It does **not** modify files — it only nudges
+from `workflow/<default-branch>`. Differing files that match `.claude/sync-keep`
+are the project's own: they are counted separately in a `kept by project` line
+and never trigger the notice. It does **not** modify files — it only nudges
 you to run `/sync`.
 
 **Where the hook is registered:** in the plugin's `hooks/hooks.json`, against
@@ -98,17 +100,19 @@ CLAUDE.md             → Pointer: the single line @AGENTS.md, written by the sa
 ```
 
 **`.agents/git-hooks/pre-push` needs an install step, not just a sync.** Syncing
-updates the file in the tree; git runs the copy under `--git-common-dir/hooks/`.
+updates the file in the tree; git runs the copy under `git rev-parse --git-path hooks`.
 `install.sh` writes the git *template* dir, which applies only to repositories
 created afterwards — so an already-cloned project keeps running whatever hook it
 had, or none. Refresh it explicitly after every sync:
 
 ```bash
-cp .agents/git-hooks/pre-push "$(git rev-parse --git-common-dir)/hooks/pre-push"
-chmod +x "$(git rev-parse --git-common-dir)/hooks/pre-push"
+hooks="$(git rev-parse --path-format=absolute --git-path hooks)"
+mkdir -p "$hooks" && cp .agents/git-hooks/pre-push "$hooks/pre-push" && chmod +x "$hooks/pre-push"
 ```
 
-Idempotent, and one copy covers every worktree since they share the common dir.
+`--git-path hooks` works from a linked worktree (where `.git` is a file, so
+`.git/hooks/` does not exist) and honours `core.hooksPath`. Idempotent, and one
+copy covers every worktree since they share the hooks dir.
 Skipping it is how a gate ends up present in the tree and wired nowhere.
 
 **Never sync** (project-specific state):
@@ -117,8 +121,11 @@ Skipping it is how a gate ends up present in the tree and wired nowhere.
 - `CLAUDE.local.md` — personal per-project overrides (gitignored)
 - `tasks/` — project-specific task state
 - `specs/` — project-specific feature specs
-- `.claude/sync-keep` — the project's retirement allowlist (see Step 6.4). It
-  needs no exclusion mechanism, and the reason is structural rather than a list
+- `.claude/sync-keep` — the paths the project owns: Step 5 never overwrites a
+  match that already exists, the drift check lists it as `kept` instead of drift,
+  and Step 6.4 never retires it. One glob list, one matcher
+  (`sync-retire.py --keep-filter`) for all three. It
+  needs no exclusion mechanism of its own, and the reason is structural rather than a list
   to keep in step: every syncable root under `.claude/` is a *subdirectory*,
   while `sync-keep` is a file directly under `.claude/`, so it lies outside all
   of them by shape. Listed here anyway, because this is where people look.
@@ -282,9 +289,26 @@ mechanism.
 
 ### Step 5 — Apply Changes
 
+**Honour `.claude/sync-keep` first.** A template file matching a `sync-keep`
+glob that already exists in the project is the project's own: it is not
+overwritten. Filter `<selected-files>` through the one shared matcher (the
+template's copy, as in Step 6.4) and drop what it marks `kept`:
+
+```bash
+printf '%s\n' <selected-files> | python3 "$SYNC_TMP/sync-retire.py" --keep-filter
+# each line is `kept<TAB>path` or `sync<TAB>path`
+```
+
+Check out only the `sync` paths. For each `kept` path that exists in the project,
+report it as `kept by project` in the summary, with `git diff workflow/$WORKFLOW_BRANCH --stat -- <path>`
+so the owner sees how far it is from the template and can merge by hand. A kept
+path that does **not** exist in the project is still copied in — the project
+owns what it has, not what it lacks. With no `.claude/sync-keep` nothing is kept.
+(Fetch the script first: `git show "workflow/$WORKFLOW_BRANCH:.agents/skills/sync/scripts/sync-retire.py" > "$SYNC_TMP/sync-retire.py"`, creating `SYNC_TMP` with `mktemp -d` as below; in manual-diff mode use the clone's copy.)
+
 **If git remote mode (recommended for "all changes"):**
 ```bash
-git checkout workflow/$WORKFLOW_BRANCH -- <selected-files>
+git checkout workflow/$WORKFLOW_BRANCH -- <selected-files-not-kept>
 ```
 
 **If manual diff mode or selective sync:**

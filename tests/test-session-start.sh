@@ -766,6 +766,33 @@ assert_contains "$output" "TEMPLATE DRIFT" \
 assert_contains "$output" "1 item(s) differ" \
   "Drift: the block counts as one item"
 
+# --- sync-keep: a differing file the project owns is "kept", not drift --------
+# The matcher is sync-retire.py's --keep-filter, the one /sync's overwrite and
+# retirement use, read from the project's own copy.
+KTEMPLATE="$(fixture_repo)"
+KPROJECT="$(fixture_repo)"
+mkdir -p "$KPROJECT/.claude"
+for d in "$KTEMPLATE" "$KPROJECT"; do
+  mkdir -p "$d/.agents/skills/sync/scripts" "$d/.agents/skills/verify-evidence/scripts"
+  cp .agents/skills/sync/scripts/sync-retire.py "$d/.agents/skills/sync/scripts/"
+  write_agents "$d/AGENTS.md" "RULE v1" "rules"; printf '@AGENTS.md\n' > "$d/CLAUDE.md"
+  printf 'template\n' > "$d/.agents/skills/verify-evidence/scripts/visual_check.py"
+done
+printf 'project customisation\n' > "$KPROJECT/.agents/skills/verify-evidence/scripts/visual_check.py"
+git -C "$KTEMPLATE" add -A && git -C "$KTEMPLATE" commit -qm init
+git -C "$KPROJECT" add -A && git -C "$KPROJECT" commit -qm init
+git -C "$KPROJECT" remote add workflow "$KTEMPLATE"
+drift_banner "$KPROJECT"
+assert_contains "$output" "TEMPLATE DRIFT" "Keep: with no sync-keep the customised file is drift (non-vacuity)"
+printf '%s\n' '.agents/skills/verify-evidence/scripts/visual_check.py' > "$KPROJECT/.claude/sync-keep"
+drift_banner "$KPROJECT"
+assert_not_contains "$output" "TEMPLATE DRIFT" "Keep: a file matching sync-keep is not drift"
+assert_contains "$output" "kept by project — 1 synced file(s)" "Keep: it is listed separately as kept"
+printf 'template v2\n' > "$KTEMPLATE/.agents/skills/verify-evidence/scripts/other.py"
+git -C "$KTEMPLATE" add -A && git -C "$KTEMPLATE" commit -qm other
+drift_banner "$KPROJECT"
+assert_contains "$output" "1 item(s) differ" "Keep: a non-kept difference still counts, the kept file does not"
+
 # --- Stale plugin install: warn with the exact commands, never run them ------
 # specs/plugin-staleness-check.md. On 2026-09-29 the installed record sat at an
 # old sha while master had moved on, and nothing said so. Fixture: a template
