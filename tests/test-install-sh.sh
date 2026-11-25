@@ -925,4 +925,25 @@ run_graphify_case "$box" -u CI GRAPHIFY_STUB_VERSION="$GRAPHIFY_PIN" GRAPHIFY_ST
 assert_file_contains "$box/AGENTS.md" 'timeout 20 graphify query' "graphify: current rules still gain bounded query"
 assert_file_contains "$box/AGENTS.md" '--budget 1500' "graphify: current rules still gain output budget"
 
+# ── Case 10: run from a linked worktree, where .git is a file ────────────────
+# The hook lands in the hooks dir git resolves (shared with the main checkout),
+# never under a `.git/hooks` path that does not exist in a worktree.
+box="$(fixture_dir)"; mkdir -p "$box/home" "$box/bin"
+printf '#!/usr/bin/env bash\nexec "%s" "$@"\n' "$(command -v "$TEST_PYTHON")" > "$box/bin/python3"; chmod +x "$box/bin/python3"
+git init -q "$box/main"
+git -C "$box/main" -c user.name=t -c user.email=t@example.com commit -q --allow-empty -m init
+git -C "$box/main" worktree add -q "$box/wt" -b wt-branch
+assert_file_exists "$box/wt/.git" "worktree install: .git is a file in the linked worktree"
+( cd "$box/wt" && HOME="$box/home" CLAUDE_CONFIG_DIR="$box/home/.claude" PATH="$box/bin:$SAFE_PATH" bash "$INSTALL" ) \
+  > "$box/wt.log" 2>&1 < /dev/null
+assert_file_exists "$box/main/.git/hooks/pre-push" "worktree install: hook lands in the shared hooks dir"
+assert_eq "1" "$([ -x "$box/main/.git/hooks/pre-push" ] && echo 1 || echo 0)" "worktree install: hook is executable"
+assert_file_contains "$box/wt.log" "existing repo" "worktree install: reports the repo install"
+
+# core.hooksPath is honoured
+git -C "$box/main" config core.hooksPath "$box/custom-hooks"
+( cd "$box/wt" && HOME="$box/home" CLAUDE_CONFIG_DIR="$box/home/.claude" PATH="$box/bin:$SAFE_PATH" bash "$INSTALL" ) \
+  > "$box/wt2.log" 2>&1 < /dev/null
+assert_file_exists "$box/custom-hooks/pre-push" "worktree install: core.hooksPath is honoured"
+
 finish

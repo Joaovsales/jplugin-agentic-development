@@ -127,6 +127,8 @@ The **SessionStart hook** runs from the plugin (`hooks/hooks.json`) at the start
 - Current git branch and uncommitted change count
 - One warning line per problem, and nothing when there is none: template drift, an `AGENTS.md` without the managed block in an adopting project, a stale code graph
 
+**Keeping a customised template file.** List the paths your project owns in `.claude/sync-keep`, one glob per line (`*`, `?`, `**`). `/sync` then never overwrites a matching file that already exists (it reports it as `kept by project` with how far it is from the template, so you can merge upstream changes by hand), never deletes it, and the session-start check lists it as `kept` rather than as drift. A kept file that is missing from the project is still copied in.
+
 ### Layer 2 — Project scaffold (`git scaffold`)
 
 Copies `project-template/` to `~/.agents/project-template/` and registers a global git alias, `git scaffold`, that copies it into the current repository. Git has no post-init hook, so bootstrap is an explicit command rather than a side effect of `git init`. It only ever **adds** files — anything already present is kept byte-for-byte, so it is safe to re-run in any repo:

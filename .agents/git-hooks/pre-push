@@ -126,8 +126,9 @@ done
 #   "config": { "prepush": ["type-check", "lint", "test:fast"] }
 # The hook then runs exactly those scripts, in order. A declared gate with no
 # script of that name BLOCKS — a rename can never quietly drop a step.
-# Undeclared, the defaults apply: `typecheck` then `lint`, each run only when
-# package.json has a script of that name.
+# Undeclared, the defaults apply: `type-check` (else `typecheck`) then `lint`,
+# each run only when package.json has a script of that name. A default gate with
+# no script is warned about, never silent: declaring config.prepush makes it block.
 #
 # The resolver owns every decision: it prints the scripts to run on stdout, its
 # own BLOCKED lines on stderr, and exits non-zero when the push must stop.
@@ -152,18 +153,27 @@ if (declared !== undefined) {
   if (missing.length) process.exit(2);
   declared.forEach((n) => console.log(n));
 } else {
-  ["typecheck", "lint"].filter(has).forEach((n) => console.log(n));
+  for (const group of [["type-check", "typecheck"], ["lint"]]) {
+    const found = group.find(has);
+    if (found) console.log(found);
+    else console.error("[pre-push] WARNING: no " + group.join("/") + " script in package.json \u2014 that gate is NOT running. Declare config.prepush to make a missing gate block.");
+  }
 }'
 
-# Without node nothing can be resolved or run. Declared gates are mandatory, so
-# their push blocks; the optional defaults are skipped, as they were before a
-# project opted in.
+# Without node nothing can be resolved or run. The push blocks when package.json
+# declares config.prepush or has any default gate script (type-check, typecheck,
+# lint): letting it through would run no checks at all. A package.json with
+# neither has no gate to run, so the push goes on.
 if [ -f package.json ] && ! command -v node >/dev/null 2>&1; then
   if grep -q '"prepush"' package.json; then
     echo "BLOCKED: package.json declares config.prepush but node is not on PATH, so the pre-push gates cannot run." >&2
     exit 1
   fi
-  echo "[pre-push] node is not on PATH — default typecheck/lint gates skipped." >&2
+  if grep -Eq '"(type-check|typecheck|lint)"[[:space:]]*:' package.json; then
+    echo "BLOCKED: package.json has default gate scripts (type-check/typecheck/lint) but node is not on PATH, so the pre-push gates cannot run." >&2
+    exit 1
+  fi
+  echo "[pre-push] node is not on PATH — package.json has no default gate scripts, nothing to run." >&2
 elif [ -f package.json ]; then
   GATES=$(node -e "$RESOLVE_GATES") || exit 1
   GIT_LOCAL_VARS=$(git rev-parse --local-env-vars) || exit 1

@@ -326,7 +326,7 @@ rm -rf "$QD"
 # ── Deployment: the gate must actually reach existing repos ──────────────────
 # A git template dir applies only to repos created afterwards, which is exactly
 # how the previous pre-push guard stayed dormant. Both install paths are pinned.
-assert_file_contains "$REPO/install.sh" 'git rev-parse --git-common-dir' \
+assert_file_contains "$REPO/install.sh" 'git-path hooks' \
   "install.sh: installs into the current repo, not only the template dir"
 assert_file_contains "$REPO/.agents/skills/sync/SKILL.md" \
   'cp .agents/git-hooks/pre-push' \
@@ -812,7 +812,24 @@ if command -v node >/dev/null 2>&1 && command -v npm >/dev/null 2>&1; then
   D="$(config_repo noscripts '{"name":"fx","scripts":{"build":"exit 1"}}')"
   run_hook "$D" "$(sha "$D")" "$(sha "$D")"
   assert_eq "0" "$HOOK_RC" "No config, no default scripts: the push is allowed"
-  assert_eq "" "$OUT" "No config, no default scripts: silent, as before"
+  assert_contains "$OUT" "WARNING: no type-check/typecheck script in package.json" \
+    "No config, no default scripts: warns the type-check gate is not running"
+  assert_contains "$OUT" "WARNING: no lint script in package.json" \
+    "No config, no default scripts: warns the lint gate is not running"
+  assert_contains "$OUT" "Declare config.prepush to make a missing gate block" \
+    "No config, no default scripts: points at config.prepush"
+
+  # The hyphenated spelling is probed before `typecheck`, and a missing lint warns alone.
+  D="$(config_repo hyphen "{\"scripts\":{\"type-check\":\"$(rec type-check)\"}}")"
+  run_hook "$D" "$(sha "$D")" "$(sha "$D")"
+  assert_eq "0" "$HOOK_RC" "type-check only: the push passes"
+  assert_eq "type-check " "$(ran "$D")" "type-check only: the type-check script runs"
+  assert_not_contains "$OUT" "type-check/typecheck" "type-check only: no type-check warning"
+  assert_contains "$OUT" "WARNING: no lint script" "type-check only: the missing lint gate warns"
+
+  D="$(config_repo bothspell "{\"scripts\":{\"type-check\":\"$(rec type-check)\",\"typecheck\":\"$(rec typecheck)\",\"lint\":\"$(rec lint)\"}}")"
+  run_hook "$D" "$(sha "$D")" "$(sha "$D")"
+  assert_eq "type-check lint " "$(ran "$D")" "Both spellings: type-check wins and runs once"
 
   # Without node nothing can run. Declared gates are mandatory, so the push
   # blocks; without a declaration the optional defaults are skipped, as before.
@@ -831,8 +848,16 @@ if command -v node >/dev/null 2>&1 && command -v npm >/dev/null 2>&1; then
 
     D="$(config_repo nonodedefault "{\"scripts\":{\"lint\":\"$(rec lint)\"}}")"
     PATH="$NO_NODE_PATH" run_hook "$D" "$(sha "$D")" "$(sha "$D")"
-    assert_eq "0" "$HOOK_RC" "No node, no config: the push is allowed, as before"
-    assert_contains "$OUT" "default typecheck/lint gates skipped" "No node, no config: says the defaults were skipped"
+    assert_eq "1" "$HOOK_RC" "No node, default gate script: blocks the push"
+    assert_contains "$OUT" "node is not on PATH" "No node, default gate script: names the missing runtime"
+
+    D="$(config_repo nonodehyphen "{\"scripts\":{\"type-check\":\"exit 0\"}}")"
+    PATH="$NO_NODE_PATH" run_hook "$D" "$(sha "$D")" "$(sha "$D")"
+    assert_eq "1" "$HOOK_RC" "No node, type-check script: blocks the push"
+
+    D="$(config_repo nonodenogate '{"scripts":{"build":"exit 0"}}')"
+    PATH="$NO_NODE_PATH" run_hook "$D" "$(sha "$D")" "$(sha "$D")"
+    assert_eq "0" "$HOOK_RC" "No node, no gate scripts: nothing to run, the push is allowed"
   else
     skip "no-node cases: cannot build a PATH without node here"
   fi

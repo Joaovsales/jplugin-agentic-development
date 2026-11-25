@@ -379,6 +379,9 @@ fi
 #   - Fetches at most once per 24h (cached in .claude/.sync-check-cache)
 #   - 5s network timeout — never hangs the session if offline
 #   - Reports drift count; user runs /sync to review & apply
+#   - A differing file matching a .claude/sync-keep glob is the project's own,
+#     not drift: it is counted apart as "kept". The matcher is sync-retire.py's
+#     --keep-filter, the one /sync's retirement and overwrite use too.
 #   - AGENTS.md is MANAGED, not checked out: only its block is the template's,
 #     so the block's text is compared, never the path — a template commit
 #     touching its own rules below the end marker is not drift here (D6)
@@ -399,6 +402,7 @@ if [ ! -f ".claude/sync-check-dismissed" ] \
   fi
 
   DRIFT_COUNT=0
+  KEPT_COUNT=0
   WORKFLOW_BRANCH=""
 
   if [ "$NEED_FETCH" = "1" ]; then
@@ -407,23 +411,35 @@ if [ ! -f ".claude/sync-check-dismissed" ] \
     WORKFLOW_BRANCH=${WORKFLOW_BRANCH:-main}
 
     if timeout 5 git fetch workflow "$WORKFLOW_BRANCH" &>/dev/null; then
-      DRIFT_COUNT=$(git diff --name-only "workflow/$WORKFLOW_BRANCH" -- \
-        .agents/skills .agents/agents .agents/references .agents/hooks .agents/git-hooks .claude/agents .claude/browsers .claude/settings.json CLAUDE.md 2>/dev/null \
-        | wc -l | tr -d ' ')
+      DRIFT_FILES=$(git diff --name-only "workflow/$WORKFLOW_BRANCH" -- \
+        .agents/skills .agents/agents .agents/references .agents/hooks .agents/git-hooks .claude/agents .claude/browsers .claude/settings.json CLAUDE.md 2>/dev/null)
+      KEEP_SCRIPT=".agents/skills/sync/scripts/sync-retire.py"
+      PY_BIN="$(command -v python3 || command -v python || true)"
+      if [ -n "$DRIFT_FILES" ] && [ -f ".claude/sync-keep" ] && [ -f "$KEEP_SCRIPT" ] && [ -n "$PY_BIN" ] \
+         && CLASSIFIED=$(printf '%s\n' "$DRIFT_FILES" | "$PY_BIN" "$KEEP_SCRIPT" --keep-filter 2>/dev/null); then
+        KEPT_COUNT=$(printf '%s\n' "$CLASSIFIED" | grep -c '^kept	' || true)
+        DRIFT_FILES=$(printf '%s\n' "$CLASSIFIED" | sed -n 's/^sync	//p')
+      fi
+      DRIFT_COUNT=$(printf '%s\n' "$DRIFT_FILES" | grep -c . || true)
       managed_block() { tr -d '\r' | awk -v b="$BLOCK_BEGIN" -v e="$BLOCK_END" '$0 == b { p = 1; next } $0 == e { p = 0 } p'; }
       TEMPLATE_BLOCK=$(git show "workflow/$WORKFLOW_BRANCH:AGENTS.md" 2>/dev/null | managed_block || true)
       LOCAL_BLOCK=$(managed_block < AGENTS.md 2>/dev/null || true)
       if [ -n "$TEMPLATE_BLOCK" ] && [ "$TEMPLATE_BLOCK" != "$LOCAL_BLOCK" ]; then
         DRIFT_COUNT=$(( DRIFT_COUNT + 1 ))
       fi
-      printf '%s\n%s\n' "$DRIFT_COUNT" "$WORKFLOW_BRANCH" > "$WORKFLOW_CHECK_CACHE"
+      printf '%s\n%s\n%s\n' "$DRIFT_COUNT" "$WORKFLOW_BRANCH" "$KEPT_COUNT" > "$WORKFLOW_CHECK_CACHE"
     fi
   else
     DRIFT_COUNT=$(sed -n '1p' "$WORKFLOW_CHECK_CACHE" 2>/dev/null || echo 0)
     WORKFLOW_BRANCH=$(sed -n '2p' "$WORKFLOW_CHECK_CACHE" 2>/dev/null)
     WORKFLOW_BRANCH=${WORKFLOW_BRANCH:-main}
+    KEPT_COUNT=$(sed -n '3p' "$WORKFLOW_CHECK_CACHE" 2>/dev/null)
   fi
 
+  if [ "${KEPT_COUNT:-0}" -gt 0 ]; then
+    echo ""
+    echo "ℹ  kept by project — $KEPT_COUNT synced file(s) matching .claude/sync-keep differ from workflow/$WORKFLOW_BRANCH (not drift; /sync leaves them alone)"
+  fi
   if [ "${DRIFT_COUNT:-0}" -gt 0 ]; then
     echo ""
     echo "🔄  TEMPLATE DRIFT — $DRIFT_COUNT item(s) differ from workflow/$WORKFLOW_BRANCH (syncable files, or the AGENTS.md managed block)"
