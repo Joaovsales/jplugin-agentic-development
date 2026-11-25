@@ -297,6 +297,12 @@ The installed workflow carries a template digest. After a harness upgrade,
 copy; a locally edited workflow is refused for owner review. The synced
 `scripts/visual_check.py validate` command is the stable project-side CI
 entrypoint; preserve that path when evolving its implementation.
+A project with its own evidence contract may commit `.claude/visual-validator`
+containing one project-relative Python script path. The validator receives the
+same CLI arguments, runs with the current Python interpreter and determines the
+exit status. A missing, invalid or out-of-tree target fails validation. An absent
+declaration selects the standard manifest validator. This applies to the CLI
+only, so `run_visual_check` retains its capture and validation contract.
 The workflow checks out the PR head commit, installs Playwright CLI/Chromium,
 runs the committed project visual checks, validates their manifests, and
 uploads its own captures with `actions/upload-artifact@v4` and

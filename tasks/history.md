@@ -1332,3 +1332,9 @@ could-not-run scan and the Git-configuration/PATH residual boundary.
 - Completed: #484 slices 1–7, quality gate, e2e walkthrough (tasks/e2e-log.md).
 - Pending: a live `/go "audit the performance of …"` routing run (/eval Mode A) and a Chrome DevTools backend run.
 - Carry-forward: scan.py TODO(shortcut) — JS regex literals are not masked; upgrade to a real tokenizer if misses show up.
+
+### [2026-11-25] Project-owned visual validation
+
+- Added explicit CLI opt-in while preserving generic validation.
+- Used the template's existing manual sync and startup ownership support from #491.
+- Split the reusable sync workflow into #492 after the unattended CI configuration gate refused the push.

@@ -1984,3 +1984,12 @@ Debug mode, on the filed cart task in the scratch copy:
 Finding during the walkthrough: under the first rule (after *median* below the baseline minimum) the comment-only edit read `regressed` and the twice-measured unchanged code read `improved` — batch-to-batch drift. The rule now requires disjoint ranges; twenty more pairs of identical `python3 -c pass` batches (N = 10) all read `within-noise`.
 
 Not checked: a live `/go "audit the performance of …"` session choosing the lane from the goal (routing is pinned by `tests/test-lane-catalogue.sh` and `tests/test-go-lanes.sh` § perf modes), a GitHub-provider `--apply` (the local provider was used so no public issue was filed), and the Chrome DevTools backend.
+
+## E2E Walkthrough — Project-owned visual validator — 2026-11-25 517d172
+
+Spec: specs/project-visual-validator.md
+
+- AC-1 — Invoked the CLI in a fixture project without a declaration. The generic route attempted the manifest read.
+- AC-2 — Invoked the same CLI with a declared script. It received the same arguments and returned 23.
+- AC-3 — Missing, outside and empty declarations all failed with diagnostics.
+- Evidence command: `bash tests/test-visual-validator.sh`.

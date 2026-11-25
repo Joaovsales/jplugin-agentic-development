@@ -3339,3 +3339,17 @@ Step ledger (routine `simplify`):
 - [x] Fixture audit end to end — A web page beside the shop fixture and a full Audit-mode walkthrough logged in `tasks/e2e-log.md`
 > Handover: `tests/fixtures/perf/web/index.html` plants a 120 ms start-up long task, a late layout-shifting banner and a 150 ms click handler; the walkthrough in `tasks/e2e-log.md` ran Audit (five findings, five local tasks, idempotent re-file) and Debug (fix `improved`, no-op and identical runs `within-noise`) on real measurements.
 > Do not re-derive: the walkthrough found the median-based noise rule let drift through; the fix commit tightened it to disjoint ranges and updated the spec's D5 and AC3.
+
+## Plan: Project-owned visual validator (#490)
+
+### Slice 1/1
+
+| Task | Acceptance | Surface |
+| --- | --- | --- |
+| [x] Add opt-in project validation | The generic route still reads the manifest. The project validator receives the same arguments and invalid declarations fail. | Verify evidence skill, CLI, tests, plugin manifest |
+
+## Session Summary — [2026-11-25] [517d172..517d172]
+
+- Completed: Added the project visual-validator declaration and CLI tests.
+- Pending: Hosted CI and downstream sync.
+- Carry-forward: #492 retains the reusable workflow change and its regression test.
