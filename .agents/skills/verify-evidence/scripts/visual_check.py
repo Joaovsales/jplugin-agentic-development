@@ -65,7 +65,37 @@ def run_visual_check(project, feature, changed_states, output):
     return validate_manifest(output, manifest, changed_states)
 
 
+def project_validator(project):
+    declaration = project / ".claude/visual-validator"
+    if not os.path.lexists(declaration):
+        return None
+
+    try:
+        if declaration.is_symlink() or not declaration.resolve().is_relative_to(project) or not declaration.is_file():
+            raise ValueError("expected a regular declaration inside the project")
+        lines = declaration.read_text(encoding="utf-8").splitlines()
+        if len(lines) != 1:
+            raise ValueError("expected one relative Python script path inside the project")
+        relative = Path(lines[0].strip())
+        if relative.anchor or relative.suffix != ".py" or ".." in relative.parts:
+            raise ValueError("expected one relative Python script path inside the project")
+        target = (project / relative).resolve()
+        if not target.is_relative_to(project) or not target.is_file():
+            raise ValueError("expected an existing Python script inside the project")
+    except (OSError, ValueError, RuntimeError) as error:
+        raise ValueError(f"{declaration}: {error}") from error
+    return target
+
+
 def main():
+    try:
+        validator = project_validator(Path(__file__).resolve().parents[4])
+    except ValueError as error:
+        print(error, file=sys.stderr)
+        return 1
+    if validator is not None:
+        return subprocess.run([sys.executable, str(validator), *sys.argv[1:]]).returncode
+
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("action", choices=("validate",))
     parser.add_argument("--output", type=Path, required=True)
