@@ -215,6 +215,23 @@ commands that bring it current; it never runs them. `/sync` merges the marketpla
 release on the project's next open. A marketplace `ref` is never written — it would have to
 be a branch or tag, and the version is the pin.
 
+**Batching project syncs.** From a template clone, compare the template commit your project
+last synced with the current candidate before opening a sync PR.
+
+```bash
+python3 scripts/sync-impact.py "$LAST_SYNCED_TEMPLATE_SHA" origin/master
+```
+
+`project_sync` lists paths to review for the next `/sync`. Several version bumps can be
+reviewed together and synced in one PR when the project can wait safely. Keep the full
+target SHA from the report in the PR for reproducibility. For urgent fixes or when a new
+plugin release needs scripts from the project checkout, apply the sync promptly.
+`plugin_only` shows manifest and plugin registration changes to review for a plugin update.
+`other` shows changes outside these two surfaces. An empty `project_sync` means the two
+template revisions have no changed project sync paths. Project-local overrides and drift
+still need the `/sync` preview. Keep app CI decisions in the project, where the app's
+dependencies on synced files can be checked.
+
 The repository was renamed from its original slug. A clone made before the rename still
 works through GitHub's redirect, but point it at the current name once so the redirect is
 not load-bearing:
