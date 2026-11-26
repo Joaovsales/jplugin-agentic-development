@@ -3353,3 +3353,9 @@ Step ledger (routine `simplify`):
 - Completed: Added the project visual-validator declaration and CLI tests.
 - Pending: Hosted CI and downstream sync.
 - Carry-forward: #492 retains the reusable workflow change and its regression test.
+
+## Session Summary — [2026-11-26] [521d4e2..faa9af4]
+
+- Completed: Added and tested a read-only template comparison for batching project syncs.
+- Pending: Upstream pull request verification.
+- Carry-forward: Use each project's CI dependencies when evaluating a sync diff.
